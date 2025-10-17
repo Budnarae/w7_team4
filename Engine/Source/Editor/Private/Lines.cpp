@@ -1,21 +1,21 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "Editor/Public/Lines.h"
 
 void ULines::MergeVerticesAt(TArray<FVector>& DestVertices, size_t InsertStartIndex)
 {
-	// ÀÎµ¦½º ¹üÀ§ º¸Á¤
+	// ì¸ë±ìŠ¤ ë²”ìœ„ ë³´ì •
 	InsertStartIndex = std::min(InsertStartIndex, DestVertices.size());
 
-	// ¹Ì¸® ¸Ş¸ğ¸® È®º¸
+	// ë¯¸ë¦¬ ë©”ëª¨ë¦¬ í™•ë³´
 	DestVertices.reserve(DestVertices.size() + std::distance(Vertices.begin(), Vertices.end()));
 
-	// µ¤¾î¾µ ¼ö ÀÖ´Â °³¼ö °è»ê
+	// ë®ì–´ì“¸ ìˆ˜ ìˆëŠ” ê°œìˆ˜ ê³„ì‚°
 	size_t OverwriteCount = std::min(
 		Vertices.size(),
 		DestVertices.size() - InsertStartIndex
 	);
 
-	// ±âÁ¸ ¿ä¼Ò µ¤¾î¾²±â
+	// ê¸°ì¡´ ìš”ì†Œ ë®ì–´ì“°ê¸°
 	std::copy(
 		Vertices.begin(),
 		Vertices.begin() + OverwriteCount,

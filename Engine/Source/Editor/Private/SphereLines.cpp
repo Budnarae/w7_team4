@@ -1,16 +1,16 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "Editor/Public/SphereLines.h"
 
 USphereLines::USphereLines()
 {
-	NumVertices = Segments * 3; // XY, XZ, YZ Æò¸é °¢°¢¿¡ ´ëÇØ Segments °³¼öÀÇ Á¤Á¡
+	NumVertices = Segments * 3; // XY, XZ, YZ í‰ë©´ ê°ê°ì— ëŒ€í•´ Segments ê°œìˆ˜ì˜ ì •ì 
 	Vertices.reserve(NumVertices);
 	Vertices.resize(NumVertices);
 }
 
 void USphereLines::UpdateVertices(const FVector& CenterPosition, float Radius)
 {
-	// 3°³ÀÇ Ãà(XY, XZ, YZ)¿¡ ´ëÇÑ ¿øÀ» ±×·Á ±¸¸¦ Ç¥ÇöÇÕ´Ï´Ù.
+	// 3ê°œì˜ ì¶•(XY, XZ, YZ)ì— ëŒ€í•œ ì›ì„ ê·¸ë ¤ êµ¬ë¥¼ í‘œí˜„í•©ë‹ˆë‹¤.
 	
 	for (int32 i = 0; i < Segments; ++i)
 	{
@@ -18,15 +18,15 @@ void USphereLines::UpdateVertices(const FVector& CenterPosition, float Radius)
 		const float Sin = sinf(Angle);
 		const float Cos = cosf(Angle);
 
-		// XY Æò¸éÀÇ ¿ø
+		// XY í‰ë©´ì˜ ì›
 		FVector Point_XY = CenterPosition + FVector(Radius * Cos, Radius * Sin, 0.f);
 		Vertices[i * 3] = Point_XY;
 
-		// XZ Æò¸éÀÇ ¿ø
+		// XZ í‰ë©´ì˜ ì›
 		FVector Point_XZ = CenterPosition + FVector(Radius * Cos, 0.f, Radius * Sin);
 		Vertices[i * 3 + 1] = Point_XZ;
 
-		// YZ Æò¸éÀÇ ¿ø
+		// YZ í‰ë©´ì˜ ì›
 		FVector Point_YZ = CenterPosition + FVector(0.f, Radius * Cos, Radius * Sin);
 		Vertices[i * 3 + 2] = Point_YZ;
 	}

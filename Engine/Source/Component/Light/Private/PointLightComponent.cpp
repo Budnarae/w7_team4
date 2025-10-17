@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "Component/Light/Public/PointLightComponent.h"
 #include "Render/UI/Widget/Public/PointLightComponentWidget.h"
 #include "Utility/Public/JsonSerializer.h"
@@ -43,17 +43,17 @@ void UPointLightComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	Super::Serialize(bInIsLoading, InOutHandle);
 
-	// ºÒ·¯¿À±â
+	// ë¶ˆëŸ¬ì˜¤ê¸°
 	if (bInIsLoading)
 	{
-		// bool º¯¼ö ·Îµå
+		// bool ë³€ìˆ˜ ë¡œë“œ
 		FJsonSerializer::ReadFloat(InOutHandle, "AttenuationRadius", AttenuationRadius, 0.0f);
 		FJsonSerializer::ReadFloat(InOutHandle, "LightFalloffExponent", LightFalloffExponent, 0.0f);
 	}
-	// ÀúÀå
+	// ì €ìž¥
 	else
 	{
-		// bool º¯¼ö ÀúÀå
+		// bool ë³€ìˆ˜ ì €ìž¥
 		InOutHandle["AttenuationRadius"] = AttenuationRadius;
 		InOutHandle["LightFalloffExponent"] = LightFalloffExponent;
 	}

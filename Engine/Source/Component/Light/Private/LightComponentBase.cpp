@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "Component/Light/Public/LightComponentBase.h"
 #include "Render/UI/Widget/Public/LightComponentBaseWidget.h"
 #include "Utility/Public/JsonSerializer.h"
@@ -58,18 +58,18 @@ void ULightComponentBase::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	Super::Serialize(bInIsLoading, InOutHandle);
 
-	// ºÒ·¯¿À±â
+	// ë¶ˆëŸ¬ì˜¤ê¸°
 	if (bInIsLoading)
 	{
-		 // bool º¯¼ö ·Îµå
+		 // bool ë³€ìˆ˜ ë¡œë“œ
 		FJsonSerializer::ReadFloat(InOutHandle, "Intensity", Intensity, 0.0f);
 		FJsonSerializer::ReadVector(InOutHandle, "LightColor", LightColor, FVector::ZeroVector());
 		FJsonSerializer::ReadBool(InOutHandle, "bVisible", bVisible, true);
 	}
-	// ÀúÀå
+	// ì €ìž¥
 	else
 	{
-		// bool º¯¼ö ÀúÀå
+		// bool ë³€ìˆ˜ ì €ìž¥
 		InOutHandle["Intensity"] = Intensity;
 		InOutHandle["LightColor"] = FJsonSerializer::VectorToJson(LightColor);
 		InOutHandle["bVisible"] = bVisible;

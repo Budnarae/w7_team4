@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Component/Light/Public/LightComponent.h"
 
 IMPLEMENT_CLASS(ULightComponent, ULightComponentBase)
