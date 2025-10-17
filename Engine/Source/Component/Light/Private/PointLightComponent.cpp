@@ -28,7 +28,7 @@ void UPointLightComponent::BeginPlay()
 	bHasBegunPlay = true;
 
 	UE_LOG("PointLightComponent: BeginPlay: Owner: %s, Intensity: %.1f, Radius: %.1f",
-		GetOwner() ? GetOwner()->GetName().ToString().data() : "nullptr", Intensity, GetRadius());
+		GetOwner() ? GetOwner()->GetName().ToString().data() : "nullptr", Intensity, GetAttenuationRadius());
 
 	// Level에 PointLight 등록
 	if (GWorld && GWorld->GetLevel())

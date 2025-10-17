@@ -1049,9 +1049,9 @@ void URenderer::RenderUberLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT&
 		lightProps.LightPosition = PointLight->GetWorldLocation();
 		lightProps.Intensity = PointLight->GetIntensity();
 		lightProps.LightColor = PointLight->GetLightColor();
-		lightProps.Radius = PointLight->GetRadius();
+		lightProps.Radius = PointLight->GetAttenuationRadius();
 		lightProps.LightDirection = FVector::ZeroVector();  // PointLight는 방향 없음
-		lightProps.RadiusFalloff = PointLight->GetRadiusFalloff();
+		lightProps.RadiusFalloff = PointLight->GetLightFalloffExponent();
 
 		// Viewport 정보 (PostProcess와 동일한 방식)
 		lightProps.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
@@ -1074,7 +1074,8 @@ void URenderer::RenderUberLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT&
 
 		// World Transform (Sphere를 라이트 위치/반경으로 스케일)
 		FVector LightPos = PointLight->GetWorldLocation();
-		FVector LightScale = FVector(PointLight->GetRadius(), PointLight->GetRadius(), PointLight->GetRadius());
+		FVector LightScale = FVector(PointLight->GetAttenuationRadius(),
+			PointLight->GetAttenuationRadius(), PointLight->GetAttenuationRadius());
 		FMatrix WorldMatrix = FMatrix::GetModelMatrix(LightPos, FVector::ZeroVector(), LightScale);
 
 		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModels, WorldMatrix);
@@ -1122,18 +1123,11 @@ void URenderer::RenderUberLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT&
 		lightProps.LightColor = SpotLight->GetLightColor();
 		lightProps.Radius = SpotLight->GetRadius();
 
-		// SpotLight 방향 (Rotation으로부터 Forward 벡터 계산)
-		FVector Rotation = SpotLight->GetWorldRotation();
-
-		// Euler Angles (Pitch, Yaw, Roll)를 Forward Vector로 변환
-		// Forward = (cos(Yaw)*cos(Pitch), sin(Yaw)*cos(Pitch), sin(Pitch))
-		float Pitch = FVector::GetDegreeToRadian(Rotation.X);
-		float Yaw = FVector::GetDegreeToRadian(Rotation.Y);
-
-		FVector LightDirection;
-		LightDirection.X = cosf(Yaw) * cosf(Pitch);
-		LightDirection.Y = sinf(Yaw) * cosf(Pitch);
-		LightDirection.Z = sinf(Pitch);
+		// SpotLight 방향
+		const FMatrix& TransformMatrix = SpotLight->GetWorldTransformMatrix();
+		FVector LightDirection = FVector(TransformMatrix.Data[0][0],
+		                                TransformMatrix.Data[0][1],
+		                                TransformMatrix.Data[0][2]);
 		LightDirection.Normalize();
 
 		lightProps.LightDirection = LightDirection;

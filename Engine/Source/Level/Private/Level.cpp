@@ -635,7 +635,7 @@ void ULevel::RegisterPointLight(UPointLightComponent* InPointLight)
 	UE_LOG("Level: PointLight '%s' registered (Intensity: %.1f, Radius: %.1f)",
 		InPointLight->GetName().ToString().data(),
 		InPointLight->GetIntensity(),
-		InPointLight->GetRadius());
+		InPointLight->GetAttenuationRadius());
 }
 
 void ULevel::UnregisterPointLight(UPointLightComponent* InPointLight)

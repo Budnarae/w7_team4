@@ -32,25 +32,32 @@ void USpotLightComponentWidget::RenderWidget()
 		ImGui::SetTooltip("Light attenuation falloff exponent\n1.0 = Linear\n2.0 = Physically based (Inverse Square)\n>2.0 = Sharper falloff");
 	}
 
-	// InnerConeAngle
+	// OuterConeAngle (InnerConeAngle의 max 값으로 사용하기 위해 우선 설정)
+	float OuterConeAngle = SpotLightComponent->GetOuterConeAngle();
+	if (ImGui::DragFloat("OuterConeAngle", &OuterConeAngle, 0.5f, 1.0f, 89.0f, "%.1f"))
+	{
+		SpotLightComponent->SetOuterConeAngle(OuterConeAngle);
+
+		// InnerConeAngle이 OuterConeAngle보다 크면 자동 조정
+		if (SpotLightComponent->GetInnerConeAngle() > OuterConeAngle)
+		{
+			SpotLightComponent->SetInnerConeAngle(OuterConeAngle);
+		}
+	}
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("Outer cone angle (edge of light)\nRange: 1-89 degrees");
+	}
+
+	// InnerConeAngle (OuterConeAngle보다 작도록 처리)
 	float InnerConeAngle = SpotLightComponent->GetInnerConeAngle();
-	if (ImGui::DragFloat("InnerConeAngle", &InnerConeAngle, 0.5f, 0.0f, 90.0f, "%.1f"))
+	float MaxInnerAngle = OuterConeAngle;
+	if (ImGui::DragFloat("InnerConeAngle", &InnerConeAngle, 0.5f, 0.0f, MaxInnerAngle, "%.1f"))
 	{
 		SpotLightComponent->SetInnerConeAngle(InnerConeAngle);
 	}
 	if (ImGui::IsItemHovered())
 	{
-		ImGui::SetTooltip("Inner cone angle (fully bright)");
-	}
-
-	// OuterConeAngle
-	float OuterConeAngle = SpotLightComponent->GetOuterConeAngle();
-	if (ImGui::DragFloat("OuterConeAngle", &OuterConeAngle, 0.5f, 0.0f, 90.0f, "%.1f"))
-	{
-		SpotLightComponent->SetOuterConeAngle(OuterConeAngle);
-	}
-	if (ImGui::IsItemHovered())
-	{
-		ImGui::SetTooltip("Outer cone angle (fully dark)");
+		ImGui::SetTooltip("Inner cone angle (fully bright)\nMust be <= OuterConeAngle");
 	}
 }
