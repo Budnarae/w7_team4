@@ -8,7 +8,7 @@ class UPointLightComponent : public ULightComponent
 	DECLARE_CLASS(UPointLightComponent, ULightComponent)
 
 private:
-	float AttenuationRadius = 0.0f;
+	float AttenuationRadius = 5.0f;
 	float LightFalloffExponent = 0.0f;
 public:
 	UPointLightComponent() = default;

@@ -195,7 +195,7 @@ void UBatchLines::AddConeLines(
 	const FVector& Direction,
 	const FVector& UpVector,
 	float Angle,
-	const FVector& DecalBoxSize
+	const FVector& ConeSize
 )
 {
 	TArray<FVector> ConeVertices;
@@ -204,9 +204,9 @@ void UBatchLines::AddConeLines(
 	ConeVertices[0] = Apex;
 
 	// DecalBoxSize로부터 깊이와 반지름 추출
-	const float Depth = DecalBoxSize.X;
-	const float RadiusY = DecalBoxSize.Y * 0.5f; // DecalComponent Y축 반지름
-	const float RadiusZ = DecalBoxSize.Z * 0.5f; // DecalComponent Z축 반지름
+	const float Depth = ConeSize.X;
+	const float RadiusY = ConeSize.Y * 0.5f; // DecalComponent Y축 반지름
+	const float RadiusZ = ConeSize.Z * 0.5f; // DecalComponent Z축 반지름
 
 	// Angle에 따른 실제 투사 반지름 계산
 	const float HalfAngleRad = (Angle * PI / 180.0f) * 0.5f;

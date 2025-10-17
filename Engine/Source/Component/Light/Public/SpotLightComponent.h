@@ -8,8 +8,8 @@ class USpotLightComponent : public ULightComponent
 	DECLARE_CLASS(USpotLightComponent, ULightComponent)
 
 private:
-	float InnerConeAngle = 0.0f;
-	float OuterConeAngle = 0.0f;
+	float InnerConeAngle = 45.0;
+	float OuterConeAngle = 60.0f;
 public:
 	USpotLightComponent() = default;
 	USpotLightComponent(float InIntensity, const FVector& InLightColor, bool InbVisible);

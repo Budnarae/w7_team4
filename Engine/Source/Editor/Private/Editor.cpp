@@ -239,16 +239,12 @@ void UEditor::UpdateBatchLines()
 				{
 					BatchLines.AddAABBLines(PrimitiveComponent->GetBoundingBox());
 				}
-				//BatchLines.DisableRenderCone();
-				//BatchLines.DisableRenderSphere();
 				return;
 			}
 			else if (UDecalComponent* DecalComponent = Cast<UDecalComponent>(Component))
 			{
 				// 데칼도 바운딩 갱신 후 라인 업데이트
 				BatchLines.AddAABBLines(DecalComponent->GetBoundingBox());
-				//BatchLines.DisableRenderCone();
-				//BatchLines.DisableRenderSphere();
 				return;
 			}
 			else if (USemiLightComponent* SemiLightComponent = Cast<USemiLightComponent>(Component))
@@ -279,8 +275,6 @@ void UEditor::UpdateBatchLines()
 					BatchLines.AddConeLines(Apex, Direction, UpVector, Angle, DecalBoxSize);
 				}
 
-				//BatchLines.DisableRenderBoundingBox();
-				//BatchLines.DisableRenderSphere();
 				return;
 			}
 			else if (UDirectionalLightComponent* DirectionalLightComponent = Cast<UDirectionalLightComponent>(Component))
@@ -294,19 +288,44 @@ void UEditor::UpdateBatchLines()
 
 				BatchLines.AddSphereLines(Center, Radius);
 
-				//BatchLines.DisableRenderBoundingBox();
-				//BatchLines.DisableRenderCone();
 				return;
 			}
 			else if (USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(Component))
 			{
+				const FMatrix& WorldMatrix = SpotLightComponent->GetWorldTransformMatrix();
 
+				// WorldTransform 행렬에서 축 벡터 추출
+				// X축 = Forward (Direction), Z축 = Up
+				FVector Direction = FVector(WorldMatrix.Data[0][0],
+				                           WorldMatrix.Data[0][1],
+				                           WorldMatrix.Data[0][2]);
+				FVector UpVector = FVector(WorldMatrix.Data[2][0],
+				                          WorldMatrix.Data[2][1],
+				                          WorldMatrix.Data[2][2]);
+
+				Direction.Normalize();
+				UpVector.Normalize();
+
+				BatchLines.AddConeLines
+				(
+					SpotLightComponent->GetWorldLocation(),
+					Direction,
+					UpVector,
+					SpotLightComponent->GetInnerConeAngle(),
+					FVector(SpotLightComponent->GetWorldScale3D())
+				);
+
+				BatchLines.AddConeLines
+				(
+					SpotLightComponent->GetWorldLocation(),
+					Direction,
+					UpVector,
+					SpotLightComponent->GetOuterConeAngle(),
+					FVector(SpotLightComponent->GetWorldScale3D())
+				);
 			}
 		}
 	}
-	//BatchLines.DisableRenderBoundingBox();
-	//BatchLines.DisableRenderCone();
-	//BatchLines.DisableRenderSphere();
 }
 
 void UEditor::UpdateLayout()
