@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Render/UI/Widget/Public/LightComponentBaseWidget.h"
 
 class UPointLightComponent;

@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "Component/Light/Public/SpotLightComponent.h"
 #include "Render/UI/Widget/Public/SpotLightComponentWidget.h"
 #include "Utility/Public/JsonSerializer.h"
@@ -42,17 +42,17 @@ void USpotLightComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 {
 	Super::Serialize(bInIsLoading, InOutHandle);
 
-	// ºÒ·¯¿À±â
+	// ë¶ˆëŸ¬ì˜¤ê¸°
 	if (bInIsLoading)
 	{
-		// bool º¯¼ö ·Îµå
+		// bool ë³€ìˆ˜ ë¡œë“œ
 		FJsonSerializer::ReadFloat(InOutHandle, "InnerConeAngle", InnerConeAngle, 0.0f);
 		FJsonSerializer::ReadFloat(InOutHandle, "OuterConeAngle", OuterConeAngle, 0.0f);
 	}
-	// ÀúÀå
+	// ì €ìž¥
 	else
 	{
-		// bool º¯¼ö ÀúÀå
+		// bool ë³€ìˆ˜ ì €ìž¥
 		InOutHandle["InnerConeAngle"] = InnerConeAngle;
 		InOutHandle["OuterConeAngle"] = OuterConeAngle;
 	}

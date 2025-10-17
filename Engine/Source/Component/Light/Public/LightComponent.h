@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Component/Light/Public/LightComponentBase.h"
 
