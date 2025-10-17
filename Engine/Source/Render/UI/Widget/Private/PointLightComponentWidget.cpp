@@ -14,6 +14,7 @@ void UPointLightComponentWidget::RenderWidget()
 	if (ImGui::DragFloat("AttenuationRadius", &AttenuationRadius, 0.05f, 0.0f, 100.0f, "%.1f"))
 	{
 		PointLightComponent->SetAttenuationRadius(AttenuationRadius);
+		UE_LOG("Changed Radius : %f", PointLightComponent->GetAttenuationRadius());
 	}
 	if (ImGui::IsItemHovered())
 	{

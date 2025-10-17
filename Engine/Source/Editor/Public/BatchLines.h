@@ -5,6 +5,7 @@
 #include "Editor/Public/Grid.h"
 #include "Editor/Public/BoundingBoxLines.h"
 #include "Editor/Public/ConeLines.h"
+#include "Editor/Public/SphereLines.h"
 
 struct FVertex;
 
@@ -19,6 +20,8 @@ public:
 	void UpdateBoundingBoxVertices(const IBoundingVolume* NewBoundingVolume);
 	void UpdateConeVertices(const FVector& Apex, const FVector& Direction, const FVector& UpVector,
 							float Angle, const FVector& DecalBoxSize);
+	void UpdateSphereVertices(const FVector& CenterPosition, float Radius);
+
 
 	// GPU VertexBuffer에 복사
 	void UpdateVertexBuffer();
@@ -45,6 +48,13 @@ public:
 		bChangedVertices = true;
 	}
 
+	void DisableRenderSphere()
+	{
+		SphereLines.DisableSphere();
+		SphereLines.MergeVerticesAt(Vertices, Grid.GetNumVertices() + BoundingBoxLines.GetNumVertices() + ConeLines.GetNumVertices());
+		bChangedVertices = true;
+	}
+
 	//void UpdateConstant(FBoundingBox boundingBoxInfo);
 
 	//void Update();
@@ -67,6 +77,7 @@ private:
 	UGrid Grid;
 	UBoundingBoxLines BoundingBoxLines;
 	UConeLines ConeLines;
+	USphereLines SphereLines;
 
 	bool bRenderBox;
 };

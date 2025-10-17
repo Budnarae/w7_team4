@@ -25,6 +25,9 @@
 #include "Render/Renderer/Public/RenderResourceFactory.h"
 #include "Component/Public/SemiLightComponent.h"
 #include "Component/Public/FireBallComponent.h"
+#include "Component/Light/Public/DirectionalLightComponent.h"
+#include "Component/Light/Public/PointLightComponent.h"
+#include "Component/Light/Public/SpotLightComponent.h"
 
 UEditor::UEditor()
 {
@@ -233,6 +236,7 @@ void UEditor::UpdateBatchLines()
 					BatchLines.UpdateBoundingBoxVertices(PrimitiveComponent->GetBoundingBox());
 				}
 				BatchLines.DisableRenderCone();
+				BatchLines.DisableRenderSphere();
 				return;
 			}
 			else if (UDecalComponent* DecalComponent = Cast<UDecalComponent>(Component))
@@ -240,6 +244,7 @@ void UEditor::UpdateBatchLines()
 				// 데칼도 바운딩 갱신 후 라인 업데이트
 				BatchLines.UpdateBoundingBoxVertices(DecalComponent->GetBoundingBox());
 				BatchLines.DisableRenderCone();
+				BatchLines.DisableRenderSphere();
 				return;
 			}
 			else if (USemiLightComponent* SemiLightComponent = Cast<USemiLightComponent>(Component))
@@ -271,12 +276,33 @@ void UEditor::UpdateBatchLines()
 				}
 
 				BatchLines.DisableRenderBoundingBox();
+				BatchLines.DisableRenderSphere();
 				return;
+			}
+			else if (UDirectionalLightComponent* DirectionalLightComponent = Cast<UDirectionalLightComponent>(Component))
+			{
+
+			}
+			else if (UPointLightComponent* PointLightComponent = Cast<UPointLightComponent>(Component))
+			{
+				const FVector Center = PointLightComponent->GetWorldLocation();
+				const float Radius = PointLightComponent->GetAttenuationRadius();
+
+				BatchLines.UpdateSphereVertices(Center, Radius);
+
+				BatchLines.DisableRenderBoundingBox();
+				BatchLines.DisableRenderCone();
+				return;
+			}
+			else if (USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(Component))
+			{
+
 			}
 		}
 	}
 	BatchLines.DisableRenderBoundingBox();
 	BatchLines.DisableRenderCone();
+	BatchLines.DisableRenderSphere();
 }
 
 void UEditor::UpdateLayout()

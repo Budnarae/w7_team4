@@ -16,10 +16,10 @@ public:
 	~UPointLightComponent() override = default;
 
 	/* Getter Setter */
-	float GetAttenuationRadius();
+	float GetAttenuationRadius() const;
 	void SetAttenuationRadius(float InAttenuationRadius);
 
-	float GetLightFalloffExponent();
+	float GetLightFalloffExponent() const;
 	void SetLightFalloffExponent(float InLightFalloffExponent);
 
 	UClass* GetSpecificWidgetClass() const override;

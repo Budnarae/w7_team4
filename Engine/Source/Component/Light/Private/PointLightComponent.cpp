@@ -16,7 +16,7 @@ UPointLightComponent::UPointLightComponent
 }
 
 /* Getter Setter */
-float UPointLightComponent::GetAttenuationRadius()
+float UPointLightComponent::GetAttenuationRadius() const
 {
 	return AttenuationRadius;
 }
@@ -25,7 +25,7 @@ void UPointLightComponent::SetAttenuationRadius(float InAttenuationRadius)
 	AttenuationRadius = InAttenuationRadius;
 }
 
-float UPointLightComponent::GetLightFalloffExponent()
+float UPointLightComponent::GetLightFalloffExponent() const
 {
 	return LightFalloffExponent;
 }

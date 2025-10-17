@@ -7,12 +7,13 @@
 
 UBatchLines::UBatchLines() : Grid(), BoundingBoxLines(), ConeLines()
 {
-	Vertices.reserve(Grid.GetNumVertices() + BoundingBoxLines.GetNumVertices() + ConeLines.GetNumVertices());
-	Vertices.resize(Grid.GetNumVertices() + BoundingBoxLines.GetNumVertices() + ConeLines.GetNumVertices());
+	Vertices.reserve(Grid.GetNumVertices() + BoundingBoxLines.GetNumVertices() + ConeLines.GetNumVertices() + SphereLines.GetNumVertices());
+	Vertices.resize(Grid.GetNumVertices() + BoundingBoxLines.GetNumVertices() + ConeLines.GetNumVertices() + SphereLines.GetNumVertices());
 
 	Grid.MergeVerticesAt(Vertices, 0);
 	BoundingBoxLines.MergeVerticesAt(Vertices, Grid.GetNumVertices());
 	ConeLines.MergeVerticesAt(Vertices, Grid.GetNumVertices() + BoundingBoxLines.GetNumVertices());
+	SphereLines.MergeVerticesAt(Vertices, Grid.GetNumVertices() + BoundingBoxLines.GetNumVertices() + ConeLines.GetNumVertices());
 
 	SetIndices();
 
@@ -74,6 +75,13 @@ void UBatchLines::UpdateConeVertices(const FVector& Apex, const FVector& Directi
 	bChangedVertices = true;
 }
 
+void UBatchLines::UpdateSphereVertices(const FVector& CenterPosition, float Radius)
+{
+	SphereLines.UpdateVertices(CenterPosition, Radius);
+	SphereLines.MergeVerticesAt(Vertices, Grid.GetNumVertices() + BoundingBoxLines.GetNumVertices() + ConeLines.GetNumVertices());
+	bChangedVertices = true;
+}
+
 void UBatchLines::UpdateVertexBuffer()
 {
 	if (bChangedVertices)
@@ -130,19 +138,42 @@ void UBatchLines::SetIndices()
 
 	// Cone 라인 인덱스 (LineList)
 	const uint32 coneBaseOffset = numGridVertices + BoundingBoxLines.GetNumVertices();
-	const uint32 numSegments = ConeLines.GetNumSegments();
+	const uint32 ConeSegmentNum = ConeLines.GetNumSegments();
 
 	// Apex(0)에서 바닥면 각 정점으로 연결하는 선들
-	for (uint32 i = 0; i < numSegments; ++i)
+	for (uint32 i = 0; i < ConeSegmentNum; ++i)
 	{
 		Indices.push_back(coneBaseOffset + 0);        // Apex
 		Indices.push_back(coneBaseOffset + 1 + i);    // 바닥면 정점
 	}
 
 	// 바닥면의 원을 구성하는 선들
-	for (uint32 i = 0; i < numSegments; ++i)
+	for (uint32 i = 0; i < ConeSegmentNum; ++i)
 	{
 		Indices.push_back(coneBaseOffset + 1 + i);                    // 현재 정점
-		Indices.push_back(coneBaseOffset + 1 + ((i + 1) % numSegments)); // 다음 정점 (마지막은 첫 번째로)
+		Indices.push_back(coneBaseOffset + 1 + ((i + 1) % ConeSegmentNum)); // 다음 정점 (마지막은 첫 번째로)
+	}
+
+	// Sphere 라인 인덱스
+	const uint32 SphereBaseOffset = coneBaseOffset + ConeLines.GetNumVertices();
+	// 만약 다음 도형을 넘긴다면 원 3개를 렌더하므로 Offset에 SphereSegmentNum * 3의 값을 적용해야 한다.
+	const uint32 SphereSegmentNum = USphereLines::GetSegments();
+
+	// 올바른 인덱스 설정
+	for (uint32 i = 0; i < SphereSegmentNum; ++i)
+	{
+		uint32 nextI = (i + 1) % SphereSegmentNum;
+
+		// XY 평면 원 (0, 3, 6, 9, ... 연결)
+		Indices.push_back(SphereBaseOffset + i * 3);           // 현재 XY점
+		Indices.push_back(SphereBaseOffset + nextI * 3);       // 다음 XY점
+
+		// XZ 평면 원 (1, 4, 7, 10, ... 연결)  
+		Indices.push_back(SphereBaseOffset + i * 3 + 1);       // 현재 XZ점
+		Indices.push_back(SphereBaseOffset + nextI * 3 + 1);   // 다음 XZ점
+
+		// YZ 평면 원 (2, 5, 8, 11, ... 연결)
+		Indices.push_back(SphereBaseOffset + i * 3 + 2);       // 현재 YZ점
+		Indices.push_back(SphereBaseOffset + nextI * 3 + 2);   // 다음 YZ점
 	}
 }

@@ -1,13 +1,14 @@
 #pragma once
 #include "Core/Public/Object.h"
 #include "Global/CoreTypes.h"
+#include "Editor/Public/Lines.h"
 
 /**
  * @brief Cone 와이어프레임을 위한 정점 관리 클래스
  * - SemiLightActor의 Decal 투사 범위를 시각화
  * - SpotAngle과 DecalBox 크기에 따라 가변적인 Cone 형태 생성
  */
-class UConeLines : public UObject
+class UConeLines : public ULines
 {
 public:
 	UConeLines();
@@ -25,21 +26,6 @@ public:
 	                    float Angle, const FVector& DecalBoxSize);
 
 	/**
-	 * @brief 정점들을 대상 배열의 특정 위치에 병합
-	 * @param DestVertices 대상 배열
-	 * @param InsertStartIndex 삽입 시작 인덱스
-	 */
-	void MergeVerticesAt(TArray<FVector>& DestVertices, size_t InsertStartIndex);
-
-	/**
-	 * @brief 총 정점 개수 반환 (apex + 바닥면 원)
-	 */
-	uint32 GetNumVertices() const
-	{
-		return NumVertices;
-	}
-
-	/**
 	 * @brief Cone 와이어프레임의 세그먼트 수 반환
 	 */
 	uint32 GetNumSegments() const
@@ -53,8 +39,6 @@ public:
 	void Disable();
 
 private:
-	TArray<FVector> Vertices;
-	uint32 NumVertices = 0;
 	uint32 NumSegments = 32;  // 바닥면 원을 구성하는 세그먼트 수 (부드러운 원을 위해)
 	bool bIsEnabled = false;
 };
