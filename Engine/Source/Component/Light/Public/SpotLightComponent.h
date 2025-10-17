@@ -23,4 +23,6 @@ public:
 	void SetOuterConeAngle(float InOuterConeAngle);
 
 	UClass* GetSpecificWidgetClass() const override;
+
+	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 };

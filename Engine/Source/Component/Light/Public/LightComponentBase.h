@@ -33,4 +33,6 @@ public:
 		Widget Spawnder
 	*/
 	UClass* GetSpecificWidgetClass() const override;
+
+	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 };

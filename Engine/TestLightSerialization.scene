@@ -1,0 +1,99 @@
+{
+  "Actors" : {
+    "104" : {
+      "Components" : [{
+          "Location" : [0.819422, 2.143756, 6.797264],
+          "Name" : "UStaticMeshComponent_0",
+          "ObjStaticMeshAsset" : "Data/Cube.obj",
+          "OverrideMaterial" : {
+            "0" : {
+              "Path" : "Data/../Asset/Texture/SolarSystem_Texture/Planet_Earth.jpeg"
+            }
+          },
+          "ParentName" : "",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "UStaticMeshComponent"
+        }, {
+          "Location" : [0.000000, 0.000000, 0.000000],
+          "Name" : "UUUIDTextComponent_0",
+          "ParentName" : "UStaticMeshComponent_0",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Text" : "Text",
+          "Type" : "UUUIDTextComponent"
+        }, {
+          "InnerConeAngle" : 1.000000,
+          "Intensity" : 0.400000,
+          "LightColor" : [0.400000, 0.900000, 0.200000],
+          "Location" : [0.000000, 0.000000, 0.000000],
+          "Name" : "USpotLightComponent_0",
+          "OuterConeAngle" : 6.600000,
+          "ParentName" : "UStaticMeshComponent_0",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USpotLightComponent",
+          "bVisible" : true
+        }, {
+          "AttenuationRadius" : 2.500000,
+          "Intensity" : 0.600000,
+          "LightColor" : [0.500000, 0.600000, 0.600000],
+          "LightFalloffExponent" : 8.700000,
+          "Location" : [0.000000, 0.000000, 0.000000],
+          "Name" : "UPointLightComponent_0",
+          "ParentName" : "UStaticMeshComponent_0",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "UPointLightComponent",
+          "bVisible" : true
+        }],
+      "Location" : [0.819422, 2.143756, 6.797264],
+      "Rotation" : [0.000000, 0.000000, 0.000000],
+      "Scale" : [1.000000, 1.000000, 1.000000],
+      "Type" : "StaticMeshComp"
+    }
+  },
+  "NextUUID" : 0,
+  "PerspectiveCamera" : {
+    "0" : {
+      "CameraType" : 0,
+      "FarClip" : 1000.000000,
+      "FocusLocation" : [0.000000, 0.000000, 0.000000],
+      "FovY" : 90.000000,
+      "Location" : [-15.000000, 0.000000, 10.000000],
+      "NearClip" : 0.100000,
+      "OrthoWidth" : 90.000000,
+      "Rotation" : [0.000000, 0.000000, 0.000000]
+    },
+    "1" : {
+      "CameraType" : 0,
+      "FarClip" : 1000.000000,
+      "FocusLocation" : [0.000000, 0.000000, 0.000000],
+      "FovY" : 90.000000,
+      "Location" : [-15.000000, 0.000000, 10.000000],
+      "NearClip" : 0.100000,
+      "OrthoWidth" : 90.000000,
+      "Rotation" : [0.000000, 0.000000, 0.000000]
+    },
+    "2" : {
+      "CameraType" : 0,
+      "FarClip" : 1000.000000,
+      "FocusLocation" : [0.000000, 0.000000, 0.000000],
+      "FovY" : 90.000000,
+      "Location" : [-15.000000, 0.000000, 10.000000],
+      "NearClip" : 0.100000,
+      "OrthoWidth" : 90.000000,
+      "Rotation" : [0.000000, 0.000000, 0.000000]
+    },
+    "3" : {
+      "CameraType" : 0,
+      "FarClip" : 1000.000000,
+      "FocusLocation" : [0.000000, 0.000000, 0.000000],
+      "FovY" : 90.000000,
+      "Location" : [-11.573039, 1.545164, 9.309263],
+      "NearClip" : 0.100000,
+      "OrthoWidth" : 90.000000,
+      "Rotation" : [0.000000, 15.450005, 0.800000]
+    }
+  }
+}

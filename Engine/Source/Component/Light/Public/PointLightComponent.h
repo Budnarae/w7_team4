@@ -23,4 +23,6 @@ public:
 	void SetLightFalloffExponent(float InLightFalloffExponent);
 
 	UClass* GetSpecificWidgetClass() const override;
+
+	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
 };
