@@ -46,6 +46,31 @@ struct FPostProcessParameters
 	FMatrix InvViewProj;
 };
 
+// UberLight Properties
+struct FLightProperties
+{
+	FVector LightPosition;       // 월드 공간 라이트 위치 (offset 0)
+	float Intensity;             // 조명 강도 (offset 12)
+
+	FVector LightColor;          // RGB 색상 (offset 16)
+	float Radius;                // 영향 반경 (offset 28)
+
+	FVector LightDirection;      // SpotLight 방향 (normalized) (offset 32)
+	float RadiusFalloff;         // 감쇠 지수 (offset 44)
+
+	FVector2 ViewportTopLeft;    // Viewport 시작 위치 (offset 48)
+	FVector2 ViewportSize;       // Viewport 크기 (offset 56)
+
+	FVector2 SceneRTSize;        // Scene RT 전체 크기 (offset 64)
+	float InnerConeAngle;        // SpotLight 내부 각도 (라디안) (offset 72)
+	float OuterConeAngle;        // SpotLight 외부 각도 (라디안) (offset 76)
+
+	uint32 LightType;            // 0 = PointLight, 1 = SpotLight (offset 80)
+	FVector Padding3;            // PADDING (offset 84)
+
+	FMatrix InvViewProj;         // World Position 재구성용 (offset 96)
+};
+
 /**
  * @brief Rendering Pipeline 전반을 처리하는 클래스
  */
@@ -68,6 +93,7 @@ public:
 	void CreateDepthShader();
 	void CreateFireBallShader();
 	void CreateFireBallForwardShader();
+	void CreateUberLightShader();
 	void CreateFullscreenQuad();
 	void CreateConstantBuffers();
 	void CreateSceneRenderTargets();
@@ -80,6 +106,7 @@ public:
 	void ReleaseDepthShader();
 	void ReleaseFireBallShader();
 	void ReleaseFireBallForwardShader();
+	void ReleaseUberLightShader();
 	void ReleaseFullscreenQuad();
 	void ReleaseSceneRenderTargets();
 
@@ -89,6 +116,9 @@ public:
 	void RenderLevel(UCamera* InCurrentCamera);
 	void RenderEnd() const;
 	void RenderEditorPrimitive(const FEditorPrimitive& InPrimitive, const FRenderState& InRenderState, uint32 InStride = 0, uint32 InIndexBufferStride = 0);
+
+	// UberLight Rendering (PointLight + SpotLight 통합)
+	void RenderUberLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport);
 
 	void OnResize(uint32 Inwidth = 0, uint32 InHeight = 0);
 
@@ -187,6 +217,14 @@ private:
 	ID3D11InputLayout* FireBallInputLayout = nullptr;
 	ID3D11Buffer* CBPerObject = nullptr;
 	ID3D11Buffer* CBFireBall = nullptr;
+
+	// UberLight Shaders
+	ID3D11VertexShader* UberLightVertexShader = nullptr;
+	ID3D11PixelShader* UberLightPixelShader = nullptr;
+	ID3D11InputLayout* UberLightInputLayout = nullptr;
+	ID3D11Buffer* ConstantBufferLightProperties = nullptr;
+	ID3D11SamplerState* UberLightSamplerState = nullptr;
+	ID3D11DepthStencilState* UberLightDepthState = nullptr;
 
 	// Fullscreen Quad for Post-Processing
 	ID3D11Buffer* FullscreenQuadVB = nullptr;

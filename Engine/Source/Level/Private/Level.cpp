@@ -14,8 +14,9 @@
 #include "Global/SceneBVH.h"
 #include <json.hpp>
 
+#include "Component/Light/Public/PointLightComponent.h"
+#include "Component/Light/Public/SpotLightComponent.h"
 #include "Component/Public/UUIDTextComponent.h"
-#include "Render/UI/Widget/Public/DecalComponentWidget.h"
 
 IMPLEMENT_CLASS(ULevel, UObject)
 
@@ -609,4 +610,94 @@ void ULevel::TickLevel()
 
 		UE_LOG("Level: BVH rebuilt during TickLevel()");
 	}
+}
+
+// ========================================
+// PointLight Management Implementation
+// ========================================
+
+void ULevel::RegisterPointLight(UPointLightComponent* InPointLight)
+{
+	if (!InPointLight)
+	{
+		UE_LOG("Level: RegisterPointLight called with nullptr");
+		return;
+	}
+
+	// 중복 등록 방지
+	if (find(AllPointLights.begin(), AllPointLights.end(), InPointLight) != AllPointLights.end())
+	{
+		return;
+	}
+
+	AllPointLights.push_back(InPointLight);
+
+	UE_LOG("Level: PointLight '%s' registered (Intensity: %.1f, Radius: %.1f)",
+		InPointLight->GetName().ToString().data(),
+		InPointLight->GetIntensity(),
+		InPointLight->GetRadius());
+}
+
+void ULevel::UnregisterPointLight(UPointLightComponent* InPointLight)
+{
+	if (!InPointLight)
+	{
+		return;
+	}
+
+	// AllPointLights에서 제거
+	if (auto Iter = std::find(AllPointLights.begin(), AllPointLights.end(), InPointLight);
+		Iter != AllPointLights.end())
+	{
+		*Iter = std::move(AllPointLights.back());
+		AllPointLights.pop_back();
+	}
+
+	UE_LOG("Level: PointLight '%s' unregistered", InPointLight->GetName().ToString().data());
+}
+
+// ========================================
+// SpotLight Management Implementation
+// ========================================
+
+void ULevel::RegisterSpotLight(USpotLightComponent* InSpotLight)
+{
+	if (!InSpotLight)
+	{
+		UE_LOG("Level: RegisterSpotLight called with nullptr");
+		return;
+	}
+
+	// 중복 등록 방지
+	if (find(AllSpotLights.begin(), AllSpotLights.end(), InSpotLight) != AllSpotLights.end())
+	{
+		return;
+	}
+
+	AllSpotLights.push_back(InSpotLight);
+
+	UE_LOG("Level: SpotLight '%s' registered (Intensity: %.1f, Radius: %.1f, InnerAngle: %.1f, OuterAngle: %.1f)",
+		InSpotLight->GetName().ToString().data(),
+		InSpotLight->GetIntensity(),
+		InSpotLight->GetRadius(),
+		InSpotLight->GetInnerConeAngle(),
+		InSpotLight->GetOuterConeAngle());
+}
+
+void ULevel::UnregisterSpotLight(USpotLightComponent* InSpotLight)
+{
+	if (!InSpotLight)
+	{
+		return;
+	}
+
+	// AllSpotLights에서 제거
+	if (auto Iter = std::find(AllSpotLights.begin(), AllSpotLights.end(), InSpotLight);
+		Iter != AllSpotLights.end())
+	{
+		*Iter = std::move(AllSpotLights.back());
+		AllSpotLights.pop_back();
+	}
+
+	UE_LOG("Level: SpotLight '%s' unregistered", InSpotLight->GetName().ToString().data());
 }

@@ -16,7 +16,7 @@ void UFireBallComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
         FJsonSerializer::ReadFloat(InOutHandle, "RadiusFallOff", RadiusFallOff, 0.0f, false);
         //FJsonSerializer::ReadVector4(InOutHandle, "Color", Color, FVector4{ 1.0f, 0.0f, 1.0f, 1.0f }, false);
 
-        // Color ·Îµå
+        // Color ë¡œë“œ
         JSON ColorArray;
         if (FJsonSerializer::ReadArray(InOutHandle, "Color", ColorArray, { 1.0f, 0.0f, 1.0f, 1.0f }, false))
         {
@@ -36,7 +36,7 @@ void UFireBallComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
         InOutHandle["Radius"] = Radius;
         InOutHandle["RadiusFallOff"] = RadiusFallOff;
 
-        // Color ÀúÀå
+        // Color ì €ìž¥
         JSON ColorArray = JSON::Make(JSON::Class::Array);
         ColorArray.append(Color.X);
         ColorArray.append(Color.Y);
