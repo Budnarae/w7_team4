@@ -20,6 +20,10 @@
 #include "Component/Public/RotatingMovementComponent.h"
 #include "Component/Public/FireBallComponent.h"
 #include "Component/Public/OrbitComponent.h"
+#include "Component/Light/Public/AmbientLightComponent.h"
+#include "Component/Light/Public/DirectionalLightComponent.h"
+#include "Component/Light/Public/PointLightComponent.h"
+#include "Component/Light/Public/SpotLightComponent.h"
 #include "Global/Quaternion.h"
 #include "Global/Vector.h"
 
@@ -441,9 +445,23 @@ void UActorDetailWidget::RenderAddComponentButton(AActor* InSelectedActor)
 		// TODO - mesh 컴포넌트는 추후에 메쉬가 없어도 추가될 수 있도록
 		const char* componentNames[] = {
 			"Scene",
-			"Triangle", "Sphere", "Square", "Cube",
-			"Static Mesh", "BillBoard", "Text", "Decal", "HeightFog", "FireBall",
-			"Projectile", "Rotating", "Orbit"
+			"Triangle",
+			"Sphere",
+			"Square",
+			"Cube",
+			"Static Mesh",
+			"BillBoard",
+			"Text",
+			"Decal",
+			"HeightFog",
+			"FireBall",
+			"Projectile",
+			"Rotating",
+			"Orbit",
+			"AmbientLight",
+			"DirectionalLight",
+			"PointLight",
+			"SpotLight"
 		};
 
 		// 반복문 안에서 헬퍼 함수를 호출하여 원하는 UI를 그립니다.
@@ -550,6 +568,22 @@ void UActorDetailWidget::AddComponentByName(AActor* InSelectedActor, const FStri
 	else if (InComponentName == "Orbit")
 	{
 		NewComponent = InSelectedActor->AddComponent<UOrbitComponent>(NewComponentName);
+	}
+	else if (InComponentName == "AmbientLight")
+	{
+		NewComponent = InSelectedActor->AddComponent<UAmbientLightComponent>(NewComponentName);
+	}
+	else if (InComponentName == "DirectionalLight")
+	{
+		NewComponent = InSelectedActor->AddComponent<UDirectionalLightComponent>(NewComponentName);
+	}
+	else if (InComponentName == "PointLight")
+	{
+		NewComponent = InSelectedActor->AddComponent<UPointLightComponent>(NewComponentName);
+	}
+	else if (InComponentName == "SpotLight")
+	{
+		NewComponent = InSelectedActor->AddComponent<USpotLightComponent>(NewComponentName);
 	}
 	else
 	{

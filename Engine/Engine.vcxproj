@@ -324,6 +324,12 @@
     </ClInclude>
     <ClInclude Include="Source\Actor\Public\TextActor.h" />
     <ClInclude Include="Source\Actor\Public\TriangleActor.h" />
+    <ClInclude Include="Source\Component\Light\Public\AmbientLightComponent.h" />
+    <ClInclude Include="Source\Component\Light\Public\DirectionalLightComponent.h" />
+    <ClInclude Include="Source\Component\Light\Public\LightComponent.h" />
+    <ClInclude Include="Source\Component\Light\Public\LightComponentBase.h" />
+    <ClInclude Include="Source\Component\Light\Public\PointLightComponent.h" />
+    <ClInclude Include="Source\Component\Light\Public\SpotLightComponent.h" />
     <ClInclude Include="Source\Component\Mesh\Public\MeshComponent.h">
       <DeploymentContent>false</DeploymentContent>
     </ClInclude>
@@ -437,14 +443,18 @@
     <ClInclude Include="Source\Render\UI\Overlay\Public\StatOverlay.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\ActorDetailWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\ActorTerminationWidget.h" />
+    <ClInclude Include="Source\Render\UI\Widget\Public\AmbientLightComponentWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\CameraControlWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\ConsoleWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\DecalComponentWidget.h" />
+    <ClInclude Include="Source\Render\UI\Widget\Public\DirectionalLightComponentWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\FPSWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\HeightFogComponentWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\InputInformationWidget.h" />
+    <ClInclude Include="Source\Render\UI\Widget\Public\LightComponentBaseWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\MainBarWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\OrbitComponentWidget.h" />
+    <ClInclude Include="Source\Render\UI\Widget\Public\PointLightComponentWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\PostProcessWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\PrimitiveSpawnWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\ProjectileMovementComponentWidget.h" />
@@ -454,6 +464,7 @@
     <ClInclude Include="Source\Render\UI\Widget\Public\SceneIOWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\SetTextComponentWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\SplitterDebugWidget.h" />
+    <ClInclude Include="Source\Render\UI\Widget\Public\SpotLightComponentWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\SpriteSelectionWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\StaticMeshComponentWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\TargetActorTransformWidget.h" />
@@ -499,6 +510,12 @@
     </ClCompile>
     <ClCompile Include="Source\Actor\Private\TextActor.cpp" />
     <ClCompile Include="Source\Actor\Private\TriangleActor.cpp" />
+    <ClCompile Include="Source\Component\Light\Private\AmbientLightComponent.cpp" />
+    <ClCompile Include="Source\Component\Light\Private\DirectionalLightComponent.cpp" />
+    <ClCompile Include="Source\Component\Light\Private\LightComponent.cpp" />
+    <ClCompile Include="Source\Component\Light\Private\LightComponentBase.cpp" />
+    <ClCompile Include="Source\Component\Light\Private\PointLightComponent.cpp" />
+    <ClCompile Include="Source\Component\Light\Private\SpotLightComponent.cpp" />
     <ClCompile Include="Source\Component\Mesh\Private\MeshComponent.cpp">
       <DeploymentContent>false</DeploymentContent>
     </ClCompile>
@@ -601,14 +618,18 @@
     <ClCompile Include="Source\Render\UI\Overlay\Private\StatOverlay.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\ActorDetailWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\ActorTerminationWidget.cpp" />
+    <ClCompile Include="Source\Render\UI\Widget\Private\AmbientLightComponentWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\CameraControlWIdget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\ConsoleWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\DecalComponentWidget.cpp" />
+    <ClCompile Include="Source\Render\UI\Widget\Private\DirectionalLightComponentWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\FPSWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\HeightFogComponentWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\InputInformationWidget.cpp" />
+    <ClCompile Include="Source\Render\UI\Widget\Private\LightComponentBaseWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\MainBarWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\OrbitComponentWidget.cpp" />
+    <ClCompile Include="Source\Render\UI\Widget\Private\PointLightComponentWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\PostProcessWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\PrimitiveSpawnWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\ProjectileMovementComponentWidget.cpp" />
@@ -618,6 +639,7 @@
     <ClCompile Include="Source\Render\UI\Widget\Private\SceneIOWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\SetTextComponentWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\SplitterDebugWidget.cpp" />
+    <ClCompile Include="Source\Render\UI\Widget\Private\SpotLightComponentWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\SpriteSelectionWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\StaticMeshComponentWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\TargetActorTransformWidget.cpp" />
