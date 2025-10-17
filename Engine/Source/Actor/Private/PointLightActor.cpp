@@ -14,38 +14,6 @@ APointLightActor::APointLightActor()
 
 APointLightActor::~APointLightActor() = default;
 
-void APointLightActor::SetLightColor(const FVector4& InColor)
-{
-	if (PointLightComponent)
-	{
-		PointLightComponent->SetLightColor(FVector(InColor.X, InColor.Y, InColor.Z));
-	}
-}
-
-void APointLightActor::SetIntensity(float InIntensity)
-{
-	if (PointLightComponent)
-	{
-		PointLightComponent->SetIntensity(InIntensity);
-	}
-}
-
-void APointLightActor::SetRadius(float InRadius)
-{
-	if (PointLightComponent)
-	{
-		PointLightComponent->SetRadius(InRadius);
-	}
-}
-
-void APointLightActor::SetRadiusFallOff(float InFallOff)
-{
-	if (PointLightComponent)
-	{
-		PointLightComponent->SetRadiusFalloff(InFallOff);
-	}
-}
-
 UClass* APointLightActor::GetDefaultRootComponent()
 {
 	return UPointLightComponent::StaticClass();

@@ -4,6 +4,7 @@
 #include "Global/Enum.h"
 
 class UPointLightComponent;
+class USpotLightComponent;
 
 namespace json { class JSON; }
 using JSON = json::JSON;
@@ -180,6 +181,28 @@ public:
 	 */
 	const TArray<UPointLightComponent*>& GetAllPointLights() const { return AllPointLights; }
 
+	// ========================================
+	// SpotLight Management API
+	// ========================================
+
+	/**
+	 * SpotLight 컴포넌트 등록
+	 * SpotLightComponent::BeginPlay()에서 자동 호출됨
+	 */
+	void RegisterSpotLight(USpotLightComponent* InSpotLight);
+
+	/**
+	 * SpotLight 컴포넌트 등록 해제
+	 * SpotLightComponent::~SpotLightComponent()에서 자동 호출됨
+	 */
+	void UnregisterSpotLight(USpotLightComponent* InSpotLight);
+
+	/**
+	 * 전체 SpotLight 목록
+	 * @return 레벨에 속한 모든 SpotLight 배열 (const 참조)
+	 */
+	const TArray<USpotLightComponent*>& GetAllSpotLights() const { return AllSpotLights; }
+
 	friend class UWorld;
 public:
 	virtual UObject* Duplicate() override;
@@ -228,4 +251,9 @@ private:
 	// PointLight Cache
 	// ========================================
 	TArray<UPointLightComponent*> AllPointLights;  // 모든 PointLight
+
+	// ========================================
+	// SpotLight Cache
+	// ========================================
+	TArray<USpotLightComponent*> AllSpotLights;  // 모든 SpotLight
 };

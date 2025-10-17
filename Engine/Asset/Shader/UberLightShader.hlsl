@@ -17,16 +17,20 @@ cbuffer LightProperties : register(b2)
     float3 LightColor;          // RGB 색상 (offset 16)
     float Radius;               // 영향 반경 (offset 28)
 
-    float3 CameraPosition;      // 카메라 위치 (offset 32)
+    float3 LightDirection;      // SpotLight 방향 (normalized) (offset 32)
     float RadiusFalloff;        // 감쇠 지수 (offset 44)
 
     float2 ViewportTopLeft;     // Viewport 시작 위치 (offset 48)
     float2 ViewportSize;        // Viewport 크기 (offset 56)
 
     float2 SceneRTSize;         // Scene RT 전체 크기 (offset 64)
-    float2 Padding2;            // PADDING (offset 72)
+    float InnerConeAngle;       // SpotLight 내부 각도 (라디안) (offset 72)
+    float OuterConeAngle;       // SpotLight 외부 각도 (라디안) (offset 76)
 
-    row_major float4x4 InverseViewProj;  // World Position 재구성용 (offset 80)
+    uint LightType;             // 0 = PointLight, 1 = SpotLight (offset 80)
+    float3 Padding3;            // PADDING (offset 84)
+
+    row_major float4x4 InverseViewProj;  // World Position 재구성용 (offset 96)
 };
 
 // Scene Depth Texture (PostProcess에서 생성된 것)
@@ -35,7 +39,7 @@ SamplerState DepthSampler : register(s0);
 
 struct VS_INPUT
 {
-    float4 Position : POSITION;
+    float3 Position : POSITION;
     float3 Normal : NORMAL;
     float4 Color : COLOR;
     float2 TexCoord : TEXCOORD;
@@ -54,7 +58,7 @@ PS_INPUT mainVS(VS_INPUT input)
     PS_INPUT Output;
 
     // Sphere Vertex를 월드 공간으로 변환
-    float4 WorldPosition = mul(input.Position, World);
+    float4 WorldPosition = mul(float4(input.Position, 1.0), World);
     Output.WorldPos = WorldPosition.xyz;
 
     // View-Projection 변환
@@ -89,7 +93,34 @@ float3 ReconstructWorldPosition(float2 ViewportUV, float Depth)
     return WorldPosition.xyz;
 }
 
-// Pixel Shader: Additive Point Light 계산
+// SpotLight Cone Attenuation 계산
+float CalculateSpotLightConeAttenuation(float3 LightToSurfaceDir)
+{
+    // LightDirection과의 각도 계산 (cosine)
+    float cosAngle = dot(LightDirection, LightToSurfaceDir);
+
+    // Cone 각도 범위 계산 (cosine space에서)
+    float cosInner = cos(InnerConeAngle);
+    float cosOuter = cos(OuterConeAngle);
+
+    // Cone 밖이면 0.0 반환
+    if (cosAngle < cosOuter)
+    {
+        return 0.0;
+    }
+
+    // Inner cone 안이면 1.0 반환
+    if (cosAngle > cosInner)
+    {
+        return 1.0;
+    }
+
+    // Inner와 Outer 사이: 부드러운 전환 (smoothstep)
+    float t = (cosAngle - cosOuter) / (cosInner - cosOuter);
+    return smoothstep(0.0, 1.0, t);
+}
+
+// Pixel Shader: Uber Light (PointLight + SpotLight)
 float4 mainPS(PS_INPUT input) : SV_TARGET
 {
     // Viewport 내에서의 UV 계산
@@ -118,11 +149,30 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
 
     // 거리 감쇠 처리 (RadiusFalloff 지수 적용)
     float NormalizedDistance = DistFromLight / Radius;
-    float Attenuation = 1.0 - pow(saturate(NormalizedDistance), RadiusFalloff);
+    float DistanceAttenuation = 1.0 - pow(saturate(NormalizedDistance), RadiusFalloff);
+
+    // Final Attenuation 시작값
+    float FinalAttenuation = DistanceAttenuation;
+
+    // SpotLight인 경우 Cone Attenuation 추가
+    if (LightType == 1)  // SpotLight
+    {
+        float3 LightToSurfaceDir = normalize(LightToScene);
+        float ConeAttenuation = CalculateSpotLightConeAttenuation(LightToSurfaceDir);
+
+        // Cone 밖이면 discard
+        if (ConeAttenuation <= 0.0)
+        {
+            discard;
+        }
+
+        // Distance Attenuation과 Cone Attenuation 곱하기
+        FinalAttenuation *= ConeAttenuation;
+    }
 
     // Additive Light 계산 (Intensity로 Light 세기 조정)
-    float3 lightContribution = LightColor * Intensity * Attenuation;
+    float3 lightContribution = LightColor * Intensity * FinalAttenuation;
 
     // Alpha도 attenuation에 따라 조절 (블랜딩 강도 제어)
-    return float4(lightContribution, Attenuation);
+    return float4(lightContribution, FinalAttenuation);
 }

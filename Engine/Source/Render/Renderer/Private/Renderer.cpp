@@ -9,6 +9,7 @@
 #include "Component/Public/SemiLightComponent.h"
 #include "Component/Public/FireBallComponent.h"
 #include "Component/Light/Public/PointLightComponent.h"
+#include "Component/Light/Public/SpotLightComponent.h"
 #include "Editor/Public/Editor.h"
 #include "Editor/Public/Viewport.h"
 #include "Editor/Public/ViewportClient.h"
@@ -50,7 +51,7 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateDepthShader();
 	CreateFireBallShader();
 	CreateFireBallForwardShader();
-	CreatePointLightShader();
+	CreateUberLightShader();
 	CreateFullscreenQuad();
 	CreateConstantBuffers();
 	CreatePostProcessResources();
@@ -114,7 +115,7 @@ void URenderer::Release()
 	ReleaseDepthShader();
 	ReleaseFireBallShader();
 	ReleaseFireBallForwardShader();
-	ReleasePointLightShader();
+	ReleaseUberLightShader();
 	ReleaseFullscreenQuad();
 	ReleaseDepthStencilState();
 	ReleaseBlendState();
@@ -338,9 +339,10 @@ void URenderer::Update()
 		}
 
 		// === PointLight 렌더링 (w6_team6 방식 - Level 기반) ===
+		// === UberLight 렌더링 (PointLight + SpotLight 통합) ===
 		{
-			TIME_PROFILE(RenderFireballLights)
-			RenderFireballLights(CurrentCamera, ClientViewport);
+			TIME_PROFILE(RenderUberLights)
+			RenderUberLights(CurrentCamera, ClientViewport);
 		}
 
 		// === ?�버�??�리미티�??�더�? Scene RT???�더�?(FXAA ?�용) ===
@@ -927,10 +929,10 @@ void URenderer::ReleaseFireBallForwardShader()
 }
 
 // ========================================
-// PointLight Rendering
+// UberLight Rendering (PointLight + SpotLight 통합)
 // ========================================
 
-void URenderer::CreatePointLightShader()
+void URenderer::CreateUberLightShader()
 {
 	TArray<D3D11_INPUT_ELEMENT_DESC> layout =
 	{
@@ -939,11 +941,11 @@ void URenderer::CreatePointLightShader()
 		{ "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),   D3D11_INPUT_PER_VERTEX_DATA, 0 }
 	};
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/PointLightShader.hlsl", layout, &LightVolumeVertexShader, &LightVolumeInputLayout);
-	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/PointLightShader.hlsl", &LightVolumePixelShader);
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/UberLightShader.hlsl", layout, &UberLightVertexShader, &UberLightInputLayout);
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLightShader.hlsl", &UberLightPixelShader);
 
 	ConstantBufferLightProperties = FRenderResourceFactory::CreateConstantBuffer<FLightProperties>();
-	LightVolumeSamplerState = FRenderResourceFactory::CreateSamplerState(D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP);
+	UberLightSamplerState = FRenderResourceFactory::CreateSamplerState(D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP);
 
 	// Depth State: LESS_EQUAL, Write OFF (for camera outside light volume)
 	D3D11_DEPTH_STENCIL_DESC depthDesc = {};
@@ -951,26 +953,32 @@ void URenderer::CreatePointLightShader()
 	depthDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
 	depthDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	depthDesc.StencilEnable = FALSE;
-	GetDevice()->CreateDepthStencilState(&depthDesc, &LightVolumeDepthState);
+	GetDevice()->CreateDepthStencilState(&depthDesc, &UberLightDepthState);
 }
 
-void URenderer::ReleasePointLightShader()
+void URenderer::ReleaseUberLightShader()
 {
-	SafeRelease(LightVolumeVertexShader);
-	SafeRelease(LightVolumePixelShader);
-	SafeRelease(LightVolumeInputLayout);
+	SafeRelease(UberLightVertexShader);
+	SafeRelease(UberLightPixelShader);
+	SafeRelease(UberLightInputLayout);
 	SafeRelease(ConstantBufferLightProperties);
-	SafeRelease(LightVolumeSamplerState);
-	SafeRelease(LightVolumeDepthState);
+	SafeRelease(UberLightSamplerState);
+	SafeRelease(UberLightDepthState);
 }
 
-void URenderer::RenderFireballLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport)
+void URenderer::RenderUberLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport)
 {
 	const ULevel* CurrentLevel = GWorld->GetLevel();
 	if (!CurrentLevel) return;
 
 	const auto& PointLights = CurrentLevel->GetAllPointLights();
-	if (PointLights.empty()) return;
+	const auto& SpotLights = CurrentLevel->GetAllSpotLights();
+
+	// 렌더링할 라이트가 없으면 리턴
+	if (PointLights.empty() && SpotLights.empty())
+	{
+		return;
+	}
 
 	auto* Context = GetDeviceContext();
 
@@ -978,20 +986,20 @@ void URenderer::RenderFireballLights(UCamera* InCurrentCamera, const D3D11_VIEWP
 	// Depth texture를 SRV로 읽어야 하므로 DSV로 바인딩하면 안됨
 	// (DirectX 11: 같은 리소스를 DSV와 SRV로 동시에 사용 불가)
 	ID3D11RenderTargetView* SceneRtvs[] = { SceneColorRTV };
-	Context->OMSetRenderTargets(1, SceneRtvs, nullptr);  // DSV = nullptr!
+	Context->OMSetRenderTargets(1, SceneRtvs, nullptr);  // DSV = nullptr
 	Context->RSSetViewports(1, &InViewport);
 
 	// Additive Blend + NO Depth Test (DSV가 nullptr이므로 depth test 불가능)
 	Context->OMSetBlendState(AdditiveBlendState, nullptr, 0xFFFFFFFF);
-	Context->OMSetDepthStencilState(DisabledDepthStencilState, 0);  // Depth 완전 비활성화!
+	Context->OMSetDepthStencilState(DisabledDepthStencilState, 0);  // Depth 완전 비활성화
 
-	// Pipeline 설정
+	// Pipeline 설정 (UberLight 셰이더 사용)
 	FPipelineInfo PipelineInfo = {
-		LightVolumeInputLayout,
-		LightVolumeVertexShader,
-		FRenderResourceFactory::GetRasterizerState({ ECullMode::None, EFillMode::Solid }),  // Culling 비활성화!
+		UberLightInputLayout,
+		UberLightVertexShader,
+		FRenderResourceFactory::GetRasterizerState({ ECullMode::None, EFillMode::Solid }),  // Culling 비활성화
 		DisabledDepthStencilState,  // Depth 완전 비활성화 (DSV가 nullptr)
-		LightVolumePixelShader,
+		UberLightPixelShader,
 		AdditiveBlendState,
 		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
 	};
@@ -1010,7 +1018,7 @@ void URenderer::RenderFireballLights(UCamera* InCurrentCamera, const D3D11_VIEWP
 
 	// Depth Texture 바인딩
 	Context->PSSetShaderResources(0, 1, &SceneDepthSRV);
-	Pipeline->SetSamplerState(0, false, LightVolumeSamplerState);
+	Pipeline->SetSamplerState(0, false, UberLightSamplerState);
 
 	// Inverse ViewProj Matrix 계산
 	const FViewProjConstants& ViewProj = InCurrentCamera->GetFViewProjConstants();
@@ -1021,19 +1029,29 @@ void URenderer::RenderFireballLights(UCamera* InCurrentCamera, const D3D11_VIEWP
 	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
 	GetSwapChain()->GetDesc(&swapChainDesc);
 
-	// 각 PointLight 렌더링
+	// AssetManager에서 Sphere Mesh 가져오기 (PointLight와 SpotLight 공통 사용)
+	UAssetManager& AssetMgr = UAssetManager::GetInstance();
+	ID3D11Buffer* SphereVB = AssetMgr.GetVertexbuffer(EPrimitiveType::Sphere);
+	ID3D11Buffer* SphereIB = AssetMgr.GetIndexbuffer(EPrimitiveType::Sphere);
+	uint32 SphereNumIndices = AssetMgr.GetNumIndices(EPrimitiveType::Sphere);
+	uint32 SphereNumVertices = AssetMgr.GetNumVertices(EPrimitiveType::Sphere);
+
+	// ========== PointLight 렌더링 ==========
 	for (auto* PointLight : PointLights)
 	{
-		if (!PointLight || !PointLight->GetOwner()) continue;
+		if (!PointLight || !PointLight->GetOwner())
+		{
+			continue;
+		}
 
 		// Light Properties 설정
-		FLightProperties lightProps;
+		FLightProperties lightProps = {};
 		lightProps.LightPosition = PointLight->GetWorldLocation();
 		lightProps.Intensity = PointLight->GetIntensity();
 		lightProps.LightColor = PointLight->GetLightColor();
 		lightProps.Radius = PointLight->GetRadius();
+		lightProps.LightDirection = FVector::ZeroVector();  // PointLight는 방향 없음
 		lightProps.RadiusFalloff = PointLight->GetRadiusFalloff();
-		lightProps.CameraPosition = InCurrentCamera->GetLocation();
 
 		// Viewport 정보 (PostProcess와 동일한 방식)
 		lightProps.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
@@ -1042,6 +1060,11 @@ void URenderer::RenderFireballLights(UCamera* InCurrentCamera, const D3D11_VIEWP
 			static_cast<float>(swapChainDesc.BufferDesc.Width),
 			static_cast<float>(swapChainDesc.BufferDesc.Height)
 		);
+
+		lightProps.InnerConeAngle = 0.0f;  // PointLight는 cone 없음
+		lightProps.OuterConeAngle = 0.0f;
+		lightProps.LightType = 0;  // 0 = PointLight
+		lightProps.Padding3 = FVector::ZeroVector();
 
 		lightProps.InvViewProj = InvViewProj;
 
@@ -1057,12 +1080,7 @@ void URenderer::RenderFireballLights(UCamera* InCurrentCamera, const D3D11_VIEWP
 		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModels, WorldMatrix);
 		Pipeline->SetConstantBuffer(0, true, ConstantBufferModels);
 
-		// Sphere Mesh 렌더링 (AssetManager에서 직접 가져옴)
-		UAssetManager& AssetMgr = UAssetManager::GetInstance();
-		ID3D11Buffer* SphereVB = AssetMgr.GetVertexbuffer(EPrimitiveType::Sphere);
-		ID3D11Buffer* SphereIB = AssetMgr.GetIndexbuffer(EPrimitiveType::Sphere);
-		uint32 SphereNumIndices = AssetMgr.GetNumIndices(EPrimitiveType::Sphere);
-
+		// Sphere Mesh 렌더링
 		Pipeline->SetVertexBuffer(SphereVB, sizeof(FNormalVertex));
 		if (SphereIB)
 		{
@@ -1071,7 +1089,94 @@ void URenderer::RenderFireballLights(UCamera* InCurrentCamera, const D3D11_VIEWP
 		}
 		else
 		{
-			uint32 SphereNumVertices = AssetMgr.GetNumVertices(EPrimitiveType::Sphere);
+			Pipeline->Draw(SphereNumVertices, 0);
+		}
+	}
+
+	// ========== SpotLight 렌더링 ==========
+	static int SpotLightDebugCount = 0;
+	for (auto* SpotLight : SpotLights)
+	{
+		if (!SpotLight || !SpotLight->GetOwner())
+		{
+			if (SpotLightDebugCount < 3)
+			{
+				UE_LOG("RenderUberLights: SpotLight skipped (nullptr or no owner)");
+				SpotLightDebugCount++;
+			}
+			continue;
+		}
+
+		if (SpotLightDebugCount < 3)
+		{
+			UE_LOG("RenderUberLights: Rendering SpotLight - Pos=(%.1f, %.1f, %.1f), Intensity=%.1f, Radius=%.1f",
+				SpotLight->GetWorldLocation().X, SpotLight->GetWorldLocation().Y, SpotLight->GetWorldLocation().Z,
+				SpotLight->GetIntensity(), SpotLight->GetRadius());
+			SpotLightDebugCount++;
+		}
+
+		// Light Properties 설정
+		FLightProperties lightProps = {};
+		lightProps.LightPosition = SpotLight->GetWorldLocation();
+		lightProps.Intensity = SpotLight->GetIntensity();
+		lightProps.LightColor = SpotLight->GetLightColor();
+		lightProps.Radius = SpotLight->GetRadius();
+
+		// SpotLight 방향 (Rotation으로부터 Forward 벡터 계산)
+		FVector Rotation = SpotLight->GetWorldRotation();
+
+		// Euler Angles (Pitch, Yaw, Roll)를 Forward Vector로 변환
+		// Forward = (cos(Yaw)*cos(Pitch), sin(Yaw)*cos(Pitch), sin(Pitch))
+		float Pitch = FVector::GetDegreeToRadian(Rotation.X);
+		float Yaw = FVector::GetDegreeToRadian(Rotation.Y);
+
+		FVector LightDirection;
+		LightDirection.X = cosf(Yaw) * cosf(Pitch);
+		LightDirection.Y = sinf(Yaw) * cosf(Pitch);
+		LightDirection.Z = sinf(Pitch);
+		LightDirection.Normalize();
+
+		lightProps.LightDirection = LightDirection;
+
+		lightProps.RadiusFalloff = SpotLight->GetRadiusFalloff();
+
+		// Viewport 정보
+		lightProps.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
+		lightProps.ViewportSize = FVector2(InViewport.Width, InViewport.Height);
+		lightProps.SceneRTSize = FVector2(
+			static_cast<float>(swapChainDesc.BufferDesc.Width),
+			static_cast<float>(swapChainDesc.BufferDesc.Height)
+		);
+
+		// Cone Angles (도 단위 -> 라디안 변환)
+		lightProps.InnerConeAngle = FVector::GetDegreeToRadian(SpotLight->GetInnerConeAngle());
+		lightProps.OuterConeAngle = FVector::GetDegreeToRadian(SpotLight->GetOuterConeAngle());
+		lightProps.LightType = 1;  // 1 = SpotLight
+		lightProps.Padding3 = FVector::ZeroVector();
+
+		lightProps.InvViewProj = InvViewProj;
+
+		// Constant Buffer 업데이트
+		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferLightProperties, lightProps);
+		Pipeline->SetConstantBuffer(2, false, ConstantBufferLightProperties);
+
+		// World Transform (Sphere를 라이트 위치/반경으로 스케일)
+		FVector LightPos = SpotLight->GetWorldLocation();
+		FVector LightScale = FVector(SpotLight->GetRadius(), SpotLight->GetRadius(), SpotLight->GetRadius());
+		FMatrix WorldMatrix = FMatrix::GetModelMatrix(LightPos, FVector::ZeroVector(), LightScale);
+
+		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModels, WorldMatrix);
+		Pipeline->SetConstantBuffer(0, true, ConstantBufferModels);
+
+		// Sphere Mesh 렌더링
+		Pipeline->SetVertexBuffer(SphereVB, sizeof(FNormalVertex));
+		if (SphereIB)
+		{
+			Pipeline->SetIndexBuffer(SphereIB, 0);
+			Pipeline->DrawIndexed(SphereNumIndices, 0, 0);
+		}
+		else
+		{
 			Pipeline->Draw(SphereNumVertices, 0);
 		}
 	}
