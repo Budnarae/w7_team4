@@ -9,9 +9,9 @@ public:
 	~ULines() override = default;
 
 	/**
-	 * @brief Á¤Á¡µéÀ» ´ë»ó ¹è¿­ÀÇ Æ¯Á¤ À§Ä¡¿¡ º´ÇÕ
-	 * @param DestVertices ´ë»ó ¹è¿­
-	 * @param InsertStartIndex »ğÀÔ ½ÃÀÛ ÀÎµ¦½º
+	 * @brief ì •ì ë“¤ì„ ëŒ€ìƒ ë°°ì—´ì˜ íŠ¹ì • ìœ„ì¹˜ì— ë³‘í•©
+	 * @param DestVertices ëŒ€ìƒ ë°°ì—´
+	 * @param InsertStartIndex ì‚½ì… ì‹œì‘ ì¸ë±ìŠ¤
 	 */
 	void MergeVerticesAt(TArray<FVector>& DestVertices, size_t InsertStartIndex);
 

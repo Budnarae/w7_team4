@@ -421,6 +421,7 @@ Engine/editor.ini
 # AI Agent Init Files
 AGENTS.md
 WARP.md
+CLAUDE.md
 
 # 문서
 Document/*

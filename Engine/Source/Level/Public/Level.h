@@ -3,6 +3,8 @@
 #include "Editor/Public/Camera.h"
 #include "Global/Enum.h"
 
+class UPointLightComponent;
+
 namespace json { class JSON; }
 using JSON = json::JSON;
 
@@ -156,6 +158,28 @@ public:
 	 */
 	void TickLevel();
 
+	// ========================================
+	// PointLight Management API
+	// ========================================
+
+	/**
+	 * PointLight 컴포넌트 등록
+	 * PointLightComponent::BeginPlay()에서 자동 호출됨
+	 */
+	void RegisterPointLight(UPointLightComponent* InPointLight);
+
+	/**
+	 * PointLight 컴포넌트 등록 해제
+	 * PointLightComponent::~PointLightComponent()에서 자동 호출됨
+	 */
+	void UnregisterPointLight(UPointLightComponent* InPointLight);
+
+	/**
+	 * 전체 PointLight 목록
+	 * @return 레벨에 속한 모든 PointLight 배열 (const 참조)
+	 */
+	const TArray<UPointLightComponent*>& GetAllPointLights() const { return AllPointLights; }
+
 	friend class UWorld;
 public:
 	virtual UObject* Duplicate() override;
@@ -199,4 +223,9 @@ private:
 	// 디버그 렌더링용 데이터
 	TArray<FAABB> CachedDebugBoxes;
 	TArray<FVector4> CachedDebugColors;
+
+	// ========================================
+	// PointLight Cache
+	// ========================================
+	TArray<UPointLightComponent*> AllPointLights;  // 모든 PointLight
 };

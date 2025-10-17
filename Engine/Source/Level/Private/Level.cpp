@@ -14,8 +14,8 @@
 #include "Global/SceneBVH.h"
 #include <json.hpp>
 
+#include "Component/Light/Public/PointLightComponent.h"
 #include "Component/Public/UUIDTextComponent.h"
-#include "Render/UI/Widget/Public/DecalComponentWidget.h"
 
 IMPLEMENT_CLASS(ULevel, UObject)
 
@@ -609,4 +609,48 @@ void ULevel::TickLevel()
 
 		UE_LOG("Level: BVH rebuilt during TickLevel()");
 	}
+}
+
+// ========================================
+// PointLight Management Implementation
+// ========================================
+
+void ULevel::RegisterPointLight(UPointLightComponent* InPointLight)
+{
+	if (!InPointLight)
+	{
+		UE_LOG("Level: RegisterPointLight called with nullptr");
+		return;
+	}
+
+	// 중복 등록 방지
+	if (find(AllPointLights.begin(), AllPointLights.end(), InPointLight) != AllPointLights.end())
+	{
+		return;
+	}
+
+	AllPointLights.push_back(InPointLight);
+
+	UE_LOG("Level: PointLight '%s' registered (Intensity: %.1f, Radius: %.1f)",
+		InPointLight->GetName().ToString().data(),
+		InPointLight->GetIntensity(),
+		InPointLight->GetRadius());
+}
+
+void ULevel::UnregisterPointLight(UPointLightComponent* InPointLight)
+{
+	if (!InPointLight)
+	{
+		return;
+	}
+
+	// AllPointLights에서 제거
+	if (auto Iter = std::find(AllPointLights.begin(), AllPointLights.end(), InPointLight);
+		Iter != AllPointLights.end())
+	{
+		*Iter = std::move(AllPointLights.back());
+		AllPointLights.pop_back();
+	}
+
+	UE_LOG("Level: PointLight '%s' unregistered", InPointLight->GetName().ToString().data());
 }

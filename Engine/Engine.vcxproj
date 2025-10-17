@@ -316,6 +316,7 @@
     <ClInclude Include="Source\Actor\Public\DecalActor.h" />
     <ClInclude Include="Source\Actor\Public\HeightFogActor.h" />
     <ClInclude Include="Source\Actor\Public\MovingCubeActor.h" />
+    <ClInclude Include="Source\Actor\Public\PointLightActor.h" />
     <ClInclude Include="Source\Actor\Public\SemiLightActor.h" />
     <ClInclude Include="Source\Actor\Public\SphereActor.h" />
     <ClInclude Include="Source\Actor\Public\SquareActor.h" />
@@ -504,6 +505,7 @@
     <ClCompile Include="Source\Actor\Private\HeightFogActor.cpp" />
     <ClCompile Include="Source\Actor\Private\MovingCubeActor.cpp">
     </ClCompile>
+    <ClCompile Include="Source\Actor\Private\PointLightActor.cpp" />
     <ClCompile Include="Source\Actor\Private\SemiLightActor.cpp" />
     <ClCompile Include="Source\Actor\Private\SphereActor.cpp" />
     <ClCompile Include="Source\Actor\Private\SquareActor.cpp" />

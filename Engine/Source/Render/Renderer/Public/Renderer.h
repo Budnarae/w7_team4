@@ -46,6 +46,27 @@ struct FPostProcessParameters
 	FMatrix InvViewProj;
 };
 
+// PointLight Properties (w6_team6 방식)
+struct FLightProperties
+{
+	FVector LightPosition;       // 월드 공간 라이트 위치 (offset 0)
+	float Intensity;             // 조명 강도 (offset 12)
+
+	FVector LightColor;          // RGB 색상 (offset 16)
+	float Radius;                // 영향 반경 (offset 28)
+
+	FVector CameraPosition;      // 카메라 위치 (offset 32)
+	float RadiusFalloff;         // 감쇠 지수 (offset 44)
+
+	FVector2 ViewportTopLeft;    // Viewport 시작 위치 (offset 48)
+	FVector2 ViewportSize;       // Viewport 크기 (offset 56)
+
+	FVector2 SceneRTSize;        // Scene RT 전체 크기 (offset 64)
+	FVector2 Padding2;           // PADDING (offset 72)
+
+	FMatrix InvViewProj;         // World Position 재구성용 (offset 80)
+};
+
 /**
  * @brief Rendering Pipeline 전반을 처리하는 클래스
  */
@@ -68,6 +89,7 @@ public:
 	void CreateDepthShader();
 	void CreateFireBallShader();
 	void CreateFireBallForwardShader();
+	void CreatePointLightShader();
 	void CreateFullscreenQuad();
 	void CreateConstantBuffers();
 	void CreateSceneRenderTargets();
@@ -80,6 +102,7 @@ public:
 	void ReleaseDepthShader();
 	void ReleaseFireBallShader();
 	void ReleaseFireBallForwardShader();
+	void ReleasePointLightShader();
 	void ReleaseFullscreenQuad();
 	void ReleaseSceneRenderTargets();
 
@@ -89,6 +112,9 @@ public:
 	void RenderLevel(UCamera* InCurrentCamera);
 	void RenderEnd() const;
 	void RenderEditorPrimitive(const FEditorPrimitive& InPrimitive, const FRenderState& InRenderState, uint32 InStride = 0, uint32 InIndexBufferStride = 0);
+
+	// PointLight Rendering (w6_team6 방식)
+	void RenderFireballLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport);
 
 	void OnResize(uint32 Inwidth = 0, uint32 InHeight = 0);
 
@@ -187,6 +213,14 @@ private:
 	ID3D11InputLayout* FireBallInputLayout = nullptr;
 	ID3D11Buffer* CBPerObject = nullptr;
 	ID3D11Buffer* CBFireBall = nullptr;
+
+	// PointLight Shaders (w6_team6 방식)
+	ID3D11VertexShader* LightVolumeVertexShader = nullptr;
+	ID3D11PixelShader* LightVolumePixelShader = nullptr;
+	ID3D11InputLayout* LightVolumeInputLayout = nullptr;
+	ID3D11Buffer* ConstantBufferLightProperties = nullptr;
+	ID3D11SamplerState* LightVolumeSamplerState = nullptr;
+	ID3D11DepthStencilState* LightVolumeDepthState = nullptr;
 
 	// Fullscreen Quad for Post-Processing
 	ID3D11Buffer* FullscreenQuadVB = nullptr;

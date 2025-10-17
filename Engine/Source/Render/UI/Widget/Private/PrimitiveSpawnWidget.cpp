@@ -12,6 +12,7 @@
 #include "Actor/Public/DecalActor.h"
 #include "Actor/Public/MovingCubeActor.h"
 #include "Actor/Public/SemiLightActor.h"
+#include "Actor/Public/PointLightActor.h"
 #include "Actor/Public/TextActor.h"
 #include "Actor/Public/HeightFogActor.h"
 
@@ -50,6 +51,7 @@ void UPrimitiveSpawnWidget::RenderWidget()
 		"Text",
 		"Decal",
 		"SemiLight",
+		"PointLight",
 		"HeightFog",
 	};
 
@@ -155,6 +157,10 @@ void UPrimitiveSpawnWidget::SpawnActors() const
 		else if (SelectedPrimitiveType == EPrimitiveType::SemiLight)
 		{
 			NewActor = GWorld->SpawnActor(ASemiLightActor::StaticClass());
+		}
+		else if (SelectedPrimitiveType == EPrimitiveType::PointLight)
+		{
+			NewActor = GWorld->SpawnActor(APointLightActor::StaticClass());
 		}
 		else if (SelectedPrimitiveType == EPrimitiveType::HeightFog)
 		{
