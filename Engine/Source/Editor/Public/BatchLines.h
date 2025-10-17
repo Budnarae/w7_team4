@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Global/Types.h"
 #include "Global/CoreTypes.h"
 #include "Editor/Public/EditorPrimitive.h"
@@ -15,16 +15,32 @@ public:
 	UBatchLines();
 	~UBatchLines();
 
-	// 종류별 Vertices 업데이트
-	void UpdateUGridVertices(const float newCellSize);
-	void UpdateBoundingBoxVertices(const IBoundingVolume* NewBoundingVolume);
-	void UpdateConeVertices(const FVector& Apex, const FVector& Direction, const FVector& UpVector,
-							float Angle, const FVector& DecalBoxSize);
-	void UpdateSphereVertices(const FVector& CenterPosition, float Radius);
+	void AddLines(const TArray<FVector>& InVertices, const TArray<uint32>& InIndices);
 
+	void AddGridLines(const float NewCellSize);
+	void AddAABBLines(const IBoundingVolume* NewBoundingVolume);
+	void AddConeLines(
+		const FVector& Apex,
+		const FVector& Direction,
+		const FVector& UpVector,
+		float Angle,
+		const FVector& DecalBoxSize
+	);
+	void AddSphereLines(const FVector& CenterPosition, float Radius);
+
+	// 종류별 Vertices 업데이트
+	//void AddAABBLines(const IBoundingVolume* NewBoundingVolume);
+	/*
+	void AddConeLines(const FVector& Apex, const FVector& Direction, const FVector& UpVector,
+							float Angle, const FVector& DecalBoxSize);
+							
+	void AddSphereLines(const FVector& CenterPosition, float Radius);
+	*/
 
 	// GPU VertexBuffer에 복사
 	void UpdateVertexBuffer();
+
+	void ResetLines();
 
 	float GetCellSize() const
 	{
@@ -38,7 +54,7 @@ public:
 
 	void DisableRenderBoundingBox()
 	{
-		UpdateBoundingBoxVertices(BoundingBoxLines.GetDisabledBoundingBox());
+		AddAABBLines(BoundingBoxLines.GetDisabledBoundingBox());
 	}
 
 	void DisableRenderCone()
@@ -62,7 +78,7 @@ public:
 	void Render();
 
 private:
-	void SetIndices();
+	//void SetIndices();
 
 	/*void AddWorldGridVerticesAndConstData();
 	void AddBoundingBoxVertices();*/
@@ -80,4 +96,15 @@ private:
 	USphereLines SphereLines;
 
 	bool bRenderBox;
+
+	int32 CurrentNumVertices = 0;
+	int32 CurrentNumIndices = 0;
+	inline static const int32 MaxVerticesNum = 16384;
+	// 렌더하는 대상마다 인덱싱 방식이 다르기 때문에 정확한 인덱스 상한을 정의할 수 없다.
+	// 따라서 Vertex 보다 넉넉히 할당한다.
+	inline static const int32 MaxIndicesNum = 32768;
+
+	inline static const int32 ConeBottomLineSegmentNum = 32;
+	inline static const int32 SphereLineSegmentNum = 64;
+	inline static const int32 GridLineSegmentNumHalf = 250;
 };

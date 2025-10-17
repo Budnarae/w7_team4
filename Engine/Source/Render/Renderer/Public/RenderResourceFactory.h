@@ -8,7 +8,7 @@ public:
 												 ID3D11VertexShader** OutVertexShader, ID3D11InputLayout** OutInputLayout);
 	static ID3D11Buffer* CreateVertexBuffer(FNormalVertex* InVertices, uint32 InByteWidth);
 	static ID3D11Buffer* CreateVertexBuffer(FVector* InVertices, uint32 InByteWidth, bool bCpuAccess);
-	static ID3D11Buffer* CreateIndexBuffer(const void* InIndices, uint32 InByteWidth);
+	static ID3D11Buffer* CreateIndexBuffer(const void* InIndices, uint32 InByteWidth, bool bCpuAccess = false);
 	static void CreatePixelShader(const wstring& InFilePath, ID3D11PixelShader** InPixelShader);
 	static ID3D11SamplerState* CreateSamplerState(D3D11_FILTER InFilter, D3D11_TEXTURE_ADDRESS_MODE InAddressMode);
 	static ID3D11RasterizerState* GetRasterizerState(const FRenderState& InRenderState);
@@ -51,6 +51,18 @@ public:
 
 		memcpy(MappedResource.pData, InVertices.data(), sizeof(T) * InVertices.size());
 		URenderer::GetInstance().GetDeviceContext()->Unmap(InVertexBuffer, 0);
+	}
+
+	template<typename T>
+	static void UpdateIndexBufferData(ID3D11Buffer* InIndexBuffer, const TArray<T>& InIndices)
+	{
+		if (!URenderer::GetInstance().GetDeviceContext() || !InIndexBuffer || InIndices.empty()) return;
+
+		D3D11_MAPPED_SUBRESOURCE MappedResource = {};
+		if (FAILED(URenderer::GetInstance().GetDeviceContext()->Map(InIndexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedResource))) return;
+
+		memcpy(MappedResource.pData, InIndices.data(), sizeof(T) * InIndices.size());
+		URenderer::GetInstance().GetDeviceContext()->Unmap(InIndexBuffer, 0);
 	}
 
 private:

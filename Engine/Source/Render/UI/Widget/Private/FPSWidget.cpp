@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Render/UI/Widget/Public/FPSWidget.h"
 
 #include "Manager/Time/Public/TimeManager.h"
@@ -108,7 +108,7 @@ void UFPSWidget::RenderWidget()
 	CellSize = PbatchLine->GetCellSize();
 	if (ImGui::SliderFloat("Grid Spacing", &CellSize, 0.0f, 10.0f, "%.1f"))
 	{
-		PbatchLine->UpdateUGridVertices(CellSize);
+		PbatchLine->AddGridLines(CellSize);
 	}
 
 	ImGui::Separator();

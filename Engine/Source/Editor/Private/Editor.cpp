@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Editor/Public/Editor.h"
 #include "Editor/Public/Camera.h"
 #include "Editor/Public/Viewport.h"
@@ -83,6 +83,7 @@ void UEditor::Update()
 		}
 	}
 
+	BatchLines.ResetLines();  // 이전 프레임 데이터 초기화
 	UpdateBatchLines();
 	BatchLines.UpdateVertexBuffer();
 
@@ -214,6 +215,9 @@ void UEditor::InitializeLayout()
 
 void UEditor::UpdateBatchLines()
 {
+	// 매 프레임 Grid 라인 추가
+	BatchLines.AddGridLines(BatchLines.GetCellSize());
+
 	if (UActorComponent* Component = GetSelectedComponent())
 	{
 		uint64 ShowFlags = GWorld->GetLevel()->GetShowFlags();
@@ -229,22 +233,22 @@ void UEditor::UpdateBatchLines()
 				{
 					FVector WorldMin, WorldMax; PrimitiveComponent->GetWorldAABB(WorldMin, WorldMax);
 					FAABB AABB(WorldMin, WorldMax);
-					BatchLines.UpdateBoundingBoxVertices(&AABB);
+					BatchLines.AddAABBLines(&AABB);
 				}
 				else
 				{
-					BatchLines.UpdateBoundingBoxVertices(PrimitiveComponent->GetBoundingBox());
+					BatchLines.AddAABBLines(PrimitiveComponent->GetBoundingBox());
 				}
-				BatchLines.DisableRenderCone();
-				BatchLines.DisableRenderSphere();
+				//BatchLines.DisableRenderCone();
+				//BatchLines.DisableRenderSphere();
 				return;
 			}
 			else if (UDecalComponent* DecalComponent = Cast<UDecalComponent>(Component))
 			{
 				// 데칼도 바운딩 갱신 후 라인 업데이트
-				BatchLines.UpdateBoundingBoxVertices(DecalComponent->GetBoundingBox());
-				BatchLines.DisableRenderCone();
-				BatchLines.DisableRenderSphere();
+				BatchLines.AddAABBLines(DecalComponent->GetBoundingBox());
+				//BatchLines.DisableRenderCone();
+				//BatchLines.DisableRenderSphere();
 				return;
 			}
 			else if (USemiLightComponent* SemiLightComponent = Cast<USemiLightComponent>(Component))
@@ -272,11 +276,11 @@ void UEditor::UpdateBatchLines()
 					Direction.Normalize();
 					UpVector.Normalize();
 
-					BatchLines.UpdateConeVertices(Apex, Direction, UpVector, Angle, DecalBoxSize);
+					BatchLines.AddConeLines(Apex, Direction, UpVector, Angle, DecalBoxSize);
 				}
 
-				BatchLines.DisableRenderBoundingBox();
-				BatchLines.DisableRenderSphere();
+				//BatchLines.DisableRenderBoundingBox();
+				//BatchLines.DisableRenderSphere();
 				return;
 			}
 			else if (UDirectionalLightComponent* DirectionalLightComponent = Cast<UDirectionalLightComponent>(Component))
@@ -288,10 +292,10 @@ void UEditor::UpdateBatchLines()
 				const FVector Center = PointLightComponent->GetWorldLocation();
 				const float Radius = PointLightComponent->GetAttenuationRadius();
 
-				BatchLines.UpdateSphereVertices(Center, Radius);
+				BatchLines.AddSphereLines(Center, Radius);
 
-				BatchLines.DisableRenderBoundingBox();
-				BatchLines.DisableRenderCone();
+				//BatchLines.DisableRenderBoundingBox();
+				//BatchLines.DisableRenderCone();
 				return;
 			}
 			else if (USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(Component))
@@ -300,9 +304,9 @@ void UEditor::UpdateBatchLines()
 			}
 		}
 	}
-	BatchLines.DisableRenderBoundingBox();
-	BatchLines.DisableRenderCone();
-	BatchLines.DisableRenderSphere();
+	//BatchLines.DisableRenderBoundingBox();
+	//BatchLines.DisableRenderCone();
+	//BatchLines.DisableRenderSphere();
 }
 
 void UEditor::UpdateLayout()
