@@ -19,8 +19,6 @@ UTextComponent::UTextComponent()
 {
 	Type = EPrimitiveType::Text;
 
-	UAssetManager& ResourceManager = UAssetManager::GetInstance();
-
 	Vertices = &PickingAreaVertex;
 	NumVertices = static_cast<uint32>(PickingAreaVertex.size());
 
@@ -30,9 +28,7 @@ UTextComponent::UTextComponent()
 	RegulatePickingAreaByTextLength();
 }
 
-UTextComponent::~UTextComponent()
-{
-}
+UTextComponent::~UTextComponent() = default;
 
 FMatrix UTextComponent::GetBoundingTransform() const
 {
@@ -40,10 +36,12 @@ FMatrix UTextComponent::GetBoundingTransform() const
 	return GetWorldTransformMatrix();
 }
 
-void UTextComponent::UpdateRotationMatrix(const FVector& InCameraLocation) {}
-FMatrix UTextComponent::GetRTMatrix() const { return FMatrix(); }
+void UTextComponent::UpdateRotationMatrix(const FMatrix& InViewMatrix) {}
+
+FMatrix UTextComponent::GetRTMatrix() const { return {}; }
 
 const FString& UTextComponent::GetText() { return Text; }
+
 void UTextComponent::SetText(const FString& InText)
 {
 	if (Text == InText) return;           // 불필요한 갱신 방지(선택)

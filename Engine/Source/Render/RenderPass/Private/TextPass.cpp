@@ -90,11 +90,16 @@ void FTextPass::Execute(FRenderingContext& Context)
     }
 
     // Render UUID
-    if (!(Context.ShowFlags & EEngineShowFlags::SF_Billboard)) { return; }
+    if (!(Context.ShowFlags & EEngineShowFlags::SF_Billboard))
+    {
+	    return;
+    }
+
+    const FMatrix& ViewMatrix = Context.CurrentCamera->GetFViewProjConstants().View;
 
     if (UUUIDTextComponent* PickedBillboard = GEditor->GetEditorModule()->GetPickedBillboard())
     {
-        PickedBillboard->UpdateRotationMatrix(Context.CurrentCamera->GetLocation());
+        PickedBillboard->UpdateRotationMatrix(ViewMatrix);
         FString UUIDString = "UID: " + std::to_string(PickedBillboard->GetUUID());
         RenderTextInternal(UUIDString, PickedBillboard->GetRTMatrix());
     }

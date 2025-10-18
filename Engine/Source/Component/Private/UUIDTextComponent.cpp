@@ -26,39 +26,20 @@ void UUUIDTextComponent::OnDeselected()
 	SetVisibility(false);
 }
 
-void UUUIDTextComponent::UpdateRotationMatrix(const FVector& InCameraLocation)
+void UUUIDTextComponent::UpdateRotationMatrix(const FMatrix& InViewMatrix)
 {
-    const FVector OwnerLocation = GetOwner()->GetActorLocation();
+    const FVector BasePosition = GetOwner()->GetActorLocation();
 
-    // 1) 먼저 최종 표시 위치 계산: 월드 Up 기준으로 오프셋을 올림
-    const FVector WorldUp(0, 0, 1);
-    const FVector P = OwnerLocation + WorldUp * ZOffset;
+    // View 행렬의 역행렬에서 회전 부분만 추출 (카메라 방향)
+    FVector CameraRight(InViewMatrix.Data[0][0], InViewMatrix.Data[1][0], InViewMatrix.Data[2][0]);
+    FVector CameraUp(InViewMatrix.Data[0][1], InViewMatrix.Data[1][1], InViewMatrix.Data[2][1]);
+    FVector CameraForward(InViewMatrix.Data[0][2], InViewMatrix.Data[1][2], InViewMatrix.Data[2][2]);
 
-    // 2) 카메라를 향하는 Forward는 'P'를 기준으로 계산해야 함
-    FVector Forward = InCameraLocation - P;
-    if (Forward.LengthSquared() < 1e-8f)
-    {
-        Forward = FVector(0, 0, 1); // 너무 가까운 특이 케이스 방어
-    }
-    Forward.Normalize();
+    const FVector FinalPosition = BasePosition + CameraUp * ZOffset;
 
-    // 3) 보조 축 계산 (월드 Up과 평행 특이점 보정)
-    FVector Right = WorldUp.Cross(Forward);
-    if (Right.LengthSquared() < 1e-6f)
-    {
-        // 카메라가 거의 정수직일 때 대체 업축 사용
-        const FVector AltUp(1, 0, 0);
-        Right = AltUp.Cross(Forward);
-    }
-    Right.Normalize();
-
-    FVector Up = Forward.Cross(Right);
-    Up.Normalize();
-
-    // 4) 회전 + 번역(행렬 규약에 맞춰 회전 후 번역)
-    FMatrix R = FMatrix(Forward, Right, Up);
-    FMatrix T = FMatrix::TranslationMatrix(P);
-    RTMatrix = R * T;
+    const FMatrix Rotation = FMatrix(CameraForward, CameraRight, CameraUp);
+    const FMatrix Transition = FMatrix::TranslationMatrix(FinalPosition);
+    RTMatrix = Rotation * Transition;
 }
 
 void UUUIDTextComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)

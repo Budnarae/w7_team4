@@ -61,15 +61,15 @@ void ULightComponentBaseWidget::RenderWidget()
 	}
 
 	float Intensity = LightComponentBase->GetIntensity();
-	if (ImGui::DragFloat("Intensity", &Intensity, 0.05f, 0.0f, 1.0f, "%.1f"))
+	if (ImGui::DragFloat("Intensity", &Intensity, 3.0f, 0.0f, 10000.0f, "%.1f"))
 	{
 		LightComponentBase->SetIntensity(Intensity);
 	}
 	if (ImGui::IsItemHovered())
 	{
-		ImGui::SetTooltip("Set Intensity of light");
+		ImGui::SetTooltip("Set Intensity of light\nUnreal Default: 5000 (Unitless) / 8 (Candela)\nTypical Range: 100-10000");
 	}
-	
+
 	FVector LightColor = LightComponentBase->GetLightColor();
 	float LightRGB[3] = { LightColor.X, LightColor.Y, LightColor.Z };
 

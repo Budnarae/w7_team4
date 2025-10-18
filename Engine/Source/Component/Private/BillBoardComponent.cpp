@@ -14,7 +14,7 @@ IMPLEMENT_CLASS(UBillBoardComponent, UPrimitiveComponent)
 UBillBoardComponent::UBillBoardComponent()
 {
 	Type = EPrimitiveType::Sprite;
-	
+
     UAssetManager& ResourceManager = UAssetManager::GetInstance();
 
 	Vertices = ResourceManager.GetVertexData(Type);
@@ -53,20 +53,20 @@ void UBillBoardComponent::FaceCamera(
     const FVector& FallbackUp
 )
 {
-    // Front 
-    FVector Front = (CameraPosition - GetRelativeLocation());
+    // Front
+    FVector Front = CameraPosition - GetRelativeLocation();
     Front.Normalize();
 
-    // Right 
+    // Right
     FVector Right = CameraUp.Cross(Front);
     if (Right.Length() <= 0.0001f)
     {
-        // CameraUp Front FallbackUp 
+        // CameraUp Front FallbackUp
         Right = FallbackUp.Cross(Front);
     }
     Right.Normalize();
 
-    // Up 
+    // Up
     FVector Up = Front.Cross(Right);
     Up.Normalize();
 
@@ -74,7 +74,6 @@ void UBillBoardComponent::FaceCamera(
     float YAngle = -asin(Up.X);
     float ZAngle = -atan2(-Right.X, Front.X);
 
-    // 
     SetRelativeRotation(
         FVector(
             FVector::GetRadianToDegree(XAngle),
@@ -101,7 +100,7 @@ void UBillBoardComponent::SetSprite(const UTexture* InSprite)
 }
 
 ID3D11SamplerState* UBillBoardComponent::GetSampler() const
-{ 
+{
     return Sampler;
 };
 
@@ -116,35 +115,22 @@ const FRenderState& UBillBoardComponent::GetClassDefaultRenderState()
     return DefaultRenderState;
 }
 
-void UBillBoardComponent::UpdateBillboardMatrix(const FVector& InCameraLocation)
+void UBillBoardComponent::UpdateBillboardMatrix(const FMatrix& InViewMatrix)
 {
-    // 1) 부모 트랜스폼 반영된 '자기' 월드 위치
-    const FVector basePos = GetWorldLocation();
+    const FVector BasePos = GetWorldLocation();
 
-    // 2) 먼저 최종 표시 위치 계산(위로 띄우기). 화면상 위가 자연스럽게 보이도록 '빌보드 Up' 기준 또는 월드 Up 기준 선택
-    const FVector worldUp(0, 0, 1);
-    FVector forward = InCameraLocation - basePos;
-    if (forward.LengthSquared() < 1e-8f) forward = FVector(0, 0, 1);
-    forward.Normalize();
+    // View 행렬의 역행렬에서 회전 부분만 추출
+    FVector CameraRight(InViewMatrix.Data[0][0], InViewMatrix.Data[1][0], InViewMatrix.Data[2][0]);
+    FVector CameraUp(InViewMatrix.Data[0][1], InViewMatrix.Data[1][1], InViewMatrix.Data[2][1]);
+    FVector CameraForward(InViewMatrix.Data[0][2], InViewMatrix.Data[1][2], InViewMatrix.Data[2][2]);
 
-    FVector right = worldUp.Cross(forward);
-    if (right.LengthSquared() < 1e-6f) // 정수직 특이점 보정
-    {
-        const FVector altUp(1, 0, 0);
-        right = altUp.Cross(forward);
-    }
-    right.Normalize();
+    // 오프셋 적용 (카메라 Up 방향으로 띄우기)
+    const FVector FinalPosition = BasePos + CameraUp * ZOffset;
 
-    FVector up = forward.Cross(right);
-    up.Normalize();
-
-    // 오프셋 반영 위치 P (빌보드 Up 축으로 띄우기)
-    const FVector P = basePos + up * ZOffset;
-
-    // 3) 회전 후 번역(엔진 규약: R * T)
-    const FMatrix R = FMatrix(forward, right, up);
-    const FMatrix T = FMatrix::TranslationMatrix(P);
-    RTMatrix = R * T;
+    // 빌보드 회전 행렬 = 카메라 회전의 역행렬 (화면에 평행)
+    const FMatrix Rotation = FMatrix(CameraForward, CameraRight, CameraUp);
+    const FMatrix Translation = FMatrix::TranslationMatrix(FinalPosition);
+    RTMatrix = Rotation * Translation;
 }
 
 void UBillBoardComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
@@ -195,9 +181,9 @@ UObject* UBillBoardComponent::Duplicate()
 
     // COM 리소스 공유 시 AddRef 필요(둘 다 Release 호출하므로)
     BillBoardComponent->Sampler = Sampler;
-    if (BillBoardComponent->Sampler) 
-    { 
-        BillBoardComponent->Sampler->AddRef(); 
+    if (BillBoardComponent->Sampler)
+    {
+        BillBoardComponent->Sampler->AddRef();
     }
 
     return BillBoardComponent;

@@ -7,14 +7,15 @@
 #include "Physics/Public/AABB.h"
 #include "Physics/Public/OBB.h"
 
-UBatchLines::UBatchLines() : Grid(), BoundingBoxLines(), ConeLines()
+UBatchLines::UBatchLines() : Grid(), BoundingBoxLines(), ConeLines(), bRenderBox(false)
 {
 	Vertices.resize(MaxVerticesNum);
 	Indices.resize(MaxIndicesNum);
 
 	Primitive.NumVertices = static_cast<uint32>(Vertices.size());
 	Primitive.NumIndices = static_cast<uint32>(Indices.size());
-	Primitive.IndexBuffer = FRenderResourceFactory::CreateIndexBuffer(Indices.data(), Primitive.NumIndices * sizeof(uint32), true);
+	Primitive.IndexBuffer = FRenderResourceFactory::CreateIndexBuffer(Indices.data(),
+	                                                                  Primitive.NumIndices * sizeof(uint32), true);
 	//Primitive.Color = FVector4(1, 1, 1, 0.2f);
 	Primitive.Topology = D3D11_PRIMITIVE_TOPOLOGY_LINELIST;
 	Primitive.Vertexbuffer = FRenderResourceFactory::CreateVertexBuffer(
@@ -70,34 +71,18 @@ void UBatchLines::AddGridLines(const float NewCellSize)
 	GridVertices.resize(NumVertices);
 
 	uint32 vertexIndex = 0;
-	// z축 라인 업데이트
+	// Y축 평행 라인 (Y축 방향으로 그어진 라인들)
 	for (int32 LineCount = -GridLineSegmentNumHalf / 2; LineCount < GridLineSegmentNumHalf / 2; ++LineCount)
 	{
-		if (LineCount == 0)
-		{
-			GridVertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, -LineLength, 0.0f };
-			GridVertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, 0.f, 0.f };
-		}
-		else
-		{
-			GridVertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, -LineLength, 0.0f };
-			GridVertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, LineLength, 0.0f };
-		}
+		GridVertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, -LineLength, 0.0f };
+		GridVertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, LineLength, 0.0f };
 	}
 
-	// x축 라인 업데이트
+	// X축 평행 라인 (X축 방향으로 그어진 라인들)
 	for (int32 LineCount = -GridLineSegmentNumHalf / 2; LineCount < GridLineSegmentNumHalf / 2; ++LineCount)
 	{
-		if (LineCount == 0)
-		{
-			GridVertices[vertexIndex++] = { -LineLength, static_cast<float>(LineCount) * NewCellSize, 0.0f };
-			GridVertices[vertexIndex++] = { 0.f, static_cast<float>(LineCount) * NewCellSize, 0.0f };
-		}
-		else
-		{
-			GridVertices[vertexIndex++] = { -LineLength, static_cast<float>(LineCount) * NewCellSize, 0.0f };
-			GridVertices[vertexIndex++] = { LineLength, static_cast<float>(LineCount) * NewCellSize, 0.0f };
-		}
+		GridVertices[vertexIndex++] = { -LineLength, static_cast<float>(LineCount) * NewCellSize, 0.0f };
+		GridVertices[vertexIndex++] = { LineLength, static_cast<float>(LineCount) * NewCellSize, 0.0f };
 	}
 
 	// Grid 인덱스 생성 (LineList이므로 순차적으로)

@@ -40,31 +40,15 @@ void UGrid::UpdateVerticesBy(float NewCellSize)
 	// z축 라인 업데이트
 	for (int32 LineCount = -NumLines / 2; LineCount < NumLines / 2; ++LineCount)
 	{
-		if (LineCount == 0)
-		{
-			Vertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, -LineLength, 0.0f };
-			Vertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, 0.f, 0.f };
-		}
-		else
-		{
-			Vertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, -LineLength, 0.0f };
-			Vertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, LineLength, 0.0f };
-		}
+		Vertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, -LineLength, 0.0f };
+		Vertices[vertexIndex++] = { static_cast<float>(LineCount) * NewCellSize, LineLength, 0.0f };
 	}
 
 	// x축 라인 업데이트
 	for (int32 LineCount = -NumLines / 2; LineCount < NumLines / 2; ++LineCount)
 	{
-		if (LineCount == 0)
-		{
-			Vertices[vertexIndex++] = { -LineLength, static_cast<float>(LineCount) * NewCellSize, 0.0f };
-			Vertices[vertexIndex++] = { 0.f, static_cast<float>(LineCount) * NewCellSize, 0.0f };
-		}
-		else
-		{
-			Vertices[vertexIndex++] = { -LineLength, static_cast<float>(LineCount) * NewCellSize, 0.0f };
-			Vertices[vertexIndex++] = { LineLength, static_cast<float>(LineCount) * NewCellSize, 0.0f };
-		}
+		Vertices[vertexIndex++] = { -LineLength, static_cast<float>(LineCount) * NewCellSize, 0.0f };
+		Vertices[vertexIndex++] = { LineLength, static_cast<float>(LineCount) * NewCellSize, 0.0f };
 	}
 }
 
@@ -73,7 +57,7 @@ void UGrid::MergeVerticesAt(TArray<FVector>& DestVertices, size_t InsertStartInd
 {
 	// 인덱스 범위 보정
 	InsertStartIndex = std::min(DestVertices.size(), InsertStartIndex);
-	
+
 	// 미리 메모리 확보
 	DestVertices.reserve(DestVertices.size() + std::distance(Vertices.begin(), Vertices.end()));
 

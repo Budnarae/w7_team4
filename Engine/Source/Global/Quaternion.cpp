@@ -6,66 +6,89 @@ FQuaternion FQuaternion::FromAxisAngle(const FVector& Axis, float AngleRad)
 	FVector N = Axis;
 	N.Normalize();
 	float s = sinf(AngleRad * 0.5f);
-	return FQuaternion(
+	return {
 		N.X * s,
 		N.Y * s,
 		N.Z * s,
 		cosf(AngleRad * 0.5f)
-	);
+	};
 }
 
 FQuaternion FQuaternion::FromEuler(const FVector& EulerDeg)
 {
+	// EulerDeg: X=Roll, Y=Pitch, Z=Yaw (degrees)
+	// Unreal Engine rotation order: Yaw → Pitch → Roll
 	FVector Radians = FVector::GetDegreeToRadian(EulerDeg);
 
-	float cx = cosf(Radians.X * 0.5f);
-	float sx = sinf(Radians.X * 0.5f);
-	float cy = cosf(Radians.Y * 0.5f);
-	float sy = sinf(Radians.Y * 0.5f);
-	float cz = cosf(Radians.Z * 0.5f);
-	float sz = sinf(Radians.Z * 0.5f);
+	float roll = Radians.X;
+	float pitch = Radians.Y;
+	float yaw = Radians.Z;
 
-	// Yaw-Pitch-Roll (Z, Y, X)
-	return FQuaternion(
-		sx * cy * cz - cx * sy * sz, // X
-		cx * sy * cz + sx * cy * sz, // Y
-		cx * cy * sz - sx * sy * cz, // Z
-		cx * cy * cz + sx * sy * sz  // W
-	);
+	float cr = cosf(roll * 0.5f);
+	float sr = sinf(roll * 0.5f);
+	float cp = cosf(pitch * 0.5f);
+	float sp = sinf(pitch * 0.5f);
+	float cy = cosf(yaw * 0.5f);
+	float sy = sinf(yaw * 0.5f);
+
+	// Rotation order: Yaw(Z) → Pitch(Y) → Roll(X)
+	// Reference 참고: UE Rotator.h Quaternion() 변환
+	return {
+		cr * sp * sy - sr * cp * cy, // X
+		-cr * sp * cy - sr * cp * sy, // Y
+		cr * cp * sy - sr * sp * cy, // Z
+		cr * cp * cy + sr * sp * sy  // W
+	};
 }
 
 FVector FQuaternion::ToEuler() const
 {
+	// Convert Quaternion to Euler angles
+	// Return: X=Roll, Y=Pitch, Z=Yaw (degrees)
+
 	FVector Euler;
 
-	// Roll (X)
-	float sinr_cosp = 2.0f * (W * X + Y * Z);
-	float cosr_cosp = 1.0f - 2.0f * (X * X + Y * Y);
-	Euler.X = atan2f(sinr_cosp, cosr_cosp);
+	// Singularity test
+	const float SingularityTest = Z * X - W * Y;
+	const float YawY = 2.0f * (W * Z + X * Y);
+	const float YawX = 1.0f - 2.0f * (Y * Y + Z * Z);
 
-	// Pitch (Y)
-	float sinp = 2.0f * (W * Y - Z * X);
-	if (fabs(sinp) >= 1)
-		Euler.Y = copysignf(PI / 2, sinp); // 90도 고정
+	constexpr float SINGULARITY_THRESHOLD = 0.4999995f;
+	constexpr float RAD_TO_DEG = 180.0f / PI;
+
+	if (SingularityTest < -SINGULARITY_THRESHOLD)
+	{
+		// South pole singularity
+		Euler.X = 0.0f; // Roll
+		Euler.Y = -90.0f; // Pitch
+		Euler.Z = -atan2f(YawY, YawX) * RAD_TO_DEG; // Yaw
+	}
+	else if (SingularityTest > SINGULARITY_THRESHOLD)
+	{
+		// North pole singularity
+		Euler.X = 0.0f; // Roll
+		Euler.Y = 90.0f; // Pitch
+		Euler.Z = atan2f(YawY, YawX) * RAD_TO_DEG; // Yaw
+	}
 	else
-		Euler.Y = asinf(sinp);
+	{
+		// Standard conversion
+		Euler.X = atan2f(-2.0f * (W * X + Y * Z), 1.0f - 2.0f * (X * X + Y * Y)) * RAD_TO_DEG; // Roll
+		Euler.Y = asinf(2.0f * SingularityTest) * RAD_TO_DEG; // Pitch
+		Euler.Z = atan2f(YawY, YawX) * RAD_TO_DEG; // Yaw
+	}
 
-	// Yaw (Z)
-	float siny_cosp = 2.0f * (W * Z + X * Y);
-	float cosy_cosp = 1.0f - 2.0f * (Y * Y + Z * Z);
-	Euler.Z = atan2f(siny_cosp, cosy_cosp);
-
-	return FVector::GetRadianToDegree(Euler);
+	return Euler;
 }
 
 FQuaternion FQuaternion::operator*(const FQuaternion& Q) const
 {
-	return FQuaternion(
+	return {
 		W * Q.X + X * Q.W + Y * Q.Z - Z * Q.Y,
 		W * Q.Y - X * Q.Z + Y * Q.W + Z * Q.X,
 		W * Q.Z + X * Q.Y - Y * Q.X + Z * Q.W,
 		W * Q.W - X * Q.X - Y * Q.Y - Z * Q.Z
-	);
+	};
 }
 
 void FQuaternion::Normalize()
@@ -84,12 +107,12 @@ FVector FQuaternion::RotateVector(const FQuaternion& q, const FVector& v)
 {
 	FQuaternion p(v.X, v.Y, v.Z, 0.0f);
 	FQuaternion r = q * p * q.Inverse();
-	return FVector(r.X, r.Y, r.Z);
+	return {r.X, r.Y, r.Z};
 }
 
 FVector FQuaternion::RotateVector(const FVector& v) const
 {
 	FQuaternion p(v.X, v.Y, v.Z, 0.0f);
 	FQuaternion r = (*this) * p * this->Inverse();
-	return FVector(r.X, r.Y, r.Z);
+	return {r.X, r.Y, r.Z};
 }

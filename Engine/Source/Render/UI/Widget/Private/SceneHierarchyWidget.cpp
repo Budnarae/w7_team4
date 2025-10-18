@@ -253,10 +253,11 @@ void USceneHierarchyWidget::RenderActorInfo(AActor* InActor, int32 InIndex)
 			FinishRenaming(false);
 		}
 
-		// 포커스 설정 (첫 렌더링에서만)
-		if (ImGui::IsWindowFocused() && !ImGui::IsAnyItemActive())
+		// 포커스 설정 (이름 변경 시작 직후에만)
+		if (bJustStartedRenaming)
 		{
 			ImGui::SetKeyboardFocusHere(-1);
+			bJustStartedRenaming = false;
 		}
 	}
 	else
@@ -264,16 +265,25 @@ void USceneHierarchyWidget::RenderActorInfo(AActor* InActor, int32 InIndex)
 		// 일반 선택 모드
 		bool bClicked = ImGui::Selectable(ActorDisplayName.data(), bIsSelected, ImGuiSelectableFlags_SpanAllColumns);
 
-		if (bClicked)
+		// 더블 클릭 감지: 카메라 Focus 수행
+		bool bDoubleClicked = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+
+		if (bDoubleClicked)
+		{
+			SelectActor(InActor, true);
+			FinishRenaming(false);
+			LastClickTime = 0.0; // 클릭 시간 초기화
+			LastClickedActor = nullptr;
+		}
+		else if (bClicked)
 		{
 			double CurrentTime = ImGui::GetTime();
 
-			// 이미 선택된 Actor를 2초 이내 다시 클릭한 경우
+			// 이미 선택된 Actor를 텀을 두고 다시 클릭한 경우 → 이름 변경
 			if (bIsSelected && LastClickedActor == InActor &&
 				(CurrentTime - LastClickTime) > RENAME_CLICK_DELAY &&
 				(CurrentTime - LastClickTime) < 2.0f)
 			{
-				// 이름 변경 모드 시작
 				StartRenaming(InActor);
 			}
 			else
@@ -286,12 +296,10 @@ void USceneHierarchyWidget::RenderActorInfo(AActor* InActor, int32 InIndex)
 			LastClickedActor = InActor;
 		}
 
-		// 더블 클릭 감지: 카메라 이동 수행
-		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+		// F키 입력: 선택된 Actor에 카메라 Focus
+		if (bIsSelected && ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_F))
 		{
-			SelectActor(InActor, true);
-			// 더블클릭 시 이름변경 모드 비활성화
-			FinishRenaming(false);
+			SelectActor(InActor, true); // 카메라 Focus
 		}
 	}
 
@@ -554,6 +562,7 @@ void USceneHierarchyWidget::StartRenaming(AActor* InActor)
 	}
 
 	RenamingActor = InActor;
+	bJustStartedRenaming = true; // 포커스 설정 플래그
 	FString CurrentName = InActor->GetName().ToString();
 
 	// 현재 이름을 버퍼에 복사 - Detail 패널과 동일한 방식 사용

@@ -56,6 +56,11 @@ void FLightPass::Execute(FRenderingContext& Context)
 	const D3D11_VIEWPORT& InViewport = Context.Viewport;
 	const FVector2& SceneRTSize = Context.SceneRTSize;
 
+	// 기존 DSV 저장
+	ID3D11RenderTargetView* PrevRTV = nullptr;
+	ID3D11DepthStencilView* PrevDSV = nullptr;
+	D3DContext->OMGetRenderTargets(1, &PrevRTV, &PrevDSV);
+
 	// Scene RT 바인딩 (DSV는 nullptr - Depth를 SRV로 읽어야 하므로)
 	ID3D11RenderTargetView* SceneRenderTargetView[] = { SceneColorRTV };
 	D3DContext->OMSetRenderTargets(1, SceneRenderTargetView, nullptr);
@@ -100,6 +105,19 @@ void FLightPass::Execute(FRenderingContext& Context)
 	// SRV 언바인딩
 	ID3D11ShaderResourceView* NullSrv = nullptr;
 	D3DContext->PSSetShaderResources(0, 1, &NullSrv);
+
+	// DSV 복원
+	D3DContext->OMSetRenderTargets(1, &PrevRTV, PrevDSV);
+
+	// COM 객체 참조 카운트 감소
+	if (PrevRTV)
+	{
+		PrevRTV->Release();
+	}
+	if (PrevDSV)
+	{
+		PrevDSV->Release();
+	}
 }
 
 void FLightPass::RenderPointLights(const TArray<UPointLightComponent*>& PointLights,

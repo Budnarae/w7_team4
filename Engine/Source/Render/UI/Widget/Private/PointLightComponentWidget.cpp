@@ -11,22 +11,22 @@ void UPointLightComponentWidget::RenderWidget()
 	PointLightComponent = Cast<UPointLightComponent>(LightComponentBase);
 
 	float AttenuationRadius = PointLightComponent->GetAttenuationRadius();
-	if (ImGui::DragFloat("AttenuationRadius", &AttenuationRadius, 0.05f, 0.0f, 100.0f, "%.1f"))
+	if (ImGui::DragFloat("AttenuationRadius", &AttenuationRadius, 5.0f, 0.0f, 5000.0f, "%.1f"))
 	{
 		PointLightComponent->SetAttenuationRadius(AttenuationRadius);
 	}
 	if (ImGui::IsItemHovered())
 	{
-		ImGui::SetTooltip("Set radius of point light");
+		ImGui::SetTooltip("Set radius of point light\nUnreal Default: 1000\nTypical Range: 100-5000");
 	}
 
 	float LightFalloffExponent = PointLightComponent->GetLightFalloffExponent();
-	if (ImGui::DragFloat("LightFalloffExponent", &LightFalloffExponent, 0.5f, 0.5f, 10.0f, "%.2f"))
+	if (ImGui::DragFloat("LightFalloffExponent", &LightFalloffExponent, 0.01f, 0.0f, 16.0f, "%.2f"))
 	{
 		PointLightComponent->SetLightFalloffExponent(LightFalloffExponent);
 	}
 	if (ImGui::IsItemHovered())
 	{
-		ImGui::SetTooltip("Light attenuation falloff exponent\n1.0 = Linear\n2.0 = Physically based (Inverse Square)\n>2.0 = Sharper falloff");
+		ImGui::SetTooltip("Light attenuation falloff exponent\nUnreal Default: 2.0 (Physically Based)\n1.0 = Linear\n2.0 = Inverse Square\n8.0 = Sharp falloff");
 	}
 }

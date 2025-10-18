@@ -27,7 +27,7 @@ public:
 
 	static const FRenderState& GetClassDefaultRenderState(); 
 
-	void UpdateBillboardMatrix(const FVector& CameraLocation);
+	void UpdateBillboardMatrix(const FMatrix& InViewMatrix);
 	FMatrix GetRTMatrix() const { return RTMatrix; }
 
 	void SetOffset(float Offset) { ZOffset = Offset; }

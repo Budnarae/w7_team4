@@ -29,9 +29,9 @@ public:
 	~UEditor();
 
 	void Update();
-	void RenderEditor(UCamera* InCamera);
-	void RenderDebugPrimitives(UCamera* InCamera); // BatchLines, Axis, BVH (FXAA 적용)
-	void RenderGizmo(UCamera* InCamera);           // Gizmo만 (FXAA 미적용)
+	void RenderDebugPrimitives();													// BatchLines, BVH (FXAA 적용)
+	void RenderGizmo(UCamera* InCamera);											// Gizmo만 (FXAA 미적용)
+	static void RenderAxis(UCamera* InCamera, const D3D11_VIEWPORT& InViewport);	// Axis Widget (FXAA 미적용, 기즈모 이후)
 
 	void SetViewMode(EViewModeIndex InNewViewMode) { CurrentViewMode = InNewViewMode; }
 	EViewModeIndex GetViewMode() const { return CurrentViewMode; }
@@ -70,7 +70,7 @@ private:
 	AActor* SelectedActor = nullptr; // 선택된 액터
 	UWorld* SelectionWorld = nullptr;
 	UActorComponent* SelectedComponent = nullptr; // 선택된 컴포넌트
-	
+
 	UUUIDTextComponent* PickedBillboard; // 선택된 액터의 빌보드
 
 	const float MinScale = 0.01f;
@@ -78,7 +78,6 @@ private:
 	float SavedLeftRatio = 0.5f;
 	float SavedRightRatio = 0.5f;
 	UGizmo Gizmo;
-	UAxis Axis;
 	UBatchLines BatchLines;
 
 	SSplitterV RootSplitter;
@@ -94,7 +93,7 @@ private:
 	EViewportLayoutState ViewportLayoutState = EViewportLayoutState::Multi;
 	EViewportLayoutState TargetViewportLayoutState = EViewportLayoutState::Multi;
 	float AnimationStartTime = 0.0f;
-	float AnimationDuration = 0.2f; 
+	float AnimationDuration = 0.2f;
 	float SourceRootRatio = 0.5f;
 	float SourceLeftRatio = 0.5f;
 	float SourceRightRatio = 0.5f;

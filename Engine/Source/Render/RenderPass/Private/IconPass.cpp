@@ -13,14 +13,15 @@ FIconPass::FIconPass
     ID3D11VertexShader* InVS,
     ID3D11PixelShader* InPS,
     ID3D11InputLayout* InLayout,
-    ID3D11DepthStencilState* InDS
+    ID3D11DepthStencilState* InDS,
+    ID3D11BlendState* InBS
 )
     :
     FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel),
     ConstantBufferIconProperties(InConstantBufferIconProperties),
     VS(InVS),
     PS(InPS),
-    InputLayout(InLayout), DS(InDS)
+    InputLayout(InLayout), DS(InDS), BS(InBS)
 {
 }
 
@@ -34,16 +35,23 @@ void FIconPass::Execute(FRenderingContext& Context)
     	FRenderResourceFactory::GetRasterizerState(RenderState),
     	DS,
     	PS,
-    	nullptr
+    	BS
     };
 
     Pipeline->UpdatePipeline(PipelineInfo);
 
-    if (!(Context.ShowFlags & EEngineShowFlags::SF_Billboard)) return;
-    for (UIconComponent* IconComp : Context.Icons)
+    if (!(Context.ShowFlags & EEngineShowFlags::SF_Billboard))
     {
-        // 1) 카메라를 향하는 빌보드 전용 행렬을 갱신
-        IconComp->UpdateBillboardMatrix(Context.CurrentCamera->GetLocation());
+        return;
+    }
+
+    // 카메라 View 행렬 가져오기
+    const FMatrix& ViewMatrix = Context.CurrentCamera->GetFViewProjConstants().View;
+
+	for (UIconComponent* IconComp : Context.Icons)
+    {
+        // 카메라 View 행렬을 사용하여 빌보드 행렬 갱신
+        IconComp->UpdateBillboardMatrix(ViewMatrix);
 
         Pipeline->SetVertexBuffer(IconComp->GetVertexBuffer(), sizeof(FNormalVertex));
         Pipeline->SetIndexBuffer(IconComp->GetIndexBuffer(), 0);

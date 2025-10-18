@@ -8,6 +8,7 @@
 IMPLEMENT_CLASS(UPointLightComponent, ULightComponent)
 
 UPointLightComponent::UPointLightComponent()
+	: ULightComponent(3.0f, FVector(1.0f, 1.0f, 1.0f), true)
 {
 	// 정적 라이트라면 Tick 불필요
 	bCanEverTick = false;
