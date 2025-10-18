@@ -20,7 +20,7 @@ public:
 	}
 
 private:
-	inline static const uint32 Segments = 64; // ±¸¸¦ Ç¥ÇöÇÒ ¼±ºĞÀÇ °³¼ö
+	inline static const uint32 Segments = 64; // êµ¬ë¥¼ í‘œí˜„í•  ì„ ë¶„ì˜ ê°œìˆ˜
 public:
 	static uint32 GetSegments() { return Segments; }
 };

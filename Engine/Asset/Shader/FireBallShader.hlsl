@@ -38,17 +38,17 @@ struct VS_INPUT
 };
 struct PS_INPUT
 {
-    float4 Position : SV_POSITION; // ·¡½ºÅÍ¿ë
-    float2 Ndc : TEXCOORD0; // ¿ì¸®°¡ °è»êÇØ¼­ ³Ñ±â´Â NDC
+    float4 Position : SV_POSITION; // ë˜ìŠ¤í„°ìš©
+    float2 Ndc : TEXCOORD0; // ìš°ë¦¬ê°€ ê³„ì‚°í•´ì„œ ë„˜ê¸°ëŠ” NDC
 };
 
 PS_INPUT VS_Sphere(VS_INPUT i)
 {
     PS_INPUT o;
-    float4 wpos = mul(float4(i.Position, 1.0), gWorld); // ±¸ÀÇ ¿ùµå »ó À§Ä¡
-    float4 clip = mul(wpos, gViewProj);                 // ±¸ÀÇ Å¬¸³ °ø°£ »ó À§Ä¡
+    float4 wpos = mul(float4(i.Position, 1.0), gWorld); // êµ¬ì˜ ì›”ë“œ ìƒ ìœ„ì¹˜
+    float4 clip = mul(wpos, gViewProj);                 // êµ¬ì˜ í´ë¦½ ê³µê°„ ìƒ ìœ„ì¹˜
     o.Position = clip;
-    o.Ndc = clip.xy / clip.w;                           // ±¸ÀÇ Á¡ÀÇ ndc
+    o.Ndc = clip.xy / clip.w;                           // êµ¬ì˜ ì ì˜ ndc
     return o;
 }
 
@@ -81,23 +81,23 @@ float4 PS_Sphere(PS_INPUT i) : SV_Target
     // 0..1 (D3D NDC)
     float depth01 = DepthTex.SampleLevel(DepthSamp, uv, 0).r;
 
-    // ¹è°æ(¹ÌÈ÷Æ®) early-out (¿ªZ ¾²¸é Á¶°Ç ¹İ´ë·Î)
+    // ë°°ê²½(ë¯¸íˆíŠ¸) early-out (ì—­Z ì“°ë©´ ì¡°ê±´ ë°˜ëŒ€ë¡œ)
     if (depth01 > 0.9999f)
         discard;
 
-    // ¿ùµå À§Ä¡ º¹¿ø (°ß°í)
+    // ì›”ë“œ ìœ„ì¹˜ ë³µì› (ê²¬ê³ )
     float3 worldPos = ReconstructToWorldPos(ndc, depth01);
 
-    // 3D ±¸ ¹İ°æ ¸¶½ºÅ©
+    // 3D êµ¬ ë°˜ê²½ ë§ˆìŠ¤í¬
     float distToCenter = distance(worldPos, gCenterWS);
     if (distToCenter >= gRadius)
-        return 0; // ¿ÏÀü ¹ÛÀÌ¸é ¹Ù·Î Á¾·á
+        return 0; // ì™„ì „ ë°–ì´ë©´ ë°”ë¡œ ì¢…ë£Œ
 
     float R0 = gRadius * (1.0 - saturate(gFeather));
     float t = saturate((distToCenter - R0) / max(gRadius - R0, 1e-5));
     float a3d = 1.0 - t;
 
-    // 2D È­¸é ¸¶½ºÅ© (NDC ±âÁØ)
+    // 2D í™”ë©´ ë§ˆìŠ¤í¬ (NDC ê¸°ì¤€)
     float2 cndc = gCenterClip.xy / gCenterClip.w;
     //float a2d = SmoothCircleNDC(ndc, cndc, gProjRadiusNDC, gFeather, gHardness);
 

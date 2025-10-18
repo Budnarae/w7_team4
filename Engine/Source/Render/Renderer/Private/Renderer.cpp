@@ -8,6 +8,8 @@
 #include "Component/Public/HeightFogComponent.h"
 #include "Component/Public/SemiLightComponent.h"
 #include "Component/Public/FireBallComponent.h"
+#include "Component/Light/Public/PointLightComponent.h"
+#include "Component/Light/Public/SpotLightComponent.h"
 #include "Editor/Public/Editor.h"
 #include "Editor/Public/Viewport.h"
 #include "Editor/Public/ViewportClient.h"
@@ -17,6 +19,7 @@
 #include "Render/UI/Overlay/Public/StatOverlay.h"
 #include "Render/RenderPass/Public/RenderPass.h"
 #include "Component/Mesh/Public/StaticMesh.h"
+#include "Manager/Asset/Public/AssetManager.h"
 #include "Optimization/Public/OcclusionCuller.h"
 #include "Render/Renderer/Public/RenderResourceFactory.h"
 #include "Render/RenderPass/Public/BillboardPass.h"
@@ -39,7 +42,7 @@ void URenderer::Init(HWND InWindowHandle)
 	Pipeline = new UPipeline(GetDeviceContext());
 	ViewportClient = new FViewport();
 
-	// ?�더�??�태 �?리소???�성
+	// ?�더�??�태 �?리소???�성
 	CreateDepthStencilState();
 	CreateBlendState();
 	CreateDefaultShader();
@@ -48,6 +51,7 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateDepthShader();
 	CreateFireBallShader();
 	CreateFireBallForwardShader();
+	CreateUberLightShader();
 	CreateFullscreenQuad();
 	CreateConstantBuffers();
 	CreatePostProcessResources();
@@ -56,13 +60,13 @@ void URenderer::Init(HWND InWindowHandle)
 	FontRenderer = new UFontRenderer();
 	if (!FontRenderer->Initialize())
 	{
-		UE_LOG("FontRenderer 초기???�패");
+		UE_LOG("FontRenderer 초기???�패");
 		SafeDelete(FontRenderer);
 	}
 
 	ViewportClient->InitializeLayout(DeviceResources->GetViewportInfo());
 
-	// Scene RT??ViewportClient 초기???�에 ?�성 (?�바�??�기 ?�용)
+	// Scene RT??ViewportClient 초기???�에 ?�성 (?�바�??�기 ?�용)
 	CreateSceneRenderTargets();
 
 	FStaticMeshPass* StaticMeshPass = new FStaticMeshPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
@@ -75,12 +79,12 @@ void URenderer::Init(HWND InWindowHandle)
 		DepthVertexShader, DepthPixelShader, DepthInputLayout);
 	RenderPasses.push_back(PrimitivePass);
 
-	// ?�파 블렌?�을 ?�용?�는 ?�반 ?�칼 ?�스
+	// ?�파 블렌?�을 ?�용?�는 ?�반 ?�칼 ?�스
 	FDecalPass* AlphaDecalPass = new FDecalPass(Pipeline, ConstantBufferViewProj,
 		DecalVertexShader, DecalPixelShader, DecalInputLayout, DecalDepthStencilState, AlphaBlendState, false);
 	RenderPasses.push_back(AlphaDecalPass);
 
-	// 가???�합???�용?�는 SemiLight ?�칼 ?�스
+	// 가???�합???�용?�는 SemiLight ?�칼 ?�스
 	FDecalPass* AdditiveDecalPass = new FDecalPass(Pipeline, ConstantBufferViewProj,
 		DecalVertexShader, DecalPixelShader, DecalInputLayout, DecalDepthStencilState, AdditiveBlendState, true);
 	RenderPasses.push_back(AdditiveDecalPass);
@@ -92,14 +96,15 @@ void URenderer::Init(HWND InWindowHandle)
 	FTextPass* TextPass = new FTextPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels);
 	RenderPasses.push_back(TextPass);
 
-	//FFireBallPass* FireBallPass = new FFireBallPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-	//	FireBallVertexShader, FireBallPixelShader, FireBallInputLayout, DecalDepthStencilState, AdditiveBlendState);
-	//RenderPasses.push_back(FireBallPass);
+	// Deferred Volume Point Light (효율적인 구 볼륨 렌더링)
+	FFireBallPass* FireBallPass = new FFireBallPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
+		FireBallVertexShader, FireBallPixelShader, FireBallInputLayout, DecalDepthStencilState, FireBallBlendState);
+	RenderPasses.push_back(FireBallPass);
 
-	// Forward lighting over geometry (additive)
-	FFireBallForwardPass* FireBallForwardPass = new FFireBallForwardPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-		FireBallFwdVertexShader, FireBallFwdPixelShader, FireBallFwdInputLayout, DecalDepthStencilState, AdditiveBlendState);
-	RenderPasses.push_back(FireBallForwardPass);
+	// Forward Point Light (테스트용, 성능 낮음)
+	// FFireBallForwardPass* FireBallForwardPass = new FFireBallForwardPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
+	// 	FireBallFwdVertexShader, FireBallFwdPixelShader, FireBallFwdInputLayout, DecalDepthStencilState, AdditiveBlendState);
+	// RenderPasses.push_back(FireBallForwardPass);
 }
 
 void URenderer::Release()
@@ -110,6 +115,7 @@ void URenderer::Release()
 	ReleaseDepthShader();
 	ReleaseFireBallShader();
 	ReleaseFireBallForwardShader();
+	ReleaseUberLightShader();
 	ReleaseFullscreenQuad();
 	ReleaseDepthStencilState();
 	ReleaseBlendState();
@@ -151,11 +157,11 @@ void URenderer::CreateDepthStencilState()
 	DisabledDescription.StencilEnable = FALSE;
 	GetDevice()->CreateDepthStencilState(&DisabledDescription, &DisabledDepthStencilState);
 
-	// No Test But Write Depth (Depth Test X, Depth Write O) - ?�스???�로?�스??
+	// No Test But Write Depth (Depth Test X, Depth Write O) - ?�스???�로?�스??
 	D3D11_DEPTH_STENCIL_DESC NoTestWriteDescription = {};
-	NoTestWriteDescription.DepthEnable = TRUE;  // Depth ?�성??(write�??�해)
-	NoTestWriteDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;  // Depth write ?�성??
-	NoTestWriteDescription.DepthFunc = D3D11_COMPARISON_ALWAYS;  // ??�� ?�과 (test 비활?�화)
+	NoTestWriteDescription.DepthEnable = TRUE;  // Depth ?�성??(write�??�해)
+	NoTestWriteDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;  // Depth write ?�성??
+	NoTestWriteDescription.DepthFunc = D3D11_COMPARISON_ALWAYS;  // ??�� ?�과 (test 비활?�화)
 	NoTestWriteDescription.StencilEnable = FALSE;
 	GetDevice()->CreateDepthStencilState(&NoTestWriteDescription, &NoTestButWriteDepthState);
 }
@@ -317,12 +323,12 @@ void URenderer::Update()
 
 		const D3D11_VIEWPORT& ClientViewport = ViewportClient.GetViewportInfo();
 
-		// === Scene RT ?�더�? clientViewport?� ?�일??viewport ?�용 ===
-		// Scene RT??SwapChain ?�체 ?�기�??�성?�었?��?�?
-		// �?ViewportClient??TopLeftX/Y�?그�?�??�용?�여 ?�당 ?�역???�더�?
+		// === Scene RT ?�더�? clientViewport?� ?�일??viewport ?�용 ===
+		// Scene RT??SwapChain ?�체 ?�기�??�성?�었?��?�?
+		// �?ViewportClient??TopLeftX/Y�?그�?�??�용?�여 ?�당 ?�역???�더�?
 
-		// IMPORTANT: �?viewport마다 Scene RT�??�시 바인??
-		// (?�전 viewport??post-processing??BackBuffer�?바인?�을 변경했?��?�?
+		// IMPORTANT: �?viewport마다 Scene RT�??�시 바인??
+		// (?�전 viewport??post-processing??BackBuffer�?바인?�을 변경했?��?�?
 		ID3D11RenderTargetView* SceneRtvs[] = { SceneColorRTV };
 		GetDeviceContext()->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
 		GetDeviceContext()->RSSetViewports(1, &ClientViewport);
@@ -332,23 +338,30 @@ void URenderer::Update()
 			RenderLevel(CurrentCamera);
 		}
 
-		// === ?�버�??�리미티�??�더�? Scene RT???�더�?(FXAA ?�용) ===
+		// === PointLight 렌더링 (w6_team6 방식 - Level 기반) ===
+		// === UberLight 렌더링 (PointLight + SpotLight 통합) ===
+		{
+			TIME_PROFILE(RenderUberLights)
+			RenderUberLights(CurrentCamera, ClientViewport);
+		}
+
+		// === ?�버�??�리미티�??�더�? Scene RT???�더�?(FXAA ?�용) ===
 		{
 			TIME_PROFILE(RenderDebugPrimitives)
 			GEditor->GetEditorModule()->RenderDebugPrimitives(CurrentCamera);
 		}
 
 		// === Post-Processing: Scene RT -> 백버??===
-		// ?�합 ?�스???�로?�싱 ?�스: Fog + Anti-Aliasing (FXAA)
-		// RenderLevel + RenderDebugPrimitives 결과??모두 FXAA ?�용
+		// ?�합 ?�스???�로?�싱 ?�스: Fog + Anti-Aliasing (FXAA)
+		// RenderLevel + RenderDebugPrimitives 결과??모두 FXAA ?�용
 		GetDeviceContext()->RSSetViewports(1, &ClientViewport);
 
 		{
 			TIME_PROFILE(ExecutePostProcess)
-			ExecutePostProcess(CurrentCamera, ClientViewport); // Fog + FXAA ?�합
+			ExecutePostProcess(CurrentCamera, ClientViewport); // Fog + FXAA ?�합
 		}
 
-		// === 기즈�??�더�? BackBuffer??직접 ?�더�?(FXAA 미적?? ??�� ?�명) ===
+		// === 기즈�??�더�? BackBuffer??직접 ?�더�?(FXAA 미적?? ??�� ?�명) ===
 		{
 			TIME_PROFILE(RenderGizmo)
 			GEditor->GetEditorModule()->RenderGizmo(CurrentCamera);
@@ -369,14 +382,14 @@ void URenderer::Update()
 
 void URenderer::RenderBegin() const
 {
-	// BackBuffer ?�리??(post-processing 결과�?받을 �?
+	// BackBuffer ?�리??(post-processing 결과�?받을 �?
 	auto* BackBufferRTV = DeviceResources->GetRenderTargetView();
 	auto* BackBufferDSV = DeviceResources->GetDepthStencilView();
 	GetDeviceContext()->ClearRenderTargetView(BackBufferRTV, ClearColor);
 	GetDeviceContext()->ClearDepthStencilView(BackBufferDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-	// Scene RT ?�리??�?바인??(Scene Color + Scene Depth)
-	// ?�후 �?ViewportClient가 Scene RT???�당 ?�역???�더링함
+	// Scene RT ?�리??�?바인??(Scene Color + Scene Depth)
+	// ?�후 �?ViewportClient가 Scene RT???�당 ?�역???�더링함
 	GetDeviceContext()->ClearRenderTargetView(SceneColorRTV, ClearColor);
 	GetDeviceContext()->ClearDepthStencilView(SceneDepthDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
@@ -394,7 +407,7 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera)
 	const FViewProjConstants& ViewProj = InCurrentCamera->GetFViewProjConstants();
 	TArray<UPrimitiveComponent*> FinalVisiblePrims = InCurrentCamera->GetViewVolumeCuller().GetRenderableObjects();
 
-	// // ?�클루전 컬링 ?�행
+	// // ?�클루전 컬링 ?�행
 	// TIME_PROFILE(Occlusion)
 	// static COcclusionCuller Culler;
 	// Culler.InitializeCuller(ViewProj.View, ViewProj.Projection);
@@ -421,6 +434,7 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera)
 		{
 			RenderingContext.FireBalls.push_back(FireBall);
 		}
+		// PointLight는 이제 Level::GetAllPointLights()로 직접 가져옴 (w6_team6 방식)
 		else if (auto Text = Cast<UTextComponent>(Prim); Text && !Text->IsExactly(UUUIDTextComponent::StaticClass()))
 		{
 			RenderingContext.Texts.push_back(Text);
@@ -430,7 +444,7 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera)
 			RenderingContext.DefaultPrimitives.push_back(Prim);
 		}
 	}
-	// ?�집 ?�에 ?�래�??�인
+	// ?�집 ?�에 ?�래�??�인
 	const bool bWantsDecal = (CurrentLevel->GetShowFlags() & EEngineShowFlags::SF_Decal) != 0;
 	if (bWantsDecal)
 	{
@@ -535,7 +549,7 @@ void URenderer::OnResize(uint32 InWidth, uint32 InHeight)
 
 void URenderer::CreatePostProcessResources()
 {
-	// PostProcess ?�이??로드 (?�합 ?�스???�로?�싱: Fog + FXAA)
+	// PostProcess ?�이??로드 (?�합 ?�스???�로?�싱: Fog + FXAA)
 	TArray<D3D11_INPUT_ELEMENT_DESC> PostProcessLayout =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -554,12 +568,12 @@ void URenderer::CreatePostProcessResources()
 		&PostProcessPixelShader
 	);
 
-	// ?�형 ?�램???�플??
+	// ?�형 ?�램???�플??
 	PostProcessSamplerState = FRenderResourceFactory::CreateSamplerState(
 		D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP
 	);
 	ConstantBufferPostProcessParameters = FRenderResourceFactory::CreateConstantBuffer<FPostProcessParameters>();
-	PostProcessUserParameters = {}; // 기본�???구조�??�폴??
+	PostProcessUserParameters = {}; // 기본�???구조�??�폴??
 	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters, PostProcessUserParameters);
 }
 
@@ -577,25 +591,25 @@ void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPOR
 	auto* Context = GetDeviceContext();
 	const ULevel* CurrentLevel = GWorld->GetLevel();
 
-	// 출력: 백버??RTV�?
+	// 출력: 백버??RTV�?
 	auto* BackBufferRTV = DeviceResources->GetRenderTargetView();
 	auto* BackBufferDSV = DeviceResources->GetDepthStencilView();
 	Context->OMSetRenderTargets(1, &BackBufferRTV, BackBufferDSV);
 
-	// Viewport ?�정 (�?ViewportClient ?�역?�만 ?�용)
+	// Viewport ?�정 (�?ViewportClient ?�역?�만 ?�용)
 	Context->RSSetViewports(1, &InViewport);
 
-	// PostProcess ?�수 버퍼 ?�데?�트 (viewport + fog + FXAA ?�보)
-	FPostProcessParameters postProcessParams = PostProcessUserParameters; // 기존 ?�용???�라미터 복사
+	// PostProcess ?�수 버퍼 ?�데?�트 (viewport + fog + FXAA ?�보)
+	FPostProcessParameters postProcessParams = PostProcessUserParameters; // 기존 ?�용???�라미터 복사
 
-	// FXAA ?�성???�래�??�정
+	// FXAA ?�성???�래�??�정
 	postProcessParams.EnableFXAA = bIsFXAAEnabled ? 1.0f : 0.0f;
 
-	// Viewport ?�보 ?�정
+	// Viewport ?�보 ?�정
 	postProcessParams.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
 	postProcessParams.ViewportSize = FVector2(InViewport.Width, InViewport.Height);
 
-	// Scene RT ?�기 가?�오�?
+	// Scene RT ?�기 가?�오�?
 	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
 	GetSwapChain()->GetDesc(&swapChainDesc);
 	postProcessParams.SceneRTSize = FVector2(
@@ -603,7 +617,7 @@ void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPOR
 		static_cast<float>(swapChainDesc.BufferDesc.Height)
 	);
 
-	// Fog ?�라미터 ?�정
+	// Fog ?�라미터 ?�정
 	const bool bShowFog = CurrentLevel && (CurrentLevel->GetShowFlags() & EEngineShowFlags::SF_Fog) != 0;
 
 	// Find first enabled HeightFogComponent
@@ -628,7 +642,7 @@ void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPOR
 		}
 	}
 
-	// Fog ?�라미터 채우�?
+	// Fog ?�라미터 채우�?
 	if (FogComponent && bShowFog)
 	{
 		postProcessParams.FogDensity = FogComponent->GetFogDensity();
@@ -645,7 +659,7 @@ void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPOR
 	}
 	else
 	{
-		// Fog 비활?�화
+		// Fog 비활?�화
 		postProcessParams.FogDensity = 0.0f;
 		postProcessParams.FogMaxOpacity = 0.0f;
 	}
@@ -657,13 +671,13 @@ void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPOR
 
 	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters, postProcessParams);
 
-	// ?�이?�라???�업
+	// ?�이?�라???�업
 	FPipelineInfo PipelineInfo = {
 		PostProcessInputLayout,                     // PostProcess fullscreen quad layout
 		PostProcessVertexShader,                    // PostProcess VS (fullscreen quad)
 		FRenderResourceFactory::GetRasterizerState({ ECullMode::None, EFillMode::Solid }),
 		NoTestButWriteDepthState,                   // Depth test X, Depth write O
-		PostProcessPixelShader,                     // PostProcess PS (Fog + FXAA ?�합)
+		PostProcessPixelShader,                     // PostProcess PS (Fog + FXAA ?�합)
 		nullptr,                                    // Blend
 		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
 	};
@@ -671,19 +685,19 @@ void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPOR
 
 	Pipeline->SetConstantBuffer(0, false, ConstantBufferPostProcessParameters);
 
-	// ?�스 ?�스�??�플??(Scene Color + Scene Depth)
+	// ?�스 ?�스�??�플??(Scene Color + Scene Depth)
 	ID3D11ShaderResourceView* srvs[2] = { SceneColorSRV, SceneDepthSRV };
 	Context->PSSetShaderResources(0, 2, srvs);
 	Pipeline->SetSamplerState(0, false, PostProcessSamplerState);
 
-	// Fullscreen Quad 그리�?(RenderFog?� ?�일??방식)
+	// Fullscreen Quad 그리�?(RenderFog?� ?�일??방식)
 	uint32 stride = sizeof(float) * 5;  // Position(3) + TexCoord(2)
 	uint32 offset = 0;
 	Pipeline->SetVertexBuffer(FullscreenQuadVB, stride);
 	Pipeline->SetIndexBuffer(FullscreenQuadIB, sizeof(uint32));
 	Pipeline->DrawIndexed(6, 0, 0);
 
-	// SRV ?�바?�드(경고 방�?)
+	// SRV ?�바?�드(경고 방�?)
 	ID3D11ShaderResourceView* NullSrvs[2] = { nullptr, nullptr };
 	Context->PSSetShaderResources(0, 2, NullSrvs);
 }
@@ -707,7 +721,7 @@ void URenderer::SetFXAASubpixelBlend(float InValue)
 
 void URenderer::SetFXAAEdgeThreshold(float InValue)
 {
-	// ?�반?�으�?0.05 ~ 0.25 권장
+	// ?�반?�으�?0.05 ~ 0.25 권장
 	float Clamped = std::clamp(InValue, 0.01f, 0.5f);
 	if (PostProcessUserParameters.EdgeThreshold != Clamped)
 	{
@@ -718,7 +732,7 @@ void URenderer::SetFXAAEdgeThreshold(float InValue)
 
 void URenderer::SetFXAAEdgeThresholdMin(float InValue)
 {
-	// ?�반?�으�?0.002 ~ 0.05 권장
+	// ?�반?�으�?0.002 ~ 0.05 권장
 	float Clamped = std::clamp(InValue, 0.001f, 0.1f);
 	if (PostProcessUserParameters.EdgeThresholdMin != Clamped)
 	{
@@ -795,8 +809,8 @@ void URenderer::ReleaseFullscreenQuad()
 
 void URenderer::CreateSceneRenderTargets()
 {
-	// Scene RT??SwapChain ?�체 ?�기�??�성 (4분할 viewport 지??
-	// �?ViewportClient??Scene RT???�당 ?�역???�더링됨
+	// Scene RT??SwapChain ?�체 ?�기�??�성 (4분할 viewport 지??
+	// �?ViewportClient??Scene RT???�당 ?�역???�더링됨
 	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
 	GetSwapChain()->GetDesc(&swapChainDesc);
 	uint32 Width = swapChainDesc.BufferDesc.Width;
@@ -826,14 +840,14 @@ void URenderer::CreateSceneRenderTargets()
 
 	GetDevice()->CreateTexture2D(&ColorDescription, nullptr, &SceneColorTexture);
 
-	// RTV ?�성 (???�더링용)
+	// RTV ?�성 (???�더링용)
 	D3D11_RENDER_TARGET_VIEW_DESC RTVDescription = {};
 	RTVDescription.Format = ColorDescription.Format;
 	RTVDescription.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 	RTVDescription.Texture2D.MipSlice = 0;
 	GetDevice()->CreateRenderTargetView(SceneColorTexture, &RTVDescription, &SceneColorRTV);
 
-	// SRV ?�성 (?�스???�로?�스?�서 ?�기??
+	// SRV ?�성 (?�스???�로?�스?�서 ?�기??
 	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDescription = {};
 	SRVDescription.Format = ColorDescription.Format;
 	SRVDescription.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
@@ -847,7 +861,7 @@ void URenderer::CreateSceneRenderTargets()
 	DepthDescription.Height = Height;
 	DepthDescription.MipLevels = 1;
 	DepthDescription.ArraySize = 1;
-	DepthDescription.Format = DXGI_FORMAT_R24G8_TYPELESS; // Typeless�??�성 (DSV?� SRV 모두 지??
+	DepthDescription.Format = DXGI_FORMAT_R24G8_TYPELESS; // Typeless�??�성 (DSV?� SRV 모두 지??
 	DepthDescription.SampleDesc.Count = 1;
 	DepthDescription.SampleDesc.Quality = 0;
 	DepthDescription.Usage = D3D11_USAGE_DEFAULT;
@@ -857,16 +871,16 @@ void URenderer::CreateSceneRenderTargets()
 
 	GetDevice()->CreateTexture2D(&DepthDescription, nullptr, &SceneDepthTexture);
 
-	// DSV ?�성 (Depth ?�기??
+	// DSV ?�성 (Depth ?�기??
 	D3D11_DEPTH_STENCIL_VIEW_DESC DSVDescription = {};
 	DSVDescription.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;  // Depth 24비트 + Stencil 8비트
 	DSVDescription.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 	DSVDescription.Texture2D.MipSlice = 0;
 	GetDevice()->CreateDepthStencilView(SceneDepthTexture, &DSVDescription, &SceneDepthDSV);
 
-	// SRV ?�성 (Depth ?�기??- Stencil?� 무시)
+	// SRV ?�성 (Depth ?�기??- Stencil?� 무시)
 	D3D11_SHADER_RESOURCE_VIEW_DESC depthSRVDesc = {};
-	depthSRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;  // Depth�??�기, Stencil 무시
+	depthSRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;  // Depth�??�기, Stencil 무시
 	depthSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	depthSRVDesc.Texture2D.MostDetailedMip = 0;
 	depthSRVDesc.Texture2D.MipLevels = 1;
@@ -877,7 +891,7 @@ void URenderer::CreateSceneRenderTargets()
 	dsvRO.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 	dsvRO.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 	dsvRO.Texture2D.MipSlice = 0;
-	dsvRO.Flags = D3D11_DSV_READ_ONLY_DEPTH; // ?�요 ??| D3D11_DSV_READ_ONLY_STENCIL
+	dsvRO.Flags = D3D11_DSV_READ_ONLY_DEPTH; // ?�요 ??| D3D11_DSV_READ_ONLY_STENCIL
 	GetDevice()->CreateDepthStencilView(SceneDepthTexture, &dsvRO, &SceneDepthDSV_ReadOnly);
 
 	UE_LOG("Scene Render Targets Created: %ux%u", Width, Height);
@@ -912,4 +926,263 @@ void URenderer::ReleaseFireBallForwardShader()
 	SafeRelease(FireBallFwdVertexShader);
 	SafeRelease(FireBallFwdPixelShader);
 	SafeRelease(FireBallFwdInputLayout);
+}
+
+// ========================================
+// UberLight Rendering (PointLight + SpotLight 통합)
+// ========================================
+
+void URenderer::CreateUberLightShader()
+{
+	TArray<D3D11_INPUT_ELEMENT_DESC> layout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),   D3D11_INPUT_PER_VERTEX_DATA, 0 }
+	};
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/UberLightShader.hlsl", layout, &UberLightVertexShader, &UberLightInputLayout);
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLightShader.hlsl", &UberLightPixelShader);
+
+	ConstantBufferLightProperties = FRenderResourceFactory::CreateConstantBuffer<FLightProperties>();
+	UberLightSamplerState = FRenderResourceFactory::CreateSamplerState(D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP);
+
+	// Depth State: LESS_EQUAL, Write OFF (for camera outside light volume)
+	D3D11_DEPTH_STENCIL_DESC depthDesc = {};
+	depthDesc.DepthEnable = TRUE;
+	depthDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	depthDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+	depthDesc.StencilEnable = FALSE;
+	GetDevice()->CreateDepthStencilState(&depthDesc, &UberLightDepthState);
+}
+
+void URenderer::ReleaseUberLightShader()
+{
+	SafeRelease(UberLightVertexShader);
+	SafeRelease(UberLightPixelShader);
+	SafeRelease(UberLightInputLayout);
+	SafeRelease(ConstantBufferLightProperties);
+	SafeRelease(UberLightSamplerState);
+	SafeRelease(UberLightDepthState);
+}
+
+void URenderer::RenderUberLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport)
+{
+	const ULevel* CurrentLevel = GWorld->GetLevel();
+	if (!CurrentLevel) return;
+
+	const auto& PointLights = CurrentLevel->GetAllPointLights();
+	const auto& SpotLights = CurrentLevel->GetAllSpotLights();
+
+	// 렌더링할 라이트가 없으면 리턴
+	if (PointLights.empty() && SpotLights.empty())
+	{
+		return;
+	}
+
+	auto* Context = GetDeviceContext();
+
+	// IMPORTANT: Scene RT 바인딩, 하지만 DSV는 nullptr!
+	// Depth texture를 SRV로 읽어야 하므로 DSV로 바인딩하면 안됨
+	// (DirectX 11: 같은 리소스를 DSV와 SRV로 동시에 사용 불가)
+	ID3D11RenderTargetView* SceneRtvs[] = { SceneColorRTV };
+	Context->OMSetRenderTargets(1, SceneRtvs, nullptr);  // DSV = nullptr
+	Context->RSSetViewports(1, &InViewport);
+
+	// Additive Blend + NO Depth Test (DSV가 nullptr이므로 depth test 불가능)
+	Context->OMSetBlendState(AdditiveBlendState, nullptr, 0xFFFFFFFF);
+	Context->OMSetDepthStencilState(DisabledDepthStencilState, 0);  // Depth 완전 비활성화
+
+	// Pipeline 설정 (UberLight 셰이더 사용)
+	FPipelineInfo PipelineInfo = {
+		UberLightInputLayout,
+		UberLightVertexShader,
+		FRenderResourceFactory::GetRasterizerState({ ECullMode::None, EFillMode::Solid }),  // Culling 비활성화
+		DisabledDepthStencilState,  // Depth 완전 비활성화 (DSV가 nullptr)
+		UberLightPixelShader,
+		AdditiveBlendState,
+		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
+	};
+	Pipeline->UpdatePipeline(PipelineInfo);
+
+	// Constant Buffer 유효성 확인
+	if (!ConstantBufferLightProperties)
+	{
+		UE_LOG_ERROR("ConstantBufferLightProperties is nullptr! Skipping light rendering.");
+		return;
+	}
+
+	// Constant Buffers 설정
+	Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
+	Pipeline->SetConstantBuffer(2, false, ConstantBufferLightProperties);
+
+	// Depth Texture 바인딩
+	Context->PSSetShaderResources(0, 1, &SceneDepthSRV);
+	Pipeline->SetSamplerState(0, false, UberLightSamplerState);
+
+	// Inverse ViewProj Matrix 계산
+	const FViewProjConstants& ViewProj = InCurrentCamera->GetFViewProjConstants();
+	FMatrix ViewProjMatrix = ViewProj.View * ViewProj.Projection;
+	FMatrix InvViewProj = ViewProjMatrix.Inverse();
+
+	// Scene RT 크기 가져오기 (PostProcess와 동일)
+	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+	GetSwapChain()->GetDesc(&swapChainDesc);
+
+	// AssetManager에서 Sphere Mesh 가져오기 (PointLight와 SpotLight 공통 사용)
+	UAssetManager& AssetMgr = UAssetManager::GetInstance();
+	ID3D11Buffer* SphereVB = AssetMgr.GetVertexbuffer(EPrimitiveType::Sphere);
+	ID3D11Buffer* SphereIB = AssetMgr.GetIndexbuffer(EPrimitiveType::Sphere);
+	uint32 SphereNumIndices = AssetMgr.GetNumIndices(EPrimitiveType::Sphere);
+	uint32 SphereNumVertices = AssetMgr.GetNumVertices(EPrimitiveType::Sphere);
+
+	// ========== PointLight 렌더링 ==========
+	for (auto* PointLight : PointLights)
+	{
+		if (!PointLight || !PointLight->GetOwner())
+		{
+			continue;
+		}
+
+		// Light Properties 설정
+		FLightProperties lightProps = {};
+		lightProps.LightPosition = PointLight->GetWorldLocation();
+		lightProps.Intensity = PointLight->GetIntensity();
+		lightProps.LightColor = PointLight->GetLightColor();
+		lightProps.Radius = PointLight->GetAttenuationRadius();
+		lightProps.LightDirection = FVector::ZeroVector();  // PointLight는 방향 없음
+		lightProps.RadiusFalloff = PointLight->GetLightFalloffExponent();
+
+		// Viewport 정보 (PostProcess와 동일한 방식)
+		lightProps.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
+		lightProps.ViewportSize = FVector2(InViewport.Width, InViewport.Height);
+		lightProps.SceneRTSize = FVector2(
+			static_cast<float>(swapChainDesc.BufferDesc.Width),
+			static_cast<float>(swapChainDesc.BufferDesc.Height)
+		);
+
+		lightProps.InnerConeAngle = 0.0f;  // PointLight는 cone 없음
+		lightProps.OuterConeAngle = 0.0f;
+		lightProps.LightType = 0;  // 0 = PointLight
+		lightProps.Padding3 = FVector::ZeroVector();
+
+		lightProps.InvViewProj = InvViewProj;
+
+		// Constant Buffer 업데이트
+		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferLightProperties, lightProps);
+		Pipeline->SetConstantBuffer(2, false, ConstantBufferLightProperties);
+
+		// World Transform (Sphere를 라이트 위치/반경으로 스케일)
+		FVector LightPos = PointLight->GetWorldLocation();
+		FVector LightScale = FVector(PointLight->GetAttenuationRadius(),
+			PointLight->GetAttenuationRadius(), PointLight->GetAttenuationRadius());
+		FMatrix WorldMatrix = FMatrix::GetModelMatrix(LightPos, FVector::ZeroVector(), LightScale);
+
+		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModels, WorldMatrix);
+		Pipeline->SetConstantBuffer(0, true, ConstantBufferModels);
+
+		// Sphere Mesh 렌더링
+		Pipeline->SetVertexBuffer(SphereVB, sizeof(FNormalVertex));
+		if (SphereIB)
+		{
+			Pipeline->SetIndexBuffer(SphereIB, 0);
+			Pipeline->DrawIndexed(SphereNumIndices, 0, 0);
+		}
+		else
+		{
+			Pipeline->Draw(SphereNumVertices, 0);
+		}
+	}
+
+	// ========== SpotLight 렌더링 ==========
+	static int SpotLightDebugCount = 0;
+	for (auto* SpotLight : SpotLights)
+	{
+		if (!SpotLight || !SpotLight->GetOwner())
+		{
+			if (SpotLightDebugCount < 3)
+			{
+				UE_LOG("RenderUberLights: SpotLight skipped (nullptr or no owner)");
+				SpotLightDebugCount++;
+			}
+			continue;
+		}
+
+		if (SpotLightDebugCount < 3)
+		{
+			UE_LOG("RenderUberLights: Rendering SpotLight - Pos=(%.1f, %.1f, %.1f), Intensity=%.1f, Radius=%.1f",
+				SpotLight->GetWorldLocation().X, SpotLight->GetWorldLocation().Y, SpotLight->GetWorldLocation().Z,
+				SpotLight->GetIntensity(), SpotLight->GetRadius());
+			SpotLightDebugCount++;
+		}
+
+		// Light Properties 설정
+		FLightProperties lightProps = {};
+		lightProps.LightPosition = SpotLight->GetWorldLocation();
+		lightProps.Intensity = SpotLight->GetIntensity();
+		lightProps.LightColor = SpotLight->GetLightColor();
+		lightProps.Radius = SpotLight->GetRadius();
+
+		// SpotLight 방향
+		const FMatrix& TransformMatrix = SpotLight->GetWorldTransformMatrix();
+		FVector LightDirection = FVector(TransformMatrix.Data[0][0],
+		                                TransformMatrix.Data[0][1],
+		                                TransformMatrix.Data[0][2]);
+		LightDirection.Normalize();
+
+		lightProps.LightDirection = LightDirection;
+
+		lightProps.RadiusFalloff = SpotLight->GetRadiusFalloff();
+
+		// Viewport 정보
+		lightProps.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
+		lightProps.ViewportSize = FVector2(InViewport.Width, InViewport.Height);
+		lightProps.SceneRTSize = FVector2(
+			static_cast<float>(swapChainDesc.BufferDesc.Width),
+			static_cast<float>(swapChainDesc.BufferDesc.Height)
+		);
+
+		// Cone Angles (도 단위 -> 라디안 변환)
+		lightProps.InnerConeAngle = FVector::GetDegreeToRadian(SpotLight->GetInnerConeAngle());
+		lightProps.OuterConeAngle = FVector::GetDegreeToRadian(SpotLight->GetOuterConeAngle());
+		lightProps.LightType = 1;  // 1 = SpotLight
+		lightProps.Padding3 = FVector::ZeroVector();
+
+		lightProps.InvViewProj = InvViewProj;
+
+		// Constant Buffer 업데이트
+		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferLightProperties, lightProps);
+		Pipeline->SetConstantBuffer(2, false, ConstantBufferLightProperties);
+
+		// World Transform (Sphere를 라이트 위치/반경으로 스케일)
+		FVector LightPos = SpotLight->GetWorldLocation();
+		FVector LightScale = FVector(SpotLight->GetRadius(), SpotLight->GetRadius(), SpotLight->GetRadius());
+		FMatrix WorldMatrix = FMatrix::GetModelMatrix(LightPos, FVector::ZeroVector(), LightScale);
+
+		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModels, WorldMatrix);
+		Pipeline->SetConstantBuffer(0, true, ConstantBufferModels);
+
+		// Sphere Mesh 렌더링
+		Pipeline->SetVertexBuffer(SphereVB, sizeof(FNormalVertex));
+		if (SphereIB)
+		{
+			Pipeline->SetIndexBuffer(SphereIB, 0);
+			Pipeline->DrawIndexed(SphereNumIndices, 0, 0);
+		}
+		else
+		{
+			Pipeline->Draw(SphereNumVertices, 0);
+		}
+	}
+
+	// SRV 언바인드
+	ID3D11ShaderResourceView* NullSRV = nullptr;
+	Context->PSSetShaderResources(0, 1, &NullSRV);
+
+	// Scene RT 다시 바인딩 (RenderDebugPrimitives를 위해)
+	Context->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
+
+	// Blend/Depth State 복원
+	Context->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+	Context->OMSetDepthStencilState(DefaultDepthStencilState, 0);
 }

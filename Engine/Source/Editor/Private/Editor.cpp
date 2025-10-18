@@ -307,6 +307,10 @@ void UEditor::UpdateBatchLines()
 			}
 			else if (USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(Component))
 			{
+				const FVector Center = SpotLightComponent->GetWorldLocation();
+				const float Radius = SpotLightComponent->GetAttenuationRadius();
+
+				// Cone visualization
 				const FMatrix& WorldMatrix = SpotLightComponent->GetWorldTransformMatrix();
 
 				// WorldTransform 행렬에서 축 벡터 추출
@@ -321,23 +325,36 @@ void UEditor::UpdateBatchLines()
 				Direction.Normalize();
 				UpVector.Normalize();
 
+				// Cone 각도는 반각 기준이므로 전체 각도는 2배
+				const float InnerAngle = SpotLightComponent->GetInnerConeAngle() * 2.0f;
+				const float OuterAngle = SpotLightComponent->GetOuterConeAngle() * 2.0f;
+
+				// Radius는 Cone의 빗면 길이 (UE에서 이렇게 쓰는 듯)
+				// Cone 높이(Depth) = Radius * cos(HalfAngle)
+				const float InnerHalfAngleRad = FVector::GetDegreeToRadian(InnerAngle * 0.5f);
+				const float OuterHalfAngleRad = FVector::GetDegreeToRadian(OuterAngle * 0.5f);
+				const float InnerDepth = Radius * cosf(InnerHalfAngleRad);
+				const float OuterDepth = Radius * cosf(OuterHalfAngleRad);
+
 				BatchLines.AddConeLines
 				(
-					SpotLightComponent->GetWorldLocation(),
+					Center,
 					Direction,
 					UpVector,
-					SpotLightComponent->GetInnerConeAngle(),
-					FVector(SpotLightComponent->GetWorldScale3D())
+					InnerAngle,
+					FVector(InnerDepth, InnerDepth, InnerDepth)
 				);
 
 				BatchLines.AddConeLines
 				(
-					SpotLightComponent->GetWorldLocation(),
+					Center,
 					Direction,
 					UpVector,
-					SpotLightComponent->GetOuterConeAngle(),
-					FVector(SpotLightComponent->GetWorldScale3D())
+					OuterAngle,
+					FVector(OuterDepth, OuterDepth, OuterDepth)
 				);
+
+				return;
 			}
 		}
 	}

@@ -1,28 +1,42 @@
 ﻿#pragma once
-
 #include "Component/Light/Public/LightComponent.h"
 
-class UPointLightComponent : public ULightComponent
+/**
+ * @brief Point Light 컴포넌트
+ */
+UCLASS()
+class UPointLightComponent :
+    public ULightComponent
 {
-	GENERATED_BODY()
-	DECLARE_CLASS(UPointLightComponent, ULightComponent)
+    GENERATED_BODY()
+    DECLARE_CLASS(UPointLightComponent, ULightComponent)
+
+public:
+    UPointLightComponent();
+    ~UPointLightComponent() override;
+
+    void BeginPlay() override;
+    void TickComponent() override;
+
+    // UI 호환 Getters/Setters
+    float GetAttenuationRadius() const { return AttenuationRadius; }
+    void SetAttenuationRadius(float InRadius) { AttenuationRadius = InRadius; }
+
+    float GetLightFalloffExponent() const { return LightFalloffExponent; }
+    void SetLightFalloffExponent(float InFalloff) { LightFalloffExponent = InFalloff; }
+
+    // Widget 연결
+    UClass* GetSpecificWidgetClass() const override;
+
+    // Serialization
+    void Serialize(bool bInIsLoading, JSON& InOutHandle) override;
+
+    // Override for Duplicate
+    UObject* Duplicate() override;
 
 private:
-	float AttenuationRadius = 5.0f;
-	float LightFalloffExponent = 0.0f;
-public:
-	UPointLightComponent() = default;
-	UPointLightComponent(float InIntensity, const FVector& InLightColor, bool InbVisible);
-	~UPointLightComponent() override = default;
+    float AttenuationRadius = 10.0f; // 영향 반경 (월드 단위) - UI 변수명
+    float LightFalloffExponent = 2.0f; // 감쇠 지수 (1.0 = 선형, 2.0 = 제곱) - UI 변수명
 
-	/* Getter Setter */
-	float GetAttenuationRadius() const;
-	void SetAttenuationRadius(float InAttenuationRadius);
-
-	float GetLightFalloffExponent() const;
-	void SetLightFalloffExponent(float InLightFalloffExponent);
-
-	UClass* GetSpecificWidgetClass() const override;
-
-	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+    bool bHasBegunPlay = false;
 };

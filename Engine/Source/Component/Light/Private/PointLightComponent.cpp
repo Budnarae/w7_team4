@@ -1,37 +1,45 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "Component/Light/Public/PointLightComponent.h"
+
+#include "Level/Public/Level.h"
 #include "Render/UI/Widget/Public/PointLightComponentWidget.h"
 #include "Utility/Public/JsonSerializer.h"
 
-IMPLEMENT_CLASS(UPointLightComponent, ULightComponent);
+IMPLEMENT_CLASS(UPointLightComponent, ULightComponent)
 
-UPointLightComponent::UPointLightComponent
-(
-	float InIntensity,
-	const FVector& InLightColor,
-	bool InbVisible
-) :
-	ULightComponent(InIntensity, InLightColor, InbVisible)
+UPointLightComponent::UPointLightComponent()
 {
+	// 정적 라이트라면 Tick 불필요
+	bCanEverTick = false;
 }
 
-/* Getter Setter */
-float UPointLightComponent::GetAttenuationRadius() const
+UPointLightComponent::~UPointLightComponent()
 {
-	return AttenuationRadius;
-}
-void UPointLightComponent::SetAttenuationRadius(float InAttenuationRadius)
-{
-	AttenuationRadius = InAttenuationRadius;
+	// Level에서 등록 해제
+	if (bHasBegunPlay && GWorld && GWorld->GetLevel())
+	{
+		GWorld->GetLevel()->UnregisterPointLight(this);
+	}
 }
 
-float UPointLightComponent::GetLightFalloffExponent() const
+void UPointLightComponent::BeginPlay()
 {
-	return LightFalloffExponent;
+	Super::BeginPlay();
+	bHasBegunPlay = true;
+
+	UE_LOG("PointLightComponent: BeginPlay: Owner: %s, Intensity: %.1f, Radius: %.1f",
+		GetOwner() ? GetOwner()->GetName().ToString().data() : "nullptr", Intensity, GetAttenuationRadius());
+
+	// Level에 PointLight 등록
+	if (GWorld && GWorld->GetLevel())
+	{
+		GWorld->GetLevel()->RegisterPointLight(this);
+	}
 }
-void UPointLightComponent::SetLightFalloffExponent(float InLightFalloffExponent)
+
+void UPointLightComponent::TickComponent()
 {
-	LightFalloffExponent = InLightFalloffExponent;
+	Super::TickComponent();
 }
 
 UClass* UPointLightComponent::GetSpecificWidgetClass() const
@@ -39,22 +47,34 @@ UClass* UPointLightComponent::GetSpecificWidgetClass() const
 	return UPointLightComponentWidget::StaticClass();
 }
 
-void UPointLightComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
+void UPointLightComponent::Serialize(bool bInIsLoading, JSON& InOutHandle)
 {
-	Super::Serialize(bInIsLoading, InOutHandle);
+	ULightComponent::Serialize(bInIsLoading, InOutHandle);
 
-	// 불러오기
 	if (bInIsLoading)
 	{
 		// bool 변수 로드
 		FJsonSerializer::ReadFloat(InOutHandle, "AttenuationRadius", AttenuationRadius, 0.0f);
 		FJsonSerializer::ReadFloat(InOutHandle, "LightFalloffExponent", LightFalloffExponent, 0.0f);
 	}
-	// 저장
 	else
 	{
 		// bool 변수 저장
 		InOutHandle["AttenuationRadius"] = AttenuationRadius;
 		InOutHandle["LightFalloffExponent"] = LightFalloffExponent;
 	}
+}
+
+UObject* UPointLightComponent::Duplicate()
+{
+	UPointLightComponent* PointLightComp = Cast<UPointLightComponent>(Super::Duplicate());
+
+	// Copy light properties
+	PointLightComp->Intensity = Intensity;
+	PointLightComp->LightColor = LightColor;
+
+	// Reset runtime flag for PIE
+	PointLightComp->bHasBegunPlay = false;
+
+	return PointLightComp;
 }

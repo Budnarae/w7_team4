@@ -597,6 +597,8 @@ void UActorDetailWidget::AddComponentByName(AActor* InSelectedActor, const FStri
 		return;
 	}
 
+	NewComponent->BeginPlay();
+
 	// 1. 새로 만든 컴포넌트가 SceneComponent인지 확인
 	if (USceneComponent* NewSceneComponent = Cast<USceneComponent>(NewComponent))
 	{
