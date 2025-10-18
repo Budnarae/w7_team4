@@ -30,6 +30,7 @@
 #include "Render/RenderPass/Public/FireBallPass.h"
 #include "Render/RenderPass/Public/FireBallForwardPass.h"
 #include "Render/RenderPass/Public/LightPass.h"
+#include "Render/RenderPass/Public/IconPass.h"
 
 IMPLEMENT_SINGLETON_CLASS_BASE(URenderer)
 
@@ -58,6 +59,7 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateDepthShader();
 	CreateFireBallShader();
 	CreateFireBallForwardShader();
+	CreateIconShader();
 	CreateUberLightResources();
 	CreateFullscreenQuad();
 	CreateConstantBuffers();
@@ -109,6 +111,18 @@ void URenderer::Init(HWND InWindowHandle)
 		                   DefaultDepthStencilState);
 	RenderPasses.push_back(BillboardPass);
 
+	FIconPass* IconPass = new FIconPass(
+		Pipeline,
+		ConstantBufferViewProj,
+		ConstantBufferModels,
+		ConstantBufferIconProperties,
+		IconVertexShader,
+		IconPixelShader,
+		IconInputLayout,
+		DefaultDepthStencilState
+	);
+	RenderPasses.push_back(IconPass);
+
 	FTextPass* TextPass = new FTextPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels);
 	RenderPasses.push_back(TextPass);
 
@@ -136,6 +150,7 @@ void URenderer::Release()
 	ReleaseFireBallShader();
 	ReleaseFireBallForwardShader();
 	ReleaseUberLightResources();
+	ReleaseIconShader();
 	ReleaseFullscreenQuad();
 	ReleaseDepthStencilState();
 	ReleaseBlendState();
@@ -366,6 +381,15 @@ void URenderer::ReleaseDefaultShader()
 	SafeRelease(DecalVertexShader);
 	SafeRelease(DecalPixelShader);
 }
+
+void URenderer::ReleaseIconShader()
+{
+	SafeRelease(IconVertexShader);
+	SafeRelease(IconPixelShader);
+	SafeRelease(IconInputLayout);
+	SafeRelease(ConstantBufferIconProperties);
+}
+
 
 void URenderer::ReleaseDepthShader()
 {
@@ -1159,6 +1183,21 @@ void URenderer::CreateUberLightResources()
 	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 	GetDevice()->CreateBlendState(&blendDesc, &LightAdditiveBlend);
+}
+
+void URenderer::CreateIconShader()
+{
+	TArray<D3D11_INPUT_ELEMENT_DESC> layout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),   D3D11_INPUT_PER_VERTEX_DATA, 0 }
+	};
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/IconShader.hlsl", layout, &IconVertexShader, &IconInputLayout);
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/IconShader.hlsl", &IconPixelShader);
+
+	ConstantBufferIconProperties = FRenderResourceFactory::CreateConstantBuffer<FIconProperties>();
 }
 
 void URenderer::ReleaseUberLightResources()

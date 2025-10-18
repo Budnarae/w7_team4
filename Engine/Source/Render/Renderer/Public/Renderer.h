@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "DeviceResources.h"
 #include "Core/Public/Object.h"
 #include "Component/Public/PrimitiveComponent.h"
@@ -45,6 +45,13 @@ struct FPostProcessParameters
 
 	FMatrix InvViewProj;
 };
+
+struct FIconProperties
+{
+	FVector LightColor;			// Icon에 적용할 빛의 색상
+	float Intensity;			// Icon에 적용할 빛의 강도
+};
+
 /**
  * @brief Rendering Pipeline 전반을 처리하는 클래스
  */
@@ -68,6 +75,7 @@ public:
 	void CreateFireBallShader();
 	void CreateFireBallForwardShader();
 	void CreateUberLightResources();
+	void CreateIconShader();
 	void CreateFullscreenQuad();
 	void CreateConstantBuffers();
 	void CreateSceneRenderTargets();
@@ -81,6 +89,7 @@ public:
 	void ReleaseFireBallShader();
 	void ReleaseFireBallForwardShader();
 	void ReleaseUberLightResources();
+	void ReleaseIconShader();
 	void ReleaseFullscreenQuad();
 	void ReleaseSceneRenderTargets();
 
@@ -198,6 +207,12 @@ private:
 	ID3D11SamplerState* LightSamplerState = nullptr;
 	ID3D11DepthStencilState* LightDepthLessEqualNoWrite = nullptr;
 	ID3D11BlendState* LightAdditiveBlend = nullptr;
+
+	// Icon Shaders
+	ID3D11VertexShader* IconVertexShader = nullptr;
+	ID3D11PixelShader* IconPixelShader = nullptr;
+	ID3D11InputLayout* IconInputLayout = nullptr;
+	ID3D11Buffer* ConstantBufferIconProperties = nullptr;
 
 	// Fullscreen Quad for Post-Processing
 	ID3D11Buffer* FullscreenQuadVB = nullptr;

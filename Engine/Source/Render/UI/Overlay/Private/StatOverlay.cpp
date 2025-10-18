@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Render/UI/Overlay/Public/StatOverlay.h"
 #include "Global/Types.h"
 #include "Manager/Time/Public/TimeManager.h"
