@@ -2,6 +2,7 @@
 
 #include "Component/Light/Public/LightComponent.h"
 
+UCLASS()
 class UDirectionalLightComponent : public ULightComponent
 {
 	GENERATED_BODY()
@@ -13,4 +14,7 @@ public:
 	~UDirectionalLightComponent() override = default;
 
 	UClass* GetSpecificWidgetClass() const override;
+
+	UObject* Duplicate() override;
+	void DuplicateSubObjects(UObject* DuplicatedObject) override;
 };

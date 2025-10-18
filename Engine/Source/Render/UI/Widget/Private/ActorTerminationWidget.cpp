@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Render/UI/Widget/Public/ActorTerminationWidget.h"
 
 #include "Level/Public/Level.h"
@@ -57,16 +57,23 @@ void UActorTerminationWidget::RenderWidget()
     {
         if (ActorDetailWidget)
         {
-            if (UActorComponent* Comp = ActorDetailWidget->GetSelectedComponent())
+			// 삭제 불가능 컴포넌트인지 확인 후 삭제
+            UActorComponent* Comp = ActorDetailWidget->GetSelectedComponent();
+            if (Comp)
             {
+                if (Comp->GetClass()->MetaEquals("bIsRemovable", "false"))
+                {
+                    UE_LOG_WARNING("ActorTerminationWidget: 선택된 컴포넌트는 삭제할 수 없습니다: %s",
+                                   Comp->GetName().ToString().data());
+                    return;
+				}
                 DeleteSelectedComponent(SelectedActor, Comp);
-                return;
             }
         }
 
         // 컴포넌트 선택이 없으면 아무 것도 하지 않음(원하시면 액터 삭제로 폴백 가능)
         // DeleteSelectedActor(SelectedActor);
-        return;
+        // return;
     }
 
     // 기타 윈도우 포커스면 아무것도 하지 않음

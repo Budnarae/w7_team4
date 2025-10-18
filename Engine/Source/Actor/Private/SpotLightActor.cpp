@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Actor/Public/SpotLightActor.h"
 #include "Component/Light/Public/SpotLightComponent.h"
 #include "Component/Public/BillBoardComponent.h"
@@ -40,7 +40,7 @@ void ASpotLightActor::InitializeComponents()
 	if (IconComponent)
 	{
 		UTexture* Icon = UAssetManager::GetInstance().CreateTexture("Asset/Icon/SpotLight_64x.png");
-		IconComponent->SetSprite(Icon);
+		IconComponent->	SetSprite(Icon);
 		IconComponent->SetParentAttachment(GetRootComponent());
 	}
 }

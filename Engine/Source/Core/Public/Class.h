@@ -36,6 +36,7 @@ public:
     void SetMeta(FName Key, FName Data);
     FName GetMeta(FName Key);
     bool HasMeta(FName Key);
+	bool MetaEquals(FName Key, FName Value);
 
 private:
     FName ClassName;
@@ -197,7 +198,7 @@ UObject* ClassName::CreateDefaultObject##ClassName() \
 }\
 static bool bIsRegistered_##ClassName = [](){ ClassName::StaticClass(); return true; }();
 
-#define CLASS_META(ThisClass, Key, Value)                                       \
+#define SET_CLASS_META_IN_GLOBAL(ThisClass, Key, Value)                         \
     namespace {                                                                 \
         struct ThisClass##MetaRegister_##Key                                    \
         {                                                                       \

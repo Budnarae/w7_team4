@@ -344,6 +344,7 @@
     <ClInclude Include="Source\Component\Public\DecalComponent.h" />
     <ClInclude Include="Source\Component\Public\FireBallComponent.h" />
     <ClInclude Include="Source\Component\Public\HeightFogComponent.h" />
+    <ClInclude Include="Source\Component\Public\IconComponent.h" />
     <ClInclude Include="Source\Component\Public\ProjectileMovementComponent.h" />
     <ClInclude Include="Source\Component\Public\RotatingMovementComponent.h" />
     <ClInclude Include="Source\Component\Public\SemiLightComponent.h" />
@@ -537,6 +538,7 @@
     <ClCompile Include="Source\Component\Private\DecalComponent.cpp" />
     <ClCompile Include="Source\Component\Private\FireBallComponent.cpp" />
     <ClCompile Include="Source\Component\Private\HeightFogComponent.cpp" />
+    <ClCompile Include="Source\Component\Private\IconComponent.cpp" />
     <ClCompile Include="Source\Component\Private\ProjectileMovementComponent.cpp" />
     <ClCompile Include="Source\Component\Private\RotatingMovementComponent.cpp" />
     <ClCompile Include="Source\Component\Private\SemiLightComponent.cpp" />

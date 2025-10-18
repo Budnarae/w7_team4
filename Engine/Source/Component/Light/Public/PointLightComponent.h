@@ -33,6 +33,7 @@ public:
 
     // Override for Duplicate
     UObject* Duplicate() override;
+    void DuplicateSubObjects(UObject* DuplicatedObject) override;
 
 private:
     float AttenuationRadius = 10.0f; // 영향 반경 (월드 단위) - UI 변수명

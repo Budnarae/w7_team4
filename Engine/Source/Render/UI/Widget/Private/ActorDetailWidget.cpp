@@ -262,12 +262,27 @@ void UActorDetailWidget::RenderComponentTree(AActor* InSelectedActor)
 void UActorDetailWidget::RenderComponentNodeRecursive(UActorComponent* InComponent)
 {
 	if (!InComponent) return;
+	if (InComponent->GetClass()->MetaEquals("bVisibleInComponentTree", "false")) return;
 
 	USceneComponent* SceneComp = Cast<USceneComponent>(InComponent);
 	FString ComponentName = InComponent->GetName().ToString();
 
+	// 가시 자식 개수 계산
+	int VisibleChildCount = 0;
+	if (SceneComp)
+	{
+		for (USceneComponent* Child : SceneComp->GetChildren())
+		{
+			if (Child && !Child->GetClass()->MetaEquals("bVisibleInComponentTree", "false"))
+			{
+				VisibleChildCount++;
+			}
+		}
+	}
+
 	ImGuiTreeNodeFlags NodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
-	if (!SceneComp || SceneComp->GetChildren().empty())
+	// 가시 자식이 없으면 Leaf로 표시 (화살표 제거)
+	if (!SceneComp || VisibleChildCount == 0)
 		NodeFlags |= ImGuiTreeNodeFlags_Leaf;
 	if (SelectedComponent == InComponent)
 		NodeFlags |= ImGuiTreeNodeFlags_Selected;
@@ -417,7 +432,7 @@ void UActorDetailWidget::RenderComponentNodeRecursive(UActorComponent* InCompone
 		if (SceneComp)
 		{
 			for (auto& Child : SceneComp->GetChildren())
-			{
+			{		
 				RenderComponentNodeRecursive(Child);
 			}
 		}

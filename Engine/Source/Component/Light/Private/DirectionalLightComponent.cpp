@@ -20,3 +20,14 @@ UClass* UDirectionalLightComponent::GetSpecificWidgetClass() const
 {
 	return Super::GetSpecificWidgetClass();
 }
+
+UObject* UDirectionalLightComponent::Duplicate()
+{
+	UDirectionalLightComponent* DirectionalLightComponent = Cast<UDirectionalLightComponent>(Super::Duplicate());
+	return DirectionalLightComponent;
+}
+
+void UDirectionalLightComponent::DuplicateSubObjects(UObject* DuplicatedObject)
+{
+	Super::DuplicateSubObjects(DuplicatedObject);
+}

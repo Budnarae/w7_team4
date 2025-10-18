@@ -212,7 +212,7 @@ void FLightPass::RenderSpotLights(const TArray<USpotLightComponent*>& SpotLights
 		LightProps.Intensity = SpotLight->GetIntensity();
 		LightProps.LightColor = SpotLight->GetLightColor();
 		LightProps.Radius = SpotLight->GetRadius();
-		LightProps.RadiusFalloff = SpotLight->GetRadiusFalloff();
+		LightProps.RadiusFalloff = SpotLight->GetLightFalloffExponent();
 		LightProps._Padding0 = 0.0f;
 		LightProps.ViewportTopLeft = FVector2(Viewport.TopLeftX, Viewport.TopLeftY);
 		LightProps.ViewportSize = FVector2(Viewport.Width, Viewport.Height);

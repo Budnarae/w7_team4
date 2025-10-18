@@ -111,3 +111,10 @@ bool UClass::HasMeta(FName Key)
 {
 	return GetMeta(Key) != FName::GetNone();
 }
+
+bool UClass::MetaEquals(FName Key, FName Value)
+{
+	if (GetMeta(Key) == FName::GetNone())
+		return false;
+	return GetMeta(Key) == Value;
+}

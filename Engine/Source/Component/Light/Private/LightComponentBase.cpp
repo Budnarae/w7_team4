@@ -75,3 +75,18 @@ void ULightComponentBase::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 		InOutHandle["bVisible"] = bVisible;
 	}
 }
+
+UObject* ULightComponentBase::Duplicate()
+{
+	ULightComponentBase* LightComponentBase = Cast<ULightComponentBase>(Super::Duplicate());
+	LightComponentBase->Intensity = Intensity;
+	LightComponentBase->LightColor = LightColor;
+	LightComponentBase->bVisible = bVisible;
+
+	return LightComponentBase;
+}
+
+void ULightComponentBase::DuplicateSubObjects(UObject* DuplicatedObject)
+{
+	Super::DuplicateSubObjects(DuplicatedObject);
+}
