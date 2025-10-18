@@ -14,6 +14,7 @@ struct FRenderingContext
     // Components By Render Pass
     TArray<class UStaticMeshComponent*> StaticMeshes;
     TArray<class UBillBoardComponent*> BillBoards;
+	TArray<class UIconComponent*> Icons;
 	TArray<class UTextComponent*> Texts;
 	TArray<class UDecalComponent*> AlphaDecals;
 	TArray<class UDecalComponent*> AdditiveDecals;

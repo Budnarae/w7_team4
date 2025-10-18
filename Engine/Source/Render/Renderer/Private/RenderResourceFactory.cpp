@@ -18,7 +18,7 @@ void FRenderResourceFactory::CreateVertexShaderAndInputLayout(const wstring& InF
 
 	URenderer::GetInstance().GetDevice()->CreateVertexShader(VertexShaderBlob->GetBufferPointer(), VertexShaderBlob->GetBufferSize(), nullptr, OutVertexShader);
 	URenderer::GetInstance().GetDevice()->CreateInputLayout(InInputLayoutDescs.data(), static_cast<uint32>(InInputLayoutDescs.size()), VertexShaderBlob->GetBufferPointer(), VertexShaderBlob->GetBufferSize(), OutInputLayout);
-	
+
 	SafeRelease(VertexShaderBlob);
 }
 

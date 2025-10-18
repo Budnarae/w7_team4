@@ -1,7 +1,6 @@
 ﻿#include "pch.h"
 #include "Component/Public/IconComponent.h"
-
-// Include는 여기서!
+#include "Component/Light/Public/LightComponent.h"
 #include "Component/Light/Public/PointLightComponent.h"
 #include "Component/Light/Public/SpotLightComponent.h"
 #include "Component/Light/Public/DirectionalLightComponent.h"
@@ -48,6 +47,32 @@ void UIconComponent::Initialize(USceneComponent* Parent)
 	{
 		SetSprite(UAssetManager::GetInstance().CreateTexture("Asset/Icon/Pawn_64x.png"));
 	}
+}
+
+FVector UIconComponent::GetIconColor() const
+{
+	USceneComponent* Parent = GetParentComponent();
+	ULightComponent* LightComp = Cast<ULightComponent>(Parent);
+
+	if (!Parent || !LightComp)
+	{
+		return FVector(1.0f, 1.0f, 1.0f);
+	}
+
+	return LightComp->GetLightColor();
+}
+
+float UIconComponent::GetIconIntensity() const
+{
+	USceneComponent* Parent = GetParentComponent();
+	ULightComponent* LightComp = Cast<ULightComponent>(Parent);
+
+	if (!Parent || !LightComp)
+	{
+		return 1.0f;
+	}
+
+	return LightComp->GetIntensity();
 }
 
 UObject* UIconComponent::Duplicate()

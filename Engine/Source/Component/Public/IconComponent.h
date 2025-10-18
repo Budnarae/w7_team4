@@ -9,6 +9,11 @@ class UIconComponent : public UBillBoardComponent
 
 public:
 	void Initialize(USceneComponent* Parent);
+
+	FVector GetIconColor() const;
+	float GetIconIntensity() const;
+
+
 	UObject* Duplicate() override;
 	void DuplicateSubObjects(UObject* DuplicatedObject) override;
 };

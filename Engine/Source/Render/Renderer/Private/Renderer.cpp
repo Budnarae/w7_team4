@@ -29,6 +29,7 @@
 #include "Render/RenderPass/Public/DecalPass.h"
 #include "Render/RenderPass/Public/FireBallPass.h"
 #include "Render/RenderPass/Public/FireBallForwardPass.h"
+#include "Render/RenderPass/Public/IconPass.h"
 
 IMPLEMENT_SINGLETON_CLASS_BASE(URenderer)
 
@@ -52,6 +53,7 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateFireBallShader();
 	CreateFireBallForwardShader();
 	CreateUberLightShader();
+	CreateIconShader();
 	CreateFullscreenQuad();
 	CreateConstantBuffers();
 	CreatePostProcessResources();
@@ -93,6 +95,18 @@ void URenderer::Init(HWND InWindowHandle)
 		TextureVertexShader, TexturePixelShader, TextureInputLayout, DefaultDepthStencilState);
 	RenderPasses.push_back(BillboardPass);
 
+	FIconPass* IconPass = new FIconPass(
+		Pipeline,
+		ConstantBufferViewProj,
+		ConstantBufferModels,
+		ConstantBufferIconProperties,
+		IconVertexShader,
+		IconPixelShader,
+		IconInputLayout,
+		DefaultDepthStencilState
+	);
+	RenderPasses.push_back(IconPass);
+
 	FTextPass* TextPass = new FTextPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels);
 	RenderPasses.push_back(TextPass);
 
@@ -116,6 +130,7 @@ void URenderer::Release()
 	ReleaseFireBallShader();
 	ReleaseFireBallForwardShader();
 	ReleaseUberLightShader();
+	ReleaseIconShader();
 	ReleaseFullscreenQuad();
 	ReleaseDepthStencilState();
 	ReleaseBlendState();
@@ -430,7 +445,7 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera)
 		{
 			// PIE가 아닐 때에만 아이콘 렌더링
 			if (!(GEditor->GetPIEState() == EPIEState::Playing))
-				RenderingContext.BillBoards.push_back(Icon);
+				RenderingContext.Icons.push_back(Icon);
 		}
 		else if (auto BillBoard = Cast<UBillBoardComponent>(Prim))
 		{
@@ -962,6 +977,21 @@ void URenderer::CreateUberLightShader()
 	GetDevice()->CreateDepthStencilState(&depthDesc, &UberLightDepthState);
 }
 
+void URenderer::CreateIconShader()
+{
+	TArray<D3D11_INPUT_ELEMENT_DESC> layout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),   D3D11_INPUT_PER_VERTEX_DATA, 0 }
+	};
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/IconShader.hlsl", layout, &IconVertexShader, &IconInputLayout);
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/IconShader.hlsl", &IconPixelShader);
+
+	ConstantBufferIconProperties = FRenderResourceFactory::CreateConstantBuffer<FIconProperties>();
+}
+
 void URenderer::ReleaseUberLightShader()
 {
 	SafeRelease(UberLightVertexShader);
@@ -970,6 +1000,14 @@ void URenderer::ReleaseUberLightShader()
 	SafeRelease(ConstantBufferLightProperties);
 	SafeRelease(UberLightSamplerState);
 	SafeRelease(UberLightDepthState);
+}
+
+void URenderer::ReleaseIconShader()
+{
+	SafeRelease(IconVertexShader);
+	SafeRelease(IconPixelShader);
+	SafeRelease(IconInputLayout);
+	SafeRelease(ConstantBufferIconProperties);
 }
 
 void URenderer::RenderUberLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport)
