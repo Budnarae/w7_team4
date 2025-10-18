@@ -13,14 +13,15 @@ FIconPass::FIconPass
     ID3D11VertexShader* InVS,
     ID3D11PixelShader* InPS,
     ID3D11InputLayout* InLayout,
-    ID3D11DepthStencilState* InDS
+    ID3D11DepthStencilState* InDS,
+    ID3D11BlendState* InBS
 )
     :
     FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel),
     ConstantBufferIconProperties(InConstantBufferIconProperties),
     VS(InVS),
     PS(InPS),
-    InputLayout(InLayout), DS(InDS)
+    InputLayout(InLayout), DS(InDS), BS(InBS)
 {
 }
 
@@ -34,7 +35,7 @@ void FIconPass::Execute(FRenderingContext& Context)
     	FRenderResourceFactory::GetRasterizerState(RenderState),
     	DS,
     	PS,
-    	nullptr
+    	BS
     };
 
     Pipeline->UpdatePipeline(PipelineInfo);

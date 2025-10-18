@@ -30,7 +30,7 @@ void ASpotLightActor::InitializeComponents()
 
 		// 기본 라이트 설정: 따뜻한 주황색
 		SpotLightComponent->SetLightColor({1.0f, 0.6f, 0.2f});
-		SpotLightComponent->SetIntensity(20.0f);
+		SpotLightComponent->SetIntensity(3.0f);
 		SpotLightComponent->SetInnerConeAngle(20.0f);
 		SpotLightComponent->SetOuterConeAngle(45.0f);
 	}

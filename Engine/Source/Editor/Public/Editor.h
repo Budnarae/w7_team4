@@ -29,9 +29,8 @@ public:
 	~UEditor();
 
 	void Update();
-	void RenderEditor(UCamera* InCamera);
-	void RenderDebugPrimitives(UCamera* InCamera); // BatchLines, Axis, BVH (FXAA 적용)
-	void RenderGizmo(UCamera* InCamera);           // Gizmo만 (FXAA 미적용)
+	void RenderDebugPrimitives();			// BatchLines, Axis, BVH (FXAA 적용)
+	void RenderGizmo(UCamera* InCamera);	// Gizmo만 (FXAA 미적용)
 
 	void SetViewMode(EViewModeIndex InNewViewMode) { CurrentViewMode = InNewViewMode; }
 	EViewModeIndex GetViewMode() const { return CurrentViewMode; }
@@ -70,7 +69,7 @@ private:
 	AActor* SelectedActor = nullptr; // 선택된 액터
 	UWorld* SelectionWorld = nullptr;
 	UActorComponent* SelectedComponent = nullptr; // 선택된 컴포넌트
-	
+
 	UUUIDTextComponent* PickedBillboard; // 선택된 액터의 빌보드
 
 	const float MinScale = 0.01f;
@@ -94,7 +93,7 @@ private:
 	EViewportLayoutState ViewportLayoutState = EViewportLayoutState::Multi;
 	EViewportLayoutState TargetViewportLayoutState = EViewportLayoutState::Multi;
 	float AnimationStartTime = 0.0f;
-	float AnimationDuration = 0.2f; 
+	float AnimationDuration = 0.2f;
 	float SourceRootRatio = 0.5f;
 	float SourceLeftRatio = 0.5f;
 	float SourceRightRatio = 0.5f;

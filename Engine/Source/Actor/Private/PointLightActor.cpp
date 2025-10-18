@@ -31,7 +31,7 @@ void APointLightActor::InitializeComponents()
 
 		// 기본 라이트 설정: 따뜻한 주황색
 		PointLightComponent->SetLightColor(FVector(1.0f, 0.6f, 0.2f));
-		PointLightComponent->SetIntensity(20.0f);
+		PointLightComponent->SetIntensity(3.0f);
 		PointLightComponent->SetAttenuationRadius(10.0f);
 		PointLightComponent->SetLightFalloffExponent(2.0f);
 	}

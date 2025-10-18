@@ -98,13 +98,7 @@ void UEditor::Update()
 	UpdateLayout();
 }
 
-void UEditor::RenderEditor(UCamera* InCamera)
-{
-	RenderDebugPrimitives(InCamera);
-	RenderGizmo(InCamera);
-}
-
-void UEditor::RenderDebugPrimitives(UCamera* InCamera)
+void UEditor::RenderDebugPrimitives()
 {
 	if (GEditor->IsPIESessionActive())
 	{
@@ -120,7 +114,10 @@ void UEditor::RenderDebugPrimitives(UCamera* InCamera)
 
 void UEditor::RenderGizmo(UCamera* InCamera)
 {
-	if (GEditor->IsPIESessionActive()) { return; }
+	if (GEditor->IsPIESessionActive())
+	{
+		return;
+	}
 
 	if (InCamera)
 	{
@@ -461,7 +458,7 @@ void UEditor::UpdateLayout()
 	}
 
 	// 4. 매 프레임 현재 비율에 맞게 전체 레이아웃 크기를 다시 계산하고, 그 결과를 실제 FViewport에 반영합니다.
-	const ImGuiViewport* Viewport = ImGui::GetMainViewport(); // 사용자에게만 보이는 영역의 정보를 가져옵니다. 
+	const ImGuiViewport* Viewport = ImGui::GetMainViewport(); // 사용자에게만 보이는 영역의 정보를 가져옵니다.
 	FRect WorkableRect = { Viewport->WorkPos.x, Viewport->WorkPos.y, Viewport->WorkSize.x, Viewport->WorkSize.y };
 	RootSplitter.Resize(WorkableRect);
 
@@ -618,7 +615,7 @@ void UEditor::ProcessMouseInput()
 				{
 					Candidate.insert(Candidate.end(), DynamicCandidates.begin(), DynamicCandidates.end());
 				}
-				
+
 				FScopeCycleCounter PickCounter;
 				UPrimitiveComponent* PrimitiveCollided = ObjectPicker.PickPrimitive(CurrentCamera, WorldRay, Candidate, &ActorDistance);
 				ActorPicked = PrimitiveCollided ? PrimitiveCollided->GetOwner() : nullptr;
@@ -797,13 +794,13 @@ void UEditor::SelectActor(AActor* InActor)
 	SelectedActor = InActor;
 	SelectionWorld = InActor ? GWorld : nullptr;  // 현재 월드를 기록
 
-	if (SelectedActor) 
-	{ 
+	if (SelectedActor)
+	{
 		SelectComponent(InActor->GetRootComponent());
 	}
-	else 
-	{ 
-		SelectComponent(nullptr); 
+	else
+	{
+		SelectComponent(nullptr);
 		PickedBillboard = nullptr;
 	}
 

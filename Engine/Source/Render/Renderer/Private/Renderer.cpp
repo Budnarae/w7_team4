@@ -31,6 +31,7 @@
 #include "Render/RenderPass/Public/FireBallForwardPass.h"
 #include "Render/RenderPass/Public/LightPass.h"
 #include "Render/RenderPass/Public/IconPass.h"
+#include "Render/RenderPass/Public/DebugPass.h"
 
 IMPLEMENT_SINGLETON_CLASS_BASE(URenderer)
 
@@ -105,27 +106,6 @@ void URenderer::Init(HWND InWindowHandle)
 		               AdditiveBlendState, true);
 	RenderPasses.push_back(AdditiveDecalPass);
 
-	FBillboardPass* BillboardPass =
-		new FBillboardPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-		                   TextureVertexShader, TexturePixelShader, TextureInputLayout,
-		                   DefaultDepthStencilState);
-	RenderPasses.push_back(BillboardPass);
-
-	FIconPass* IconPass = new FIconPass(
-		Pipeline,
-		ConstantBufferViewProj,
-		ConstantBufferModels,
-		ConstantBufferIconProperties,
-		IconVertexShader,
-		IconPixelShader,
-		IconInputLayout,
-		DefaultDepthStencilState
-	);
-	RenderPasses.push_back(IconPass);
-
-	FTextPass* TextPass = new FTextPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels);
-	RenderPasses.push_back(TextPass);
-
 	FFireBallPass* FireBallPass =
 		new FFireBallPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
 		                  FireBallVertexShader, FireBallPixelShader, FireBallInputLayout,
@@ -139,6 +119,24 @@ void URenderer::Init(HWND InWindowHandle)
 		               LightSamplerState, LightDepthLessEqualNoWrite,
 		               LightAdditiveBlend);
 	RenderPasses.push_back(LightPass);
+
+	FDebugPass* DebugPass =
+		new FDebugPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels);
+	RenderPasses.push_back(DebugPass);
+
+	FBillboardPass* BillboardPass =
+		new FBillboardPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
+		                   TextureVertexShader, TexturePixelShader, TextureInputLayout,
+		                   NoTestButWriteDepthState);
+	RenderPasses.push_back(BillboardPass);
+
+	FIconPass* IconPass = new FIconPass(
+		Pipeline, ConstantBufferViewProj, ConstantBufferModels, ConstantBufferIconProperties,
+		IconVertexShader, IconPixelShader, IconInputLayout, NoTestButWriteDepthState, AlphaBlendState);
+	RenderPasses.push_back(IconPass);
+
+	FTextPass* TextPass = new FTextPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels);
+	RenderPasses.push_back(TextPass);
 }
 
 void URenderer::Release()
@@ -452,11 +450,8 @@ void URenderer::Update()
 		// LightPass가 DSV를 nullptr로 설정했을 수 있으므로 Scene RT 재바인딩
 		GetDeviceContext()->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
 
-		// === 오버레이 프리미티브 렌더링: Scene RT에 렌더링 (FXAA 적용) ===
-		{
-			TIME_PROFILE(RenderDebugPrimitives)
-			GEditor->GetEditorModule()->RenderDebugPrimitives(CurrentCamera);
-		}
+		// === 오버레이 프리미티브 렌더링: 이제 DebugPass에서 처리됨 ===
+		// RenderDebugPrimitives()는 DebugPass에서 RenderLevel 내부에서 호출되므로 여기서는 제거
 
 		// === Post-Processing: Scene RT -> 백버퍼 ===
 		// 통합 포스트프로세싱 패스: Fog + Anti-Aliasing (FXAA)
@@ -619,13 +614,14 @@ void URenderer::RenderEditorPrimitive(const FEditorPrimitive& InPrimitive,
 	}
 
 	// Allow for custom shaders, fallback to default
+	// BatchLines 등 에디터 프리미티브는 AlphaBlendState 사용 (Icon 이후 상태 복원)
 	FPipelineInfo PipelineInfo = {
 		InPrimitive.InputLayout ? InPrimitive.InputLayout : DefaultInputLayout,
 		InPrimitive.VertexShader ? InPrimitive.VertexShader : DefaultVertexShader,
 		FRenderResourceFactory::GetRasterizerState(InRenderState),
 		DepthState,
 		InPrimitive.PixelShader ? InPrimitive.PixelShader : DefaultPixelShader,
-		nullptr,
+		AlphaBlendState,
 		InPrimitive.Topology
 	};
 	Pipeline->UpdatePipeline(PipelineInfo);

@@ -103,18 +103,10 @@ float CalculateSpotLightConeAttenuation(float3 LightToSurfaceDir)
     float CosInner = cos(InnerConeAngle);
     float CosOuter = cos(OuterConeAngle);
 
-    if (CosAngle < CosOuter)
-    {
-        return 0.0;
-    }
+    float InvCosConeDifference = 1.0 / max(CosInner - CosOuter, 0.0001);
+    float AttenuationMask = saturate((CosAngle - CosOuter) * InvCosConeDifference);
 
-    if (CosAngle > CosInner)
-    {
-        return 1.0;
-    }
-
-    float t = (CosAngle - CosOuter) / (CosInner - CosOuter);
-    return smoothstep(0.0, 1.0, t);
+    return AttenuationMask * AttenuationMask;
 }
 
 // Pixel Shader
@@ -145,8 +137,10 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     }
 
     // 거리 감쇠
-    float NormalizedDistance = DistFromLight / Radius;
-    float DistanceAttenuation = 1.0 - pow(saturate(NormalizedDistance), RadiusFalloff);
+    float3 WorldLightVector = LightToScene / Radius;
+    float NormalizedDistanceSquared = dot(WorldLightVector, WorldLightVector);
+    float AttenuationMask = 1.0 - saturate(NormalizedDistanceSquared);
+    float DistanceAttenuation = pow(AttenuationMask, RadiusFalloff);
 
     float FinalAttenuation = DistanceAttenuation;
 

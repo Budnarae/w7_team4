@@ -7,14 +7,15 @@
 #include "Physics/Public/AABB.h"
 #include "Physics/Public/OBB.h"
 
-UBatchLines::UBatchLines() : Grid(), BoundingBoxLines(), ConeLines()
+UBatchLines::UBatchLines() : Grid(), BoundingBoxLines(), ConeLines(), bRenderBox(false)
 {
 	Vertices.resize(MaxVerticesNum);
 	Indices.resize(MaxIndicesNum);
 
 	Primitive.NumVertices = static_cast<uint32>(Vertices.size());
 	Primitive.NumIndices = static_cast<uint32>(Indices.size());
-	Primitive.IndexBuffer = FRenderResourceFactory::CreateIndexBuffer(Indices.data(), Primitive.NumIndices * sizeof(uint32), true);
+	Primitive.IndexBuffer = FRenderResourceFactory::CreateIndexBuffer(Indices.data(),
+	                                                                  Primitive.NumIndices * sizeof(uint32), true);
 	//Primitive.Color = FVector4(1, 1, 1, 0.2f);
 	Primitive.Topology = D3D11_PRIMITIVE_TOPOLOGY_LINELIST;
 	Primitive.Vertexbuffer = FRenderResourceFactory::CreateVertexBuffer(
