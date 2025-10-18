@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 /**
  * @brief 오브젝트의 이름을 담당하는 구조체
@@ -15,6 +15,7 @@ public:
 	FName(int32 InDisplayIndex, int32 InComparisonIndex, int32 InNumber);
 
 	bool operator==(const FName& Other) const;
+	bool operator!=(const FName& Other) const;
 	int32 Compare(const FName& Other) const;
 
 	FString ToString() const;
