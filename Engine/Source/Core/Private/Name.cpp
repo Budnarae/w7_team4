@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Core/Public/Name.h"
 #include <algorithm> // for std::transform
 #include <cctype>    // for std::tolower
@@ -27,6 +27,11 @@ FName::FName(int32 InDisplayIndex, int32 InComparisonIndex, int32 InNumber)
 bool FName::operator==(const FName& Other) const
 {
     return ComparisonIndex == Other.ComparisonIndex && Number == Other.Number;
+}
+
+bool FName::operator!=(const FName& Other) const
+{
+    return ComparisonIndex != Other.ComparisonIndex || Number != Other.Number;
 }
 
 int32 FName::Compare(const FName& Other) const

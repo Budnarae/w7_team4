@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Name.h"
 
 class UObject;
@@ -32,12 +32,18 @@ public:
     bool IsChildOf(UClass* InClass) const;
     UObject* CreateDefaultObject() const;
 
+    /* Meta 관련 */
+    void SetMeta(FName Key, FName Data);
+    FName GetMeta(FName Key);
+    bool HasMeta(FName Key);
 
 private:
     FName ClassName;
     UClass* SuperClass;
     size_t ClassSize;
     ClassConstructorType Constructor;
+
+    TMap<FName, FName> MetaData;
 };
 
 /**
@@ -190,3 +196,15 @@ UObject* ClassName::CreateDefaultObject##ClassName() \
     return new ClassName(); \
 }\
 static bool bIsRegistered_##ClassName = [](){ ClassName::StaticClass(); return true; }();
+
+#define CLASS_META(ThisClass, Key, Value)                                       \
+    namespace {                                                                 \
+        struct ThisClass##MetaRegister_##Key                                    \
+        {                                                                       \
+            ThisClass##MetaRegister_##Key()                                     \
+            {                                                                   \
+                ThisClass::StaticClass()->SetMeta(#Key, #Value);                \
+            }                                                                   \
+        };                                                                      \
+        static ThisClass##MetaRegister_##Key GMetaRegister_##ThisClass##_##Key; \
+    }

@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Core/Public/Class.h"
 #include "Core/Public/Object.h"
 
@@ -94,4 +94,20 @@ UObject* UClass::CreateDefaultObject() const
 	}
 
 	return nullptr;
+}
+
+/* Meta 관련 */
+void UClass::SetMeta(FName Key, FName Data)
+{
+	MetaData[Key] = Data;
+}
+
+FName UClass::GetMeta(FName Key)
+{
+	return MetaData.count(Key) > 0 ? MetaData[Key] : FName::GetNone();
+}
+
+bool UClass::HasMeta(FName Key)
+{
+	return GetMeta(Key) != FName::GetNone();
 }
