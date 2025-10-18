@@ -77,10 +77,7 @@ void UGizmo::UpdateScale(UCamera* InCamera)
 	float Scale;
 	if (InCamera->GetCameraType() == ECameraType::ECT_Perspective)
 	{
-		float DistanceToCamera = (InCamera->GetLocation() - TargetComponent->GetWorldLocation()).Length();
-		Scale = DistanceToCamera * ScaleFactor;
-		if (DistanceToCamera < MinScaleFactor)
-			Scale = MinScaleFactor * ScaleFactor;
+		Scale = CalculateScreenSpaceScale(InCamera, TargetComponent->GetWorldLocation());
 	}
 	else // Orthographic
 	{
@@ -111,10 +108,7 @@ void UGizmo::RenderGizmo(USceneComponent* SceneComponent, UCamera* InCamera)
 	float RenderScale;
 	if (InCamera->GetCameraType() == ECameraType::ECT_Perspective)
 	{
-		float DistanceToCamera = (InCamera->GetLocation() - TargetComponent->GetWorldLocation()).Length();
-		RenderScale = DistanceToCamera * ScaleFactor;
-		if (DistanceToCamera < MinScaleFactor)
-			RenderScale = MinScaleFactor * ScaleFactor;
+		RenderScale = CalculateScreenSpaceScale(InCamera, TargetComponent->GetWorldLocation());
 	}
 	else // Orthographic
 	{
@@ -204,21 +198,60 @@ void UGizmo::OnMouseDragStart(FVector& CollisionPoint)
 FVector4 UGizmo::ColorFor(EGizmoDirection InAxis) const
 {
 	const int Idx = AxisIndex(InAxis);
-	//UE_LOG("%d", Idx);
 	const FVector4& BaseColor = GizmoColor[Idx];
 	const bool bIsHighlight = (InAxis == GizmoDirection);
 
-	const FVector4 Paint = bIsHighlight ? FVector4(1,1,0,1) : BaseColor;
-	//UE_LOG("InAxis: %d, Idx: %d, Dir: %d, base color: %.f, %.f, %.f, bHighLight: %d", InAxis, Idx, GizmoDirection, BaseColor.X, BaseColor.Y, BaseColor.Z, bIsHighlight);
-
-	if (bIsDragging)
-		return BaseColor;
+	// 드래깅 중: 주황색
+	if (bIsDragging && bIsHighlight)
+	{
+		return {1.0f, 0.5f, 0.0f, 1.0f}; // 주황색
+	}
+	// 호버링 중: 노란색
+	else if (bIsHighlight)
+	{
+		return {1.0f, 1.0f, 0.0f, 1.0f}; // 노란색
+	}
+	// 기본 색상
 	else
-		return Paint;
+	{
+		return BaseColor;
+	}
 }
+
 void UGizmo::ClearTarget()
 {
 	TargetComponent = nullptr;
 	bIsDragging = false;
 	GizmoDirection = EGizmoDirection::None;
+}
+
+// FOV를 고려한 스크린 스페이스 스케일 계산
+float UGizmo::CalculateScreenSpaceScale(UCamera* InCamera, const FVector& WorldPosition) const
+{
+	if (!InCamera)
+	{
+		return MinScaleFactor * ScaleFactor;
+	}
+
+	// 카메라 Forward 방향으로의 깊이 계산 (ViewZ)
+	FVector ToGizmo = WorldPosition - InCamera->GetLocation();
+	FVector CameraForward = InCamera->GetForward();
+	float ViewZ = ToGizmo.Dot(CameraForward);
+
+	// 최소 거리 클램프
+	if (ViewZ < MinScaleFactor)
+	{
+		ViewZ = MinScaleFactor;
+	}
+
+	// FOV를 고려한 스케일 계산
+	// ProjYY = cot(FOV_Y/2) = 1 / tan(FOV_Y/2)
+	float FovYRadians = FVector::GetDegreeToRadian(InCamera->GetFovY());
+	float ProjYY = 1.0f / std::tanf(FovYRadians * 0.5f);
+
+	// 화면 공간에서 일정한 크기를 유지하도록 스케일 계산
+	// 기본 ScaleFactor를 곱하여 최종 월드 스페이스 스케일 결정
+	float ScreenSpaceScale = ViewZ / ProjYY;
+
+	return ScreenSpaceScale * ScaleFactor;
 }

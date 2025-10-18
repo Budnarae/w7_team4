@@ -34,6 +34,7 @@ private:
 	// 이름 변경 기능
 	AActor* RenamingActor = nullptr;
 	char RenameBuffer[256] = "";
+	bool bJustStartedRenaming = false;
 	double LastClickTime = 0.0f;
 	AActor* LastClickedActor = nullptr;
 	static constexpr float RENAME_CLICK_DELAY = 0.5f; // 두 번째 클릭 간격

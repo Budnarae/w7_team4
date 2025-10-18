@@ -114,6 +114,8 @@ private:
 	// 렌더 시 하이라이트 색상 계산(상태 오염 방지)
 	FVector4 ColorFor(EGizmoDirection InAxis) const;
 
+	// FOV를 고려한 스크린 스페이스 스케일 계산
+	float CalculateScreenSpaceScale(UCamera* InCamera, const FVector& WorldPosition) const;
 
 	TArray<FEditorPrimitive> Primitives;
 	USceneComponent* TargetComponent = nullptr;

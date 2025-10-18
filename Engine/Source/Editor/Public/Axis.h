@@ -17,7 +17,10 @@ public:
 
 private:
 	// 뷰포트 좌하단 오프셋
-	static constexpr float OffsetFromLeft = 45.0f;
-	static constexpr float OffsetFromBottom = 45.0f;
+	static constexpr float OffsetFromLeft = 70.0f;
+	static constexpr float OffsetFromBottom = 70.0f;
 	static constexpr float AxisSize = 50.0f;
+
+	// 라인 두께
+	static constexpr float LineThick = 3.0f;
 };

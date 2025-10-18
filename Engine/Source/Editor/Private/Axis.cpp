@@ -23,10 +23,11 @@ void FAxis::Render(UCamera* InCamera, const D3D11_VIEWPORT& InViewport)
 	    return;
     }
 
-    // 2D 렌더링 원점
-    const float OriginX = OffsetFromLeft + 30.0f;
-    const float OriginY = InViewport.Height - OffsetFromBottom;
-    D2D1_POINT_2F AxisCenter = D2D1::Point2F(OriginX, OriginY); // 이름 변경: Gizmo의 중심
+    // 뷰포트 기준 2D 렌더링 원점 계산
+    // 뷰포트 하단 왼쪽 모서리로부터 (OffsetFromLeft, OffsetFromBottom) 픽셀 떨어진 위치
+    const float OriginX = InViewport.TopLeftX + OffsetFromLeft;
+    const float OriginY = InViewport.TopLeftY + InViewport.Height - OffsetFromBottom;
+    D2D1_POINT_2F AxisCenter = D2D1::Point2F(OriginX, OriginY);
 
 	// 메인 카메라의 회전(View) 행렬
 	const FMatrix ViewOnly = InCamera->GetFViewProjConstants().View;
@@ -88,12 +89,10 @@ void FAxis::Render(UCamera* InCamera, const D3D11_VIEWPORT& InViewport)
 	// D2D 렌더링 시작
 	D2DRT->BeginDraw();
 
-	constexpr float LineWidth = 2.0f;
-
 	// X, Y, Z 축 라인 그리기
-	D2DRT->DrawLine(AxisCenter, AxisEndX, BrushX, LineWidth);
-	D2DRT->DrawLine(AxisCenter, AxisEndY, BrushY, LineWidth);
-	D2DRT->DrawLine(AxisCenter, AxisEndZ, BrushZ, LineWidth);
+	D2DRT->DrawLine(AxisCenter, AxisEndX, BrushX, LineThick);
+	D2DRT->DrawLine(AxisCenter, AxisEndY, BrushY, LineThick);
+	D2DRT->DrawLine(AxisCenter, AxisEndZ, BrushZ, LineThick);
 
 	// 중심점 그리기
 	D2D1_ELLIPSE OuterCircle = D2D1::Ellipse(AxisCenter, 3.0f, 3.0f);
