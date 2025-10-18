@@ -2,6 +2,7 @@
 
 #include "Component/Public/SceneComponent.h"
 
+UCLASS()
 class ULightComponentBase : public USceneComponent
 {
 	GENERATED_BODY()

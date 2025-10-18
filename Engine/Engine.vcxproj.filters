@@ -431,6 +431,11 @@
     <ClCompile Include="Source\Editor\Private\SphereLines.cpp">
       <Filter>Source\Editor\Private</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Actor\Private\PointLightActor.cpp" />
+    <ClCompile Include="Source\Actor\Private\SpotLightActor.cpp" />
+    <ClCompile Include="Source\Component\Private\IconComponent.cpp">
+      <Filter>Source\Component\Private</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -881,6 +886,11 @@
     </ClInclude>
     <ClInclude Include="Source\Editor\Public\SphereLines.h">
       <Filter>Source\Editor\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Actor\Public\PointLightActor.h" />
+    <ClInclude Include="Source\Actor\Public\SpotLightActor.h" />
+    <ClInclude Include="Source\Component\Public\IconComponent.h">
+      <Filter>Source\Component\Public</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

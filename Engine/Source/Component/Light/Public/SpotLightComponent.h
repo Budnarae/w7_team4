@@ -6,6 +6,8 @@
  * @brief SpotLight Component
  * Cone 각도 제한으로 방향성 조명 구현
  */
+
+UCLASS()
 class USpotLightComponent :
     public ULightComponent
 {

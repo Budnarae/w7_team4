@@ -262,6 +262,7 @@ void UActorDetailWidget::RenderComponentTree(AActor* InSelectedActor)
 void UActorDetailWidget::RenderComponentNodeRecursive(UActorComponent* InComponent)
 {
 	if (!InComponent) return;
+	if (InComponent->GetClass()->MetaEquals("bVisibleInComponentTree", "false")) return;
 
 	USceneComponent* SceneComp = Cast<USceneComponent>(InComponent);
 	FString ComponentName = InComponent->GetName().ToString();
