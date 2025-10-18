@@ -76,6 +76,34 @@ void FRenderResourceFactory::CreatePixelShader(const wstring& InFilePath, ID3D11
 	SafeRelease(PixelShaderBlob);
 }
 
+void FRenderResourceFactory::CreatePixelShader(const wstring& InFilePath, const D3D_SHADER_MACRO* InDefines, ID3D11PixelShader** OutPixelShader)
+{
+	ID3DBlob* PixelShaderBlob = nullptr;
+	ID3DBlob* ErrorBlob = nullptr;
+
+	HRESULT Result = D3DCompileFromFile(InFilePath.data(), InDefines, D3D_COMPILE_STANDARD_FILE_INCLUDE, "mainPS", "ps_5_0", 0, 0, &PixelShaderBlob, &ErrorBlob);
+	if (FAILED(Result))
+	{
+		UE_LOG("RenderResourceFactory: Pixel shader compilation failed");
+		if (ErrorBlob)
+		{
+			OutputDebugStringA(static_cast<char*>(ErrorBlob->GetBufferPointer()));
+			SafeRelease(ErrorBlob);
+		}
+		SafeRelease(PixelShaderBlob);
+		*OutPixelShader = nullptr;
+		return;
+	}
+
+	HRESULT CreateResult = URenderer::GetInstance().GetDevice()->CreatePixelShader(PixelShaderBlob->GetBufferPointer(), PixelShaderBlob->GetBufferSize(), nullptr, OutPixelShader);
+	if (FAILED(CreateResult))
+	{
+		UE_LOG("RenderResourceFactory: CreatePixelShader failed");
+		*OutPixelShader = nullptr;
+	}
+	SafeRelease(PixelShaderBlob);
+}
+
 ID3D11SamplerState* FRenderResourceFactory::CreateSamplerState(D3D11_FILTER InFilter, D3D11_TEXTURE_ADDRESS_MODE InAddressMode)
 {
 	D3D11_SAMPLER_DESC SamplerDesc = {};

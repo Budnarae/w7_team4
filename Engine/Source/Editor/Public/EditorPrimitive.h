@@ -18,4 +18,5 @@ struct FEditorPrimitive
 	FVector Scale;
 	FRenderState RenderState;
 	bool bShouldAlwaysVisible = false;
+	bool bDepthWriteDisabled = false;
 };

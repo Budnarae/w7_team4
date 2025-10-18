@@ -328,6 +328,11 @@ FVector2 FVector2::operator*(const float Ratio) const
 	return { X * Ratio, Y * Ratio };
 }
 
+FVector2 FVector2::ZeroVector()
+{
+	return {0.0f, 0.0f};
+}
+
 FArchive& operator<<(FArchive& Ar, FVector2& Vector)
 {
 	Ar << Vector.X;

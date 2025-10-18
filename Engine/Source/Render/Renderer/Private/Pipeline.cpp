@@ -45,6 +45,16 @@ void UPipeline::UpdatePipeline(FPipelineInfo Info)
 	}
 }
 
+/**
+ * @brief LightPass에서 PixelShader만 따로 업데이트하기 위한 함수
+ * @param InPS
+ */
+void UPipeline::UpdatePixelShaderOnly(ID3D11PixelShader* InPS)
+{
+	DeviceContext->PSSetShader(InPS, nullptr, 0);
+	LastPipelineInfo.PixelShader = InPS;
+}
+
 void UPipeline::SetIndexBuffer(ID3D11Buffer* indexBuffer, uint32 stride)
 {
 	DeviceContext->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);

@@ -233,6 +233,9 @@ struct FVector2
 	{
 		return (V1.X * V2.X) + (V1.Y * V2.Y);
 	}
+
+	static FVector2 ZeroVector();
+	[[nodiscard]] static FVector2 Zero() {return ZeroVector();}
 };
 
 FArchive& operator<<(FArchive& Ar, FVector2& Vector);

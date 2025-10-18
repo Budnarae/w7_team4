@@ -19,6 +19,8 @@ public:
 
 	void UpdatePipeline(FPipelineInfo Info);
 
+	void UpdatePixelShaderOnly(ID3D11PixelShader* InPS);
+
 	void SetIndexBuffer(ID3D11Buffer* indexBuffer, uint32 stride);
 
 	void SetVertexBuffer(ID3D11Buffer* VertexBuffer, uint32 Stride);
