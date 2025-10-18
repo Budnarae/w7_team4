@@ -29,8 +29,9 @@ public:
 	~UEditor();
 
 	void Update();
-	void RenderDebugPrimitives();			// BatchLines, Axis, BVH (FXAA 적용)
-	void RenderGizmo(UCamera* InCamera);	// Gizmo만 (FXAA 미적용)
+	void RenderDebugPrimitives();													// BatchLines, BVH (FXAA 적용)
+	void RenderGizmo(UCamera* InCamera);											// Gizmo만 (FXAA 미적용)
+	static void RenderAxis(UCamera* InCamera, const D3D11_VIEWPORT& InViewport);	// Axis Widget (FXAA 미적용, 기즈모 이후)
 
 	void SetViewMode(EViewModeIndex InNewViewMode) { CurrentViewMode = InNewViewMode; }
 	EViewModeIndex GetViewMode() const { return CurrentViewMode; }
@@ -77,7 +78,6 @@ private:
 	float SavedLeftRatio = 0.5f;
 	float SavedRightRatio = 0.5f;
 	UGizmo Gizmo;
-	UAxis Axis;
 	UBatchLines BatchLines;
 
 	SSplitterV RootSplitter;

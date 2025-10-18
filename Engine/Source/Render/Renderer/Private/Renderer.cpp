@@ -468,6 +468,12 @@ void URenderer::Update()
 			TIME_PROFILE(RenderGizmo)
 			GEditor->GetEditorModule()->RenderGizmo(CurrentCamera);
 		}
+
+		// === Axis Widget 렌더링: 기즈모 이후, 뷰포트 좌하단에 고정 ===
+		{
+			TIME_PROFILE(RenderAxisWidget)
+			GEditor->GetEditorModule()->RenderAxis(CurrentCamera, ClientViewport);
+		}
 	}
 
 	{

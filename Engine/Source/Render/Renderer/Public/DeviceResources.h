@@ -38,6 +38,8 @@ public:
 
 	// Direct2D/DirectWrite factory getters
 	IDWriteFactory* GetDWriteFactory() const { return DWriteFactory; }
+	ID2D1Factory* GetD2DFactory() const { return D2DFactory; }
+	ID2D1RenderTarget* GetD2DRenderTarget() const { return D2DRenderTarget; }
 
 private:
 	ID3D11Device* Device = nullptr;
@@ -62,4 +64,5 @@ private:
 	// Direct2D/DirectWrite factories
 	ID2D1Factory* D2DFactory = nullptr;
 	IDWriteFactory* DWriteFactory = nullptr;
+	ID2D1RenderTarget* D2DRenderTarget = nullptr;
 };

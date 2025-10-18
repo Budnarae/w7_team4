@@ -106,7 +106,6 @@ void UEditor::RenderDebugPrimitives()
 	}
 
 	BatchLines.Render();
-	Axis.Render();
 
 	// SceneBVH 디버그 렌더링
 	RenderSceneBVH();
@@ -123,6 +122,16 @@ void UEditor::RenderGizmo(UCamera* InCamera)
 	{
 		Gizmo.RenderGizmo(Cast<USceneComponent>(GetSelectedComponent()), InCamera);
 	}
+}
+
+void UEditor::RenderAxis(UCamera* InCamera, const D3D11_VIEWPORT& InViewport)
+{
+	if (GEditor->IsPIESessionActive())
+	{
+		return;
+	}
+
+	FAxis::Render(InCamera, InViewport);
 }
 
 void UEditor::SetSingleViewportLayout(int InActiveIndex)
