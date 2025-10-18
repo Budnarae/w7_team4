@@ -16,8 +16,8 @@ public:
 	UTextComponent();
 	~UTextComponent() override;
 
-	virtual FMatrix GetBoundingTransform() const override;
-	virtual void UpdateRotationMatrix(const FVector& InCameraLocation);
+	FMatrix GetBoundingTransform() const override;
+	virtual void UpdateRotationMatrix(const FMatrix& InViewMatrix);
 	virtual FMatrix GetRTMatrix() const;
 
 	const FString& GetText();

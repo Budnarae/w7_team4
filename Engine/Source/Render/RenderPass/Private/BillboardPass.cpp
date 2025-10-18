@@ -16,15 +16,20 @@ void FBillboardPass::Execute(FRenderingContext& Context)
     static FPipelineInfo PipelineInfo = { InputLayout, VS, FRenderResourceFactory::GetRasterizerState(RenderState), DS, PS, nullptr };
     Pipeline->UpdatePipeline(PipelineInfo);
 
-    if (!(Context.ShowFlags & EEngineShowFlags::SF_Billboard)) return;
-    for (UBillBoardComponent* BillBoardComp : Context.BillBoards)
+    if (!(Context.ShowFlags & EEngineShowFlags::SF_Billboard))
     {
-        // 1) 카메라를 향하는 빌보드 전용 행렬을 갱신
-        BillBoardComp->UpdateBillboardMatrix(Context.CurrentCamera->GetLocation());
+	    return;
+    }
+
+    const FMatrix& ViewMatrix = Context.CurrentCamera->GetFViewProjConstants().View;
+
+	for (UBillBoardComponent* BillBoardComp : Context.BillBoards)
+    {
+        BillBoardComp->UpdateBillboardMatrix(ViewMatrix);
 
         Pipeline->SetVertexBuffer(BillBoardComp->GetVertexBuffer(), sizeof(FNormalVertex));
         Pipeline->SetIndexBuffer(BillBoardComp->GetIndexBuffer(), 0);
-		
+
         // 3) 모델 상수버퍼에는 '월드행렬' 대신 '빌보드 RT 행렬'을 사용
         FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModel, BillBoardComp->GetRTMatrix());
         Pipeline->SetConstantBuffer(0, true, ConstantBufferModel);
