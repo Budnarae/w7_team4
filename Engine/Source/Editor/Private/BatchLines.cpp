@@ -318,6 +318,123 @@ void UBatchLines::AddSphereLines(const FVector& CenterPosition, float Radius)
 	AddLines(SphereVertices, SphereIndices);
 }
 
+void UBatchLines::AddCylinderLines(
+	const FVector& Base,
+	const FVector& Direction,
+	const FVector& UpVector,
+	float Height,
+	float Radius
+)
+{
+	const uint32 NumSegments = 16; // 원의 세그먼트 수
+
+	FVector NormalizedDir = Direction;
+	NormalizedDir.Normalize();
+
+	FVector Up = UpVector;
+	Up.Normalize();
+
+	// Right 벡터 계산 (Forward x Up)
+	FVector Right = NormalizedDir.Cross(Up);
+	Right.Normalize();
+
+	// Up 벡터 재계산 (Right x Forward) -> Gram-Schmidt 직교화
+	Up = Right.Cross(NormalizedDir);
+	Up.Normalize();
+
+	// 원기둥의 아래 중심과 위 중심
+	FVector BottomCenter = Base;
+	FVector TopCenter = Base + NormalizedDir * Height;
+
+	TArray<FVector> CylinderVertices;
+	CylinderVertices.resize(NumSegments * 2); // 아래 원 + 위 원
+
+	const float AngleStep = (2.0f * PI) / static_cast<float>(NumSegments);
+
+	// 아래 원과 위 원의 정점들 생성
+	for (uint32 i = 0; i < NumSegments; ++i)
+	{
+		float CurrentAngle = static_cast<float>(i) * AngleStep;
+		float X = Radius * cosf(CurrentAngle);
+		float Y = Radius * sinf(CurrentAngle);
+
+		// 로컬 좌표를 월드 좌표로 변환
+		FVector Offset = Right * X + Up * Y;
+
+		// 아래 원의 점
+		CylinderVertices[i] = BottomCenter + Offset;
+
+		// 위 원의 점
+		CylinderVertices[NumSegments + i] = TopCenter + Offset;
+	}
+
+	TArray<uint32> CylinderIndices;
+
+	// 아래 원의 테두리
+	for (uint32 i = 0; i < NumSegments; ++i)
+	{
+		CylinderIndices.push_back(i);
+		CylinderIndices.push_back((i + 1) % NumSegments);
+	}
+
+	// 위 원의 테두리
+	for (uint32 i = 0; i < NumSegments; ++i)
+	{
+		CylinderIndices.push_back(NumSegments + i);
+		CylinderIndices.push_back(NumSegments + ((i + 1) % NumSegments));
+	}
+
+	// 세로 연결선 (아래 원과 위 원을 연결)
+	for (uint32 i = 0; i < NumSegments; i += 2) // 모든 선을 그리면 너무 복잡하므로 2개씩 건너뛰기
+	{
+		CylinderIndices.push_back(i);                // 아래 원의 점
+		CylinderIndices.push_back(NumSegments + i);  // 위 원의 점
+	}
+
+	AddLines(CylinderVertices, CylinderIndices);
+}
+
+void UBatchLines::AddArrowLines(const FVector& Origin, const FVector& Direction, float Length)
+{
+	// 화살표는 원기둥(몸통) + 원뿔(촉)로 구성됩니다.
+
+	const float ShaftLength = Length * 0.7f;      // 몸통 길이는 전체의 70%
+	const float ShaftRadius = Length * 0.03f;     // 몸통 반지름은 전체의 3%
+	const float HeadLength = Length * 0.3f;       // 촉 길이는 전체의 30%
+	const float HeadRadius = Length * 0.06f;      // 촉 반지름은 전체의 6%
+
+	FVector NormalizedDir = Direction;
+	NormalizedDir.Normalize();
+
+	// Direction에 수직인 Up 벡터 찾기
+	FVector UpVector;
+	if (abs(NormalizedDir.X) < 0.9f)
+	{
+		UpVector = FVector(1.0f, 0.0f, 0.0f).Cross(NormalizedDir);
+	}
+	else
+	{
+		UpVector = FVector(0.0f, 1.0f, 0.0f).Cross(NormalizedDir);
+	}
+	UpVector.Normalize();
+
+	// 1. 화살표 몸통 (원기둥) 추가
+	AddCylinderLines(Origin, NormalizedDir, UpVector, ShaftLength, ShaftRadius);
+
+	// 2. 화살표 촉 (원뿔) 추가
+	// 원뿔의 꼭지점이 화살표 끝에 오도록 위치 계산
+	FVector HeadApex = Origin + NormalizedDir * Length;
+
+	// 원뿔의 크기 설정 (ConeLines는 DecalBoxSize 형식을 받음)
+	FVector ConeSize(HeadLength, HeadRadius * 2.0f, HeadRadius * 2.0f);
+
+	// 원뿔의 각도 계산
+	float ConeAngle = atan2f(HeadRadius, HeadLength) * 2.0f * 180.0f / PI;
+
+	// 원뿔을 역방향으로 그려서 꼭지점이 앞에 오도록 함
+	AddConeLines(HeadApex, -NormalizedDir, UpVector, ConeAngle, ConeSize);
+}
+
 /*
 void UBatchLines::AddGridLines(const float newCellSize)
 {
