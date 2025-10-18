@@ -1,4 +1,4 @@
-﻿// Icon용 셰이더
+// Icon용 셰이더
 // Icon은 광원, 노멀 등에 영향을 받지 않음
 // LightComponent의 Icon은 광원의 색깔에 따라서만 색상이 변하는 기능이 있음
 cbuffer constants : register(b0)
