@@ -279,7 +279,22 @@ void UEditor::UpdateBatchLines()
 			}
 			else if (UDirectionalLightComponent* DirectionalLightComponent = Cast<UDirectionalLightComponent>(Component))
 			{
+				const FMatrix& WorldMatrix = DirectionalLightComponent->GetWorldTransformMatrix();
 
+				// WorldTransform 행렬에서 방향 벡터 추출
+				// X축 = Forward (Direction)
+				FVector Direction = FVector(WorldMatrix.Data[0][0],
+				                           WorldMatrix.Data[0][1],
+				                           WorldMatrix.Data[0][2]);
+
+				Direction.Normalize();
+
+				const FVector Origin = DirectionalLightComponent->GetWorldLocation();
+				const float ArrowLength = 10.0f; // 화살표 길이 (조정 가능)
+
+				BatchLines.AddArrowLines(Origin, Direction, ArrowLength);
+
+				return;
 			}
 			else if (UPointLightComponent* PointLightComponent = Cast<UPointLightComponent>(Component))
 			{

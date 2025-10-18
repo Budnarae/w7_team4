@@ -27,6 +27,14 @@ public:
 		const FVector& DecalBoxSize
 	);
 	void AddSphereLines(const FVector& CenterPosition, float Radius);
+	void AddCylinderLines(
+		const FVector& Base,
+		const FVector& Direction,
+		const FVector& UpVector,
+		float Height,
+		float Radius
+	);
+	void AddArrowLines(const FVector& Origin, const FVector& Direction, float Length);
 
 	// 종류별 Vertices 업데이트
 	//void AddAABBLines(const IBoundingVolume* NewBoundingVolume);
