@@ -9,7 +9,7 @@
 
 IMPLEMENT_CLASS(UIconComponent, UBillBoardComponent)
 SET_CLASS_META_IN_GLOBAL(UIconComponent, bIsRemovable, false)
-SET_CLASS_META_IN_GLOBAL(UIconComponent, bVisibleInComponentTree, Icon)
+SET_CLASS_META_IN_GLOBAL(UIconComponent, bVisibleInComponentTree, false)
 
 void UIconComponent::Initialize(USceneComponent* Parent)
 {
@@ -48,4 +48,15 @@ void UIconComponent::Initialize(USceneComponent* Parent)
 	{
 		SetSprite(UAssetManager::GetInstance().CreateTexture("Asset/Icon/Pawn_64x.png"));
 	}
+}
+
+UObject* UIconComponent::Duplicate()
+{
+	UIconComponent* IconComp = Cast<UIconComponent>(Super::Duplicate());
+	return IconComp;
+}
+
+void UIconComponent::DuplicateSubObjects(UObject* DuplicatedObject)
+{
+	Super::DuplicateSubObjects(DuplicatedObject);
 }

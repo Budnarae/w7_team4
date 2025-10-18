@@ -86,8 +86,8 @@ void USpotLightComponent::Serialize(const bool bInIsLoading, JSON& InOutHandle)
 	}
 	else
 	{
-		UE_LOG("SpotLightComponent: Serialize: SAVING: Intensity=%.1f, Radius=%.1f",
-			GetIntensity(), AttenuationRadius);
+		UE_LOG("SpotLightComponent: Serialize: SAVING: Intensity=%.1f, Radius=%.1f, InnerAngle=%.1f, OuterAngle=%.1f",
+			GetIntensity(), AttenuationRadius, InnerConeAngle, OuterConeAngle);
 
 		InOutHandle["InnerConeAngle"] = InnerConeAngle;
 		InOutHandle["OuterConeAngle"] = OuterConeAngle;
@@ -110,4 +110,9 @@ UObject* USpotLightComponent::Duplicate()
 	SpotLightComponent->bHasBegunPlay = false;
 
 	return SpotLightComponent;
+}
+
+void USpotLightComponent::DuplicateSubObjects(UObject* DuplicatedObject)
+{
+	Super::DuplicateSubObjects(DuplicatedObject);
 }

@@ -9,4 +9,6 @@ class UIconComponent : public UBillBoardComponent
 
 public:
 	void Initialize(USceneComponent* Parent);
+	UObject* Duplicate() override;
+	void DuplicateSubObjects(UObject* DuplicatedObject) override;
 };

@@ -19,3 +19,13 @@ UClass* UAmbientLightComponent::GetSpecificWidgetClass() const
 {
 	return Super::GetSpecificWidgetClass();
 }
+
+UObject* UAmbientLightComponent::Duplicate()
+{
+	UAmbientLightComponent* AmbientLightComponent = Cast<UAmbientLightComponent>(Super::Duplicate());
+	return AmbientLightComponent;
+}
+void UAmbientLightComponent::DuplicateSubObjects(UObject* DuplicatedObject)
+{
+	Super::DuplicateSubObjects(DuplicatedObject);
+}

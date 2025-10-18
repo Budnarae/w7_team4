@@ -36,8 +36,6 @@ public:
 
     float GetRadius() const { return AttenuationRadius; }
     void SetRadius(float InRadius) { AttenuationRadius = InRadius; }
-    
-    float GetRadiusFalloff() const { return LightFalloffExponent; }
 
     // Widget
     UClass* GetSpecificWidgetClass() const override;
@@ -45,8 +43,9 @@ public:
     // Serialization
     void Serialize(bool bInIsLoading, JSON& InOutHandle) override;
 
-    // Duplicate (PIE 지원)
+    // Override for Duplicate
     UObject* Duplicate() override;
+    void DuplicateSubObjects(UObject* DuplicatedObject) override;
 
 private:
     // Cone Angles

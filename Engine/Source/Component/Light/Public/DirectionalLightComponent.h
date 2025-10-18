@@ -14,4 +14,7 @@ public:
 	~UDirectionalLightComponent() override = default;
 
 	UClass* GetSpecificWidgetClass() const override;
+
+	UObject* Duplicate() override;
+	void DuplicateSubObjects(UObject* DuplicatedObject) override;
 };

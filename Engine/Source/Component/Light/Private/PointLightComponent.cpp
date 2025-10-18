@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Component/Light/Public/PointLightComponent.h"
 
 #include "Level/Public/Level.h"
@@ -68,13 +68,13 @@ void UPointLightComponent::Serialize(bool bInIsLoading, JSON& InOutHandle)
 UObject* UPointLightComponent::Duplicate()
 {
 	UPointLightComponent* PointLightComp = Cast<UPointLightComponent>(Super::Duplicate());
-
-	// Copy light properties
-	PointLightComp->Intensity = Intensity;
-	PointLightComp->LightColor = LightColor;
-
-	// Reset runtime flag for PIE
-	PointLightComp->bHasBegunPlay = false;
+	PointLightComp->AttenuationRadius = AttenuationRadius;
+	PointLightComp->LightFalloffExponent = LightFalloffExponent;
 
 	return PointLightComp;
+}
+
+void UPointLightComponent::DuplicateSubObjects(UObject* DuplicatedObject)
+{
+	Super::DuplicateSubObjects(DuplicatedObject);
 }

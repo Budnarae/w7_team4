@@ -20,6 +20,8 @@ public:
 */
 	UClass* GetSpecificWidgetClass() const override;
 	void BeginPlay() override;
+	UObject* Duplicate() override;
+	void DuplicateSubObjects(UObject* DuplicatedObject) override;
 private:
 	UIconComponent* IconComponent = nullptr;
 };

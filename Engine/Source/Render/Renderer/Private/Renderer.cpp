@@ -1132,7 +1132,7 @@ void URenderer::RenderUberLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT&
 
 		lightProps.LightDirection = LightDirection;
 
-		lightProps.RadiusFalloff = SpotLight->GetRadiusFalloff();
+		lightProps.RadiusFalloff = SpotLight->GetAttenuationRadius();
 
 		// Viewport 정보
 		lightProps.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);

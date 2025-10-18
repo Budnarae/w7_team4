@@ -36,4 +36,6 @@ public:
 	UClass* GetSpecificWidgetClass() const override;
 
 	void Serialize(const bool bInIsLoading, JSON& InOutHandle) override;
+	UObject* Duplicate() override;
+	void DuplicateSubObjects(UObject* DuplicatedObject) override;
 };

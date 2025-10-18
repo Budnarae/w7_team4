@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Component/Public/ActorComponent.h"
 
 namespace json { class JSON; }
