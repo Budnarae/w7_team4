@@ -165,7 +165,7 @@ private:
 	ID3D11VertexShader* DefaultVertexShader = nullptr;
 	ID3D11PixelShader* DefaultPixelShader = nullptr;
 	ID3D11InputLayout* DefaultInputLayout = nullptr;
-	
+
 	// Texture Shaders
 	ID3D11VertexShader* TextureVertexShader = nullptr;
 	ID3D11PixelShader* TexturePixelShader = nullptr;
@@ -190,13 +190,14 @@ private:
 	ID3D11Buffer* CBPerObject = nullptr;
 	ID3D11Buffer* CBFireBall = nullptr;
 
-	// UberLight Resources (LightPass용 - 런타임 분기 방식)
-	ID3D11VertexShader* UberLightVertexShader = nullptr;
-	ID3D11InputLayout* UberLightInputLayout = nullptr;
-	ID3D11PixelShader* UberLightPixelShader = nullptr;
-	ID3D11SamplerState* UberLightSamplerState = nullptr;
-	ID3D11DepthStencilState* UberLightDepthLessEqualNoWrite = nullptr;
-	ID3D11BlendState* UberLightAdditiveBlend = nullptr;
+	// Light Resources
+	ID3D11VertexShader* LightVertexShader = nullptr;
+	ID3D11InputLayout* LightInputLayout = nullptr;
+	ID3D11PixelShader* LightPointLightPS = nullptr;
+	ID3D11PixelShader* LightSpotLightPS = nullptr;
+	ID3D11SamplerState* LightSamplerState = nullptr;
+	ID3D11DepthStencilState* LightDepthLessEqualNoWrite = nullptr;
+	ID3D11BlendState* LightAdditiveBlend = nullptr;
 
 	// Fullscreen Quad for Post-Processing
 	ID3D11Buffer* FullscreenQuadVB = nullptr;

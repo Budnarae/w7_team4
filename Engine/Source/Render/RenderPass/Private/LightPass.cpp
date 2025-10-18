@@ -15,7 +15,8 @@ FLightPass::FLightPass(UPipeline* InPipeline,
                        ID3D11RenderTargetView* InSceneColorRTV,
                        ID3D11VertexShader* InLightVolumeVS,
                        ID3D11InputLayout* InLightVolumeLayout,
-                       ID3D11PixelShader* InUberLightPS,
+                       ID3D11PixelShader* InPointLightPS,
+                       ID3D11PixelShader* InSpotLightPS,
                        ID3D11SamplerState* InSamplerState,
                        ID3D11DepthStencilState* InDepthLessEqualNoWrite,
                        ID3D11BlendState* InAdditiveBlend)
@@ -24,7 +25,8 @@ FLightPass::FLightPass(UPipeline* InPipeline,
 	, SceneColorRTV(InSceneColorRTV)
 	, LightVolumeVertexShader(InLightVolumeVS)
 	, LightVolumeInputLayout(InLightVolumeLayout)
-	, LightPixelShader(InUberLightPS)
+	, PointLightPixelShader(InPointLightPS)
+	, SpotLightPixelShader(InSpotLightPS)
 	, LightSamplerState(InSamplerState)
 	, DepthLessEqualNoWrite(InDepthLessEqualNoWrite)
 	, AdditiveBlendState(InAdditiveBlend)
@@ -55,8 +57,8 @@ void FLightPass::Execute(FRenderingContext& Context)
 	const FVector2& SceneRTSize = Context.SceneRTSize;
 
 	// Scene RT 바인딩 (DSV는 nullptr - Depth를 SRV로 읽어야 하므로)
-	ID3D11RenderTargetView* SceneRtvs[] = { SceneColorRTV };
-	D3DContext->OMSetRenderTargets(1, SceneRtvs, nullptr);
+	ID3D11RenderTargetView* SceneRenderTargetView[] = { SceneColorRTV };
+	D3DContext->OMSetRenderTargets(1, SceneRenderTargetView, nullptr);
 	D3DContext->RSSetViewports(1, &InViewport);
 
 	// Inverse ViewProj Matrix 계산
@@ -64,33 +66,63 @@ void FLightPass::Execute(FRenderingContext& Context)
 	FMatrix ViewProjMatrix = ViewProj.View * ViewProj.Projection;
 	FMatrix InvViewProj = ViewProjMatrix.Inverse();
 
-	// AssetManager에서 Sphere Mesh 가져오기 (PointLight와 SpotLight 공통 사용)
-	UAssetManager& AssetMgr = UAssetManager::GetInstance();
-	ID3D11Buffer* SphereVB = AssetMgr.GetVertexbuffer(EPrimitiveType::Sphere);
-	ID3D11Buffer* SphereIB = AssetMgr.GetIndexbuffer(EPrimitiveType::Sphere);
-	uint32 SphereNumIndices = AssetMgr.GetNumIndices(EPrimitiveType::Sphere);
-	uint32 SphereNumVertices = AssetMgr.GetNumVertices(EPrimitiveType::Sphere);
-
-	// Pipeline 설정 (공통)
+	// Pipeline 공통 설정
+	// PixelShader는 각 세부 Light에서 직접 세팅
 	FPipelineInfo PipelineInfo = {
 		LightVolumeInputLayout,
 		LightVolumeVertexShader,
 		FRenderResourceFactory::GetRasterizerState({ ECullMode::Front, EFillMode::Solid }),
 		DepthLessEqualNoWrite,
-		LightPixelShader,  // 단일 UberShader 사용
+		nullptr, // PS
 		AdditiveBlendState,
 		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
 	};
+
 	Pipeline->UpdatePipeline(PipelineInfo);
 
-	// Scene Depth Texture 바인딩 (Pixel Shader에서 읽음)
+	// Scene Depth Texture 바인딩
 	D3DContext->PSSetShaderResources(0, 1, &SceneDepthSRV);
 	Pipeline->SetSamplerState(0, false, LightSamplerState);
-
-	// Constant Buffer 설정 (Slot 순서: 0=Model, 1=ViewProj, 2=LightProperties)
 	Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
 
-	// ===== PointLight 렌더링 =====
+	// PointLight 렌더링
+	if (!PointLights.empty())
+	{
+		RenderPointLights(PointLights, InvViewProj, InViewport, SceneRTSize);
+	}
+
+	// SpotLight 렌더링
+	if (!SpotLights.empty())
+	{
+		RenderSpotLights(SpotLights, InvViewProj, InViewport, SceneRTSize);
+	}
+
+	// SRV 언바인딩
+	ID3D11ShaderResourceView* NullSrv = nullptr;
+	D3DContext->PSSetShaderResources(0, 1, &NullSrv);
+}
+
+void FLightPass::RenderPointLights(const TArray<UPointLightComponent*>& PointLights,
+                                   const FMatrix& InvViewProj,
+                                   const D3D11_VIEWPORT& Viewport,
+                                   const FVector2& SceneRTSize) const
+{
+	// PointLight 전용 Pixel Shader 설정
+	if (!PointLightPixelShader)
+	{
+		UE_LOG("LightPass: PointLightPixelShader is nullptr");
+		return;
+	}
+
+	Pipeline->UpdatePixelShaderOnly(PointLightPixelShader);
+
+	// Sphere Mesh 가져오기
+	UAssetManager& AssetManager = UAssetManager::GetInstance();
+	ID3D11Buffer* SphereVB = AssetManager.GetVertexbuffer(EPrimitiveType::Sphere);
+	ID3D11Buffer* SphereIB = AssetManager.GetIndexbuffer(EPrimitiveType::Sphere);
+	uint32 SphereNumIndices = AssetManager.GetNumIndices(EPrimitiveType::Sphere);
+	uint32 SphereNumVertices = AssetManager.GetNumVertices(EPrimitiveType::Sphere);
+
 	for (auto* PointLight : PointLights)
 	{
 		if (!PointLight || !PointLight->GetOwner())
@@ -98,30 +130,24 @@ void FLightPass::Execute(FRenderingContext& Context)
 			continue;
 		}
 
-		// Unified Light Properties 설정
+		// Light Properties 설정
 		FLightProperties LightProps = {};
+		LightProps.InvViewProj = InvViewProj;
 		LightProps.LightPosition = PointLight->GetWorldLocation();
 		LightProps.Intensity = PointLight->GetIntensity();
 		LightProps.LightColor = PointLight->GetLightColor();
 		LightProps.Radius = PointLight->GetAttenuationRadius();
-		LightProps.LightDirection = FVector::ZeroVector();  // PointLight는 사용 안함
 		LightProps.RadiusFalloff = PointLight->GetLightFalloffExponent();
-
-		// Viewport 정보
-		LightProps.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
-		LightProps.ViewportSize = FVector2(InViewport.Width, InViewport.Height);
+		LightProps._Padding0 = 0.0f;
+		LightProps.ViewportTopLeft = FVector2(Viewport.TopLeftX, Viewport.TopLeftY);
+		LightProps.ViewportSize = FVector2(Viewport.Width, Viewport.Height);
 		LightProps.SceneRTSize = SceneRTSize;
 
-		// SpotLight 전용 필드 (PointLight는 0으로 초기화)
+		// PointLight는 SpotLight 필드 미사용 (0으로 초기화)
+		LightProps.LightDirection = FVector::ZeroVector();
 		LightProps.InnerConeAngle = 0.0f;
 		LightProps.OuterConeAngle = 0.0f;
-
-		// LightType 설정 (0 = PointLight)
-		LightProps.LightType = 0;
-		LightProps.Padding = FVector::ZeroVector();
-
-		// InvViewProj Matrix
-		LightProps.InvViewProj = InvViewProj;
+		LightProps._Padding1 = FVector::ZeroVector();
 
 		// Constant Buffer 업데이트
 		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferLightProperties, LightProps);
@@ -149,8 +175,29 @@ void FLightPass::Execute(FRenderingContext& Context)
 			Pipeline->Draw(SphereNumVertices, 0);
 		}
 	}
+}
 
-	// ===== SpotLight 렌더링 =====
+void FLightPass::RenderSpotLights(const TArray<USpotLightComponent*>& SpotLights,
+                                  const FMatrix& InvViewProj,
+                                  const D3D11_VIEWPORT& Viewport,
+                                  const FVector2& SceneRTSize) const
+{
+	// SpotLight 전용 Pixel Shader 설정
+	if (!SpotLightPixelShader)
+	{
+		UE_LOG("LightPass: SpotLightPixelShader is nullptr");
+		return;
+	}
+
+	Pipeline->UpdatePixelShaderOnly(SpotLightPixelShader);
+
+	// Sphere Mesh 가져오기
+	UAssetManager& AssetMgr = UAssetManager::GetInstance();
+	ID3D11Buffer* SphereVB = AssetMgr.GetVertexbuffer(EPrimitiveType::Sphere);
+	ID3D11Buffer* SphereIB = AssetMgr.GetIndexbuffer(EPrimitiveType::Sphere);
+	uint32 SphereNumIndices = AssetMgr.GetNumIndices(EPrimitiveType::Sphere);
+	uint32 SphereNumVertices = AssetMgr.GetNumVertices(EPrimitiveType::Sphere);
+
 	for (auto* SpotLight : SpotLights)
 	{
 		if (!SpotLight || !SpotLight->GetOwner())
@@ -158,37 +205,29 @@ void FLightPass::Execute(FRenderingContext& Context)
 			continue;
 		}
 
-		// Unified Light Properties 설정
+		// Light Properties 설정
 		FLightProperties LightProps = {};
+		LightProps.InvViewProj = InvViewProj;
 		LightProps.LightPosition = SpotLight->GetWorldLocation();
 		LightProps.Intensity = SpotLight->GetIntensity();
 		LightProps.LightColor = SpotLight->GetLightColor();
 		LightProps.Radius = SpotLight->GetRadius();
 		LightProps.RadiusFalloff = SpotLight->GetRadiusFalloff();
-
-		// Viewport 정보
-		LightProps.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
-		LightProps.ViewportSize = FVector2(InViewport.Width, InViewport.Height);
+		LightProps._Padding0 = 0.0f;
+		LightProps.ViewportTopLeft = FVector2(Viewport.TopLeftX, Viewport.TopLeftY);
+		LightProps.ViewportSize = FVector2(Viewport.Width, Viewport.Height);
 		LightProps.SceneRTSize = SceneRTSize;
 
-		// SpotLight 전용 필드: Direction
+		// SpotLight 전용 필드
 		const FMatrix& TransformMatrix = SpotLight->GetWorldTransformMatrix();
 		FVector LightDirection = FVector(TransformMatrix.Data[0][0],
 		                                  TransformMatrix.Data[0][1],
 		                                  TransformMatrix.Data[0][2]);
 		LightDirection.Normalize();
 		LightProps.LightDirection = LightDirection;
-
-		// SpotLight 전용 필드: Cone Angles (도 -> 라디안 변환)
 		LightProps.InnerConeAngle = FVector::GetDegreeToRadian(SpotLight->GetInnerConeAngle());
 		LightProps.OuterConeAngle = FVector::GetDegreeToRadian(SpotLight->GetOuterConeAngle());
-
-		// LightType 설정 (1 = SpotLight)
-		LightProps.LightType = 1;
-		LightProps.Padding = FVector::ZeroVector();
-
-		// InvViewProj Matrix
-		LightProps.InvViewProj = InvViewProj;
+		LightProps._Padding1 = FVector::ZeroVector();
 
 		// Constant Buffer 업데이트
 		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferLightProperties, LightProps);
@@ -214,14 +253,9 @@ void FLightPass::Execute(FRenderingContext& Context)
 			Pipeline->Draw(SphereNumVertices, 0);
 		}
 	}
-
-	// SRV 언바인딩
-	ID3D11ShaderResourceView* NullSrv = nullptr;
-	D3DContext->PSSetShaderResources(0, 1, &NullSrv);
 }
 
 void FLightPass::Release()
 {
-	// Constant Buffer만 Pass에서 해제
 	SafeRelease(ConstantBufferLightProperties);
 }

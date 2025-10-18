@@ -120,9 +120,10 @@ void URenderer::Init(HWND InWindowHandle)
 
 	FLightPass* LightPass =
 		new FLightPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-		               SceneDepthSRV, SceneColorRTV, UberLightVertexShader, UberLightInputLayout,
-		               UberLightPixelShader, UberLightSamplerState, UberLightDepthLessEqualNoWrite,
-		               UberLightAdditiveBlend);
+		               SceneDepthSRV, SceneColorRTV, LightVertexShader, LightInputLayout,
+		               LightPointLightPS, LightSpotLightPS,
+		               LightSamplerState, LightDepthLessEqualNoWrite,
+		               LightAdditiveBlend);
 	RenderPasses.push_back(LightPass);
 }
 
@@ -1073,7 +1074,7 @@ void URenderer::ReleaseFireBallForwardShader()
 void URenderer::CreateUberLightResources()
 {
 	// Vertex Shader & Input Layout
-	TArray<D3D11_INPUT_ELEMENT_DESC> layout =
+	TArray<D3D11_INPUT_ELEMENT_DESC> Layout =
 	{
 		{
 			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
@@ -1094,17 +1095,43 @@ void URenderer::CreateUberLightResources()
 	};
 	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
 		L"Asset/Shader/UberLightShader.hlsl",
-		layout,
-		&UberLightVertexShader,
-		&UberLightInputLayout
+		Layout,
+		&LightVertexShader,
+		&LightInputLayout
 	);
 
-	// Pixel Shader (단일 UberShader - 런타임 분기 방식)
-	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLightShader.hlsl",
-	                                          &UberLightPixelShader);
+	// PointLight Pixel Shader
+	D3D_SHADER_MACRO DefinesPointLight[] = {
+		{ "LIGHT_TYPE_POINT", "1" },
+		{ nullptr, nullptr }
+	};
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/UberLightShader.hlsl",
+		DefinesPointLight,
+		&LightPointLightPS);
+
+	if (!LightPointLightPS)
+	{
+		UE_LOG("Renderer: Failed to create UberLightPointLightPS");
+	}
+
+	// SpotLight Pixel Shader
+	D3D_SHADER_MACRO DefinesSpotLight[] = {
+		{ "LIGHT_TYPE_SPOT", "1" },
+		{ nullptr, nullptr }
+	};
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/UberLightShader.hlsl",
+		DefinesSpotLight,
+		&LightSpotLightPS);
+
+	if (!LightSpotLightPS)
+	{
+		UE_LOG("Renderer: Failed to create UberLightSpotLightPS");
+	}
 
 	// Sampler State
-	UberLightSamplerState = FRenderResourceFactory::CreateSamplerState(
+	LightSamplerState = FRenderResourceFactory::CreateSamplerState(
 		D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP);
 
 	// Depth State: LESS_EQUAL, Write OFF (for camera outside light volume)
@@ -1113,7 +1140,7 @@ void URenderer::CreateUberLightResources()
 	depthDescLessEqual.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
 	depthDescLessEqual.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	depthDescLessEqual.StencilEnable = FALSE;
-	GetDevice()->CreateDepthStencilState(&depthDescLessEqual, &UberLightDepthLessEqualNoWrite);
+	GetDevice()->CreateDepthStencilState(&depthDescLessEqual, &LightDepthLessEqualNoWrite);
 
 	// Additive Blend State
 	D3D11_BLEND_DESC blendDesc = {};
@@ -1125,15 +1152,16 @@ void URenderer::CreateUberLightResources()
 	blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
 	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-	GetDevice()->CreateBlendState(&blendDesc, &UberLightAdditiveBlend);
+	GetDevice()->CreateBlendState(&blendDesc, &LightAdditiveBlend);
 }
 
 void URenderer::ReleaseUberLightResources()
 {
-	SafeRelease(UberLightVertexShader);
-	SafeRelease(UberLightInputLayout);
-	SafeRelease(UberLightPixelShader);
-	SafeRelease(UberLightSamplerState);
-	SafeRelease(UberLightDepthLessEqualNoWrite);
-	SafeRelease(UberLightAdditiveBlend);
+	SafeRelease(LightVertexShader);
+	SafeRelease(LightInputLayout);
+	SafeRelease(LightPointLightPS);
+	SafeRelease(LightSpotLightPS);
+	SafeRelease(LightSamplerState);
+	SafeRelease(LightDepthLessEqualNoWrite);
+	SafeRelease(LightAdditiveBlend);
 }
