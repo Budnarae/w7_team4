@@ -29,8 +29,15 @@
 #include "Render/RenderPass/Public/DecalPass.h"
 #include "Render/RenderPass/Public/FireBallPass.h"
 #include "Render/RenderPass/Public/FireBallForwardPass.h"
+#include "Render/RenderPass/Public/LightPass.h"
 
 IMPLEMENT_SINGLETON_CLASS_BASE(URenderer)
+
+struct FFullscreenQuadVertex
+{
+	FVector Position;
+	float U, V;
+};
 
 URenderer::URenderer() = default;
 
@@ -51,13 +58,13 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateDepthShader();
 	CreateFireBallShader();
 	CreateFireBallForwardShader();
-	CreateUberLightShader();
+	CreateUberLightResources();
 	CreateFullscreenQuad();
 	CreateConstantBuffers();
 	CreatePostProcessResources();
 
 	// FontRenderer 초기화
-	FontRenderer = new UFontRenderer();
+	FontRenderer = new UFontRenderer;
 	if (!FontRenderer->Initialize())
 	{
 		UE_LOG("FontRenderer 초기화 실패");
@@ -69,42 +76,54 @@ void URenderer::Init(HWND InWindowHandle)
 	// Scene RT는 ViewportClient 초기화 후에 생성 (올바른 크기 사용)
 	CreateSceneRenderTargets();
 
-	FStaticMeshPass* StaticMeshPass = new FStaticMeshPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-		TextureVertexShader, TexturePixelShader, TextureInputLayout, DefaultDepthStencilState,
-		DepthVertexShader, DepthPixelShader, DepthInputLayout);
+	FStaticMeshPass* StaticMeshPass =
+		new FStaticMeshPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
+		                    TextureVertexShader, TexturePixelShader, TextureInputLayout,
+		                    DefaultDepthStencilState, DepthVertexShader, DepthPixelShader,
+		                    DepthInputLayout);
 	RenderPasses.push_back(StaticMeshPass);
 
-	FPrimitivePass* PrimitivePass = new FPrimitivePass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-		DefaultVertexShader, DefaultPixelShader, DefaultInputLayout, DefaultDepthStencilState,
-		DepthVertexShader, DepthPixelShader, DepthInputLayout);
+	FPrimitivePass* PrimitivePass =
+		new FPrimitivePass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
+		                   DefaultVertexShader, DefaultPixelShader, DefaultInputLayout,
+		                   DefaultDepthStencilState, DepthVertexShader, DepthPixelShader,
+		                   DepthInputLayout);
 	RenderPasses.push_back(PrimitivePass);
 
 	// 알파 블렌딩을 사용하는 일반 데칼 패스
-	FDecalPass* AlphaDecalPass = new FDecalPass(Pipeline, ConstantBufferViewProj,
-		DecalVertexShader, DecalPixelShader, DecalInputLayout, DecalDepthStencilState, AlphaBlendState, false);
+	FDecalPass* AlphaDecalPass =
+		new FDecalPass(Pipeline, ConstantBufferViewProj, DecalVertexShader, DecalPixelShader,
+		               DecalInputLayout, DecalDepthStencilState, AlphaBlendState, false);
 	RenderPasses.push_back(AlphaDecalPass);
 
 	// 가산 혼합을 사용하는 SemiLight 데칼 패스
-	FDecalPass* AdditiveDecalPass = new FDecalPass(Pipeline, ConstantBufferViewProj,
-		DecalVertexShader, DecalPixelShader, DecalInputLayout, DecalDepthStencilState, AdditiveBlendState, true);
+	FDecalPass* AdditiveDecalPass =
+		new FDecalPass(Pipeline, ConstantBufferViewProj, DecalVertexShader,
+		               DecalPixelShader, DecalInputLayout, DecalDepthStencilState,
+		               AdditiveBlendState, true);
 	RenderPasses.push_back(AdditiveDecalPass);
 
-	FBillboardPass* BillboardPass = new FBillboardPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-		TextureVertexShader, TexturePixelShader, TextureInputLayout, DefaultDepthStencilState);
+	FBillboardPass* BillboardPass =
+		new FBillboardPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
+		                   TextureVertexShader, TexturePixelShader, TextureInputLayout,
+		                   DefaultDepthStencilState);
 	RenderPasses.push_back(BillboardPass);
 
 	FTextPass* TextPass = new FTextPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels);
 	RenderPasses.push_back(TextPass);
 
-	// Deferred Volume Point Light (효율적인 구 볼륨 렌더링)
-	FFireBallPass* FireBallPass = new FFireBallPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-		FireBallVertexShader, FireBallPixelShader, FireBallInputLayout, DecalDepthStencilState, FireBallBlendState);
+	FFireBallPass* FireBallPass =
+		new FFireBallPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
+		                  FireBallVertexShader, FireBallPixelShader, FireBallInputLayout,
+		                  DecalDepthStencilState, FireBallBlendState);
 	RenderPasses.push_back(FireBallPass);
 
-	// Forward Point Light (테스트용, 성능 낮음)
-	// FFireBallForwardPass* FireBallForwardPass = new FFireBallForwardPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-	// 	FireBallFwdVertexShader, FireBallFwdPixelShader, FireBallFwdInputLayout, DecalDepthStencilState, AdditiveBlendState);
-	// RenderPasses.push_back(FireBallForwardPass);
+	FLightPass* LightPass =
+		new FLightPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
+		               SceneDepthSRV, SceneColorRTV, UberLightVertexShader, UberLightInputLayout,
+		               UberLightPixelShader, UberLightSamplerState, UberLightDepthLessEqualNoWrite,
+		               UberLightAdditiveBlend);
+	RenderPasses.push_back(LightPass);
 }
 
 void URenderer::Release()
@@ -115,7 +134,7 @@ void URenderer::Release()
 	ReleaseDepthShader();
 	ReleaseFireBallShader();
 	ReleaseFireBallForwardShader();
-	ReleaseUberLightShader();
+	ReleaseUberLightResources();
 	ReleaseFullscreenQuad();
 	ReleaseDepthStencilState();
 	ReleaseBlendState();
@@ -157,40 +176,48 @@ void URenderer::CreateDepthStencilState()
 	DisabledDescription.StencilEnable = FALSE;
 	GetDevice()->CreateDepthStencilState(&DisabledDescription, &DisabledDepthStencilState);
 
-	// No Test But Write Depth (Depth Test X, Depth Write O) - 포스트프로세스용
+	// No Test But Write Depth (Depth Test X, Depth Write O): 포스트프로세스용
 	D3D11_DEPTH_STENCIL_DESC NoTestWriteDescription = {};
-	NoTestWriteDescription.DepthEnable = TRUE;  // Depth 활성화 (write를 위해)
-	NoTestWriteDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;  // Depth write 활성화
-	NoTestWriteDescription.DepthFunc = D3D11_COMPARISON_ALWAYS;  // 항상 통과 (test 비활성화)
+	NoTestWriteDescription.DepthEnable = TRUE; // Depth 활성화 (write를 위해)
+	NoTestWriteDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL; // Depth write 활성화
+	NoTestWriteDescription.DepthFunc = D3D11_COMPARISON_ALWAYS; // 항상 통과 (test 비활성화)
 	NoTestWriteDescription.StencilEnable = FALSE;
 	GetDevice()->CreateDepthStencilState(&NoTestWriteDescription, &NoTestButWriteDepthState);
+
+	// Debug Line Depth State (Depth Test ON, Write OFF): BatchLines용
+	D3D11_DEPTH_STENCIL_DESC DebugLineDescription = {};
+	DebugLineDescription.DepthEnable = TRUE;
+	DebugLineDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; // Write OFF
+	DebugLineDescription.DepthFunc = D3D11_COMPARISON_LESS_EQUAL; // Test ON
+	DebugLineDescription.StencilEnable = FALSE;
+	GetDevice()->CreateDepthStencilState(&DebugLineDescription, &DebugLineDepthState);
 }
 
 void URenderer::CreateBlendState()
 {
-    // Alpha Blending
-    D3D11_BLEND_DESC blendDesc = {};
-    blendDesc.RenderTarget[0].BlendEnable = TRUE;
-    blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-    blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-    blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-    blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-    blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-    GetDevice()->CreateBlendState(&blendDesc, &AlphaBlendState);
+	// Alpha Blending
+	D3D11_BLEND_DESC blendDesc = {};
+	blendDesc.RenderTarget[0].BlendEnable = TRUE;
+	blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+	GetDevice()->CreateBlendState(&blendDesc, &AlphaBlendState);
 
-    // Additive Blending (for lights)
-    D3D11_BLEND_DESC additiveDesc = {};
-    additiveDesc.RenderTarget[0].BlendEnable = TRUE;
-    additiveDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-    additiveDesc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
-    additiveDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-    additiveDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    additiveDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
-    additiveDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    additiveDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-    GetDevice()->CreateBlendState(&additiveDesc, &AdditiveBlendState);
+	// Additive Blending (for lights)
+	D3D11_BLEND_DESC additiveDesc = {};
+	additiveDesc.RenderTarget[0].BlendEnable = TRUE;
+	additiveDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	additiveDesc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+	additiveDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	additiveDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	additiveDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
+	additiveDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	additiveDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+	GetDevice()->CreateBlendState(&additiveDesc, &AdditiveBlendState);
 
 	D3D11_BLEND_DESC fireBallDesc = {};
 	additiveDesc.RenderTarget[0].BlendEnable = TRUE;
@@ -208,13 +235,28 @@ void URenderer::CreateDefaultShader()
 {
 	TArray<D3D11_INPUT_ELEMENT_DESC> DefaultLayout =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0	},
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0	}
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		}
 	};
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/SampleShader.hlsl", DefaultLayout, &DefaultVertexShader, &DefaultInputLayout);
-	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/SampleShader.hlsl", &DefaultPixelShader);
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/SampleShader.hlsl", DefaultLayout, &DefaultVertexShader,
+		&DefaultInputLayout);
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/SampleShader.hlsl",
+	                                          &DefaultPixelShader);
 	Stride = sizeof(FNormalVertex);
 }
 
@@ -222,12 +264,25 @@ void URenderer::CreateDecalShader()
 {
 	TArray<D3D11_INPUT_ELEMENT_DESC> DecalLayout =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0	},
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0	}
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		}
 	};
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/DecalShader.hlsl", DecalLayout, &DecalVertexShader, &DecalInputLayout);
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/DecalShader.hlsl", DecalLayout, &DecalVertexShader, &DecalInputLayout);
 	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/DecalShader.hlsl", &DecalPixelShader);
 }
 
@@ -235,25 +290,53 @@ void URenderer::CreateTextureShader()
 {
 	TArray<D3D11_INPUT_ELEMENT_DESC> TextureLayout =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0	},
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0	}
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		}
 	};
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/TextureShader.hlsl", TextureLayout, &TextureVertexShader, &TextureInputLayout);
-	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/TextureShader.hlsl", &TexturePixelShader);
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/TextureShader.hlsl", TextureLayout, &TextureVertexShader,
+		&TextureInputLayout);
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/TextureShader.hlsl",
+	                                          &TexturePixelShader);
 }
 
 void URenderer::CreateDepthShader()
 {
 	TArray<D3D11_INPUT_ELEMENT_DESC> DepthLayout =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0	},
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0	}
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		}
 	};
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/DepthShader.hlsl", DepthLayout, &DepthVertexShader, &DepthInputLayout);
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/DepthShader.hlsl", DepthLayout, &DepthVertexShader, &DepthInputLayout);
 	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/DepthShader.hlsl", &DepthPixelShader);
 }
 
@@ -296,6 +379,7 @@ void URenderer::ReleaseDepthStencilState()
 	SafeRelease(DecalDepthStencilState);
 	SafeRelease(DisabledDepthStencilState);
 	SafeRelease(NoTestButWriteDepthState);
+	SafeRelease(DebugLineDepthState);
 	if (GetDeviceContext())
 	{
 		GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
@@ -304,8 +388,8 @@ void URenderer::ReleaseDepthStencilState()
 
 void URenderer::ReleaseBlendState()
 {
-    SafeRelease(AlphaBlendState);
-    SafeRelease(AdditiveBlendState);
+	SafeRelease(AlphaBlendState);
+	SafeRelease(AdditiveBlendState);
 }
 
 void URenderer::Update()
@@ -314,11 +398,13 @@ void URenderer::Update()
 
 	for (FViewportClient& ViewportClient : ViewportClient->GetViewports())
 	{
-		if (ViewportClient.GetViewportInfo().Width < 1.0f || ViewportClient.GetViewportInfo().Height < 1.0f) { continue; }
+		if (ViewportClient.GetViewportInfo().Width < 1.0f || ViewportClient.GetViewportInfo().Height
+			< 1.0f) { continue; }
 
 		UCamera* CurrentCamera = &ViewportClient.Camera;
 		CurrentCamera->Update(ViewportClient.GetViewportInfo());
-		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferViewProj, CurrentCamera->GetFViewProjConstants());
+		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferViewProj,
+		                                                 CurrentCamera->GetFViewProjConstants());
 		Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
 
 		const D3D11_VIEWPORT& ClientViewport = ViewportClient.GetViewportInfo();
@@ -329,21 +415,17 @@ void URenderer::Update()
 
 		// IMPORTANT: 각 viewport마다 Scene RT를 다시 바인딩
 		// (이전 viewport의 post-processing이 BackBuffer로 바인딩을 변경했으므로)
-		ID3D11RenderTargetView* SceneRtvs[] = { SceneColorRTV };
+		ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV};
 		GetDeviceContext()->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
 		GetDeviceContext()->RSSetViewports(1, &ClientViewport);
 
 		{
 			TIME_PROFILE(RenderLevel)
-			RenderLevel(CurrentCamera);
+			RenderLevel(CurrentCamera, ClientViewport);
 		}
 
-		// === PointLight 렌더링 (w6_team6 방식 - Level 기반) ===
-		// === UberLight 렌더링 (PointLight + SpotLight 통합) ===
-		{
-			TIME_PROFILE(RenderUberLights)
-			RenderUberLights(CurrentCamera, ClientViewport);
-		}
+		// LightPass가 DSV를 nullptr로 설정했을 수 있으므로 Scene RT 재바인딩
+		GetDeviceContext()->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
 
 		// === 오버레이 프리미티브 렌더링: Scene RT에 렌더링 (FXAA 적용) ===
 		{
@@ -393,19 +475,20 @@ void URenderer::RenderBegin() const
 	GetDeviceContext()->ClearRenderTargetView(SceneColorRTV, ClearColor);
 	GetDeviceContext()->ClearDepthStencilView(SceneDepthDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-	ID3D11RenderTargetView* SceneRtvs[] = { SceneColorRTV };
+	ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV};
 	GetDeviceContext()->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
 
 	DeviceResources->UpdateViewport();
 }
 
-void URenderer::RenderLevel(UCamera* InCurrentCamera)
+void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport)
 {
 	const ULevel* CurrentLevel = GWorld->GetLevel();
 	if (!CurrentLevel) { return; }
-	
+
 	const FViewProjConstants& ViewProj = InCurrentCamera->GetFViewProjConstants();
-	TArray<UPrimitiveComponent*> FinalVisiblePrims = InCurrentCamera->GetViewVolumeCuller().GetRenderableObjects();
+	TArray<UPrimitiveComponent*> FinalVisiblePrims = InCurrentCamera->GetViewVolumeCuller().
+	                                                                  GetRenderableObjects();
 
 	// // 오클루전 컬링 수행
 	// TIME_PROFILE(Occlusion)
@@ -415,11 +498,23 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera)
 	// 	InCurrentCamera->GetViewVolumeCuller().GetRenderableObjects(),
 	// 	InCurrentCamera->GetLocation()
 	// );
-	// TIME_PROFILE_END(Occlusion) 
+	// TIME_PROFILE_END(Occlusion)
 
 
-	FRenderingContext RenderingContext(&ViewProj, InCurrentCamera, GEditor->GetEditorModule()->GetViewMode(), CurrentLevel->GetShowFlags());
+	FRenderingContext RenderingContext(&ViewProj, InCurrentCamera,
+	                                   GEditor->GetEditorModule()->GetViewMode(),
+	                                   CurrentLevel->GetShowFlags());
 	RenderingContext.AllPrimitives = FinalVisiblePrims;
+
+	// LightPass용 추가 정보 설정
+	RenderingContext.Viewport = InViewport;
+	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+	GetSwapChain()->GetDesc(&swapChainDesc);
+	RenderingContext.SceneRTSize = FVector2(
+		static_cast<float>(swapChainDesc.BufferDesc.Width),
+		static_cast<float>(swapChainDesc.BufferDesc.Height)
+	);
+
 	for (auto& Prim : FinalVisiblePrims)
 	{
 		if (auto StaticMesh = Cast<UStaticMeshComponent>(Prim))
@@ -435,7 +530,8 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera)
 			RenderingContext.FireBalls.push_back(FireBall);
 		}
 		// PointLight는 이제 Level::GetAllPointLights()로 직접 가져옴 (w6_team6 방식)
-		else if (auto Text = Cast<UTextComponent>(Prim); Text && !Text->IsExactly(UUUIDTextComponent::StaticClass()))
+		else if (auto Text = Cast<UTextComponent>(Prim); Text && !Text->IsExactly(
+			UUUIDTextComponent::StaticClass()))
 		{
 			RenderingContext.Texts.push_back(Text);
 		}
@@ -460,57 +556,75 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera)
 				RenderingContext.AlphaDecals.push_back(Decal);
 			}
 		}
-		
+
 		UStatOverlay::GetInstance().RecordDecalCollection(
 			static_cast<uint32>(CurrentLevel->GetAllDecals().size()),
 			static_cast<uint32>(CurrentLevel->GetVisibleDecals().size())
-			);
+		);
 	}
 
-	for (auto RenderPass: RenderPasses)
+	for (auto RenderPass : RenderPasses)
 	{
 		RenderPass->Execute(RenderingContext);
 	}
 }
 
-void URenderer::RenderEditorPrimitive(const FEditorPrimitive& InPrimitive, const FRenderState& InRenderState, uint32 InStride, uint32 InIndexBufferStride)
+void URenderer::RenderEditorPrimitive(const FEditorPrimitive& InPrimitive,
+                                      const FRenderState& InRenderState, uint32 InStride,
+                                      uint32 InIndexBufferStride)
 {
-    // Use the global stride if InStride is 0
-    const uint32 FinalStride = (InStride == 0) ? Stride : InStride;
+	// Use the global stride if InStride is 0
+	const uint32 FinalStride = (InStride == 0) ? Stride : InStride;
 
-    // Allow for custom shaders, fallback to default
-    FPipelineInfo PipelineInfo = {
-        InPrimitive.InputLayout ? InPrimitive.InputLayout : DefaultInputLayout,
-        InPrimitive.VertexShader ? InPrimitive.VertexShader : DefaultVertexShader,
+	// Depth Stencil State 선택
+	ID3D11DepthStencilState* DepthState = DefaultDepthStencilState;
+	if (InPrimitive.bShouldAlwaysVisible)
+	{
+		DepthState = DisabledDepthStencilState; // Depth Test OFF
+	}
+	else if (InPrimitive.bDepthWriteDisabled)
+	{
+		DepthState = DebugLineDepthState; // Depth Test ON (LESS_EQUAL), Write OFF
+	}
+
+	// Allow for custom shaders, fallback to default
+	FPipelineInfo PipelineInfo = {
+		InPrimitive.InputLayout ? InPrimitive.InputLayout : DefaultInputLayout,
+		InPrimitive.VertexShader ? InPrimitive.VertexShader : DefaultVertexShader,
 		FRenderResourceFactory::GetRasterizerState(InRenderState),
-        InPrimitive.bShouldAlwaysVisible ? DisabledDepthStencilState : DefaultDepthStencilState,
-        InPrimitive.PixelShader ? InPrimitive.PixelShader : DefaultPixelShader,
-        nullptr,
-        InPrimitive.Topology
-    };
-    Pipeline->UpdatePipeline(PipelineInfo);
+		DepthState,
+		InPrimitive.PixelShader ? InPrimitive.PixelShader : DefaultPixelShader,
+		nullptr,
+		InPrimitive.Topology
+	};
+	Pipeline->UpdatePipeline(PipelineInfo);
 
-    // Update constant buffers
-	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModels, FMatrix::GetModelMatrix(InPrimitive.Location, FVector::GetDegreeToRadian(InPrimitive.Rotation), InPrimitive.Scale));
+	// Update constant buffers
+	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModels,
+	                                                 FMatrix::GetModelMatrix(
+		                                                 InPrimitive.Location,
+		                                                 FVector::GetDegreeToRadian(
+			                                                 InPrimitive.Rotation),
+		                                                 InPrimitive.Scale));
 	Pipeline->SetConstantBuffer(0, true, ConstantBufferModels);
 	Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
-	
+
 	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferColor, InPrimitive.Color);
 	Pipeline->SetConstantBuffer(2, false, ConstantBufferColor);
 	Pipeline->SetConstantBuffer(2, true, ConstantBufferColor);
-	
-    Pipeline->SetVertexBuffer(InPrimitive.Vertexbuffer, FinalStride);
 
-    // The core logic: check for an index buffer
-    if (InPrimitive.IndexBuffer && InPrimitive.NumIndices > 0)
-    {
-        Pipeline->SetIndexBuffer(InPrimitive.IndexBuffer, InIndexBufferStride);
-        Pipeline->DrawIndexed(InPrimitive.NumIndices, 0, 0);
-    }
-    else
-    {
-        Pipeline->Draw(InPrimitive.NumVertices, 0);
-    }
+	Pipeline->SetVertexBuffer(InPrimitive.Vertexbuffer, FinalStride);
+
+	// The core logic: check for an index buffer
+	if (InPrimitive.IndexBuffer && InPrimitive.NumIndices > 0)
+	{
+		Pipeline->SetIndexBuffer(InPrimitive.IndexBuffer, InIndexBufferStride);
+		Pipeline->DrawIndexed(InPrimitive.NumIndices, 0, 0);
+	}
+	else
+	{
+		Pipeline->Draw(InPrimitive.NumVertices, 0);
+	}
 }
 
 void URenderer::RenderEnd() const
@@ -543,8 +657,9 @@ void URenderer::OnResize(uint32 InWidth, uint32 InHeight)
 	this->CreateSceneRenderTargets();
 
 	auto* RenderTargetView = DeviceResources->GetRenderTargetView();
-	ID3D11RenderTargetView* RenderTargetViews[] = { RenderTargetView };
-	GetDeviceContext()->OMSetRenderTargets(1, RenderTargetViews, DeviceResources->GetDepthStencilView());
+	ID3D11RenderTargetView* RenderTargetViews[] = {RenderTargetView};
+	GetDeviceContext()->OMSetRenderTargets(1, RenderTargetViews,
+	                                       DeviceResources->GetDepthStencilView());
 }
 
 void URenderer::CreatePostProcessResources()
@@ -552,8 +667,8 @@ void URenderer::CreatePostProcessResources()
 	// PostProcess 셰이더 로드 (통합 포스트프로세싱: Fog + FXAA)
 	TArray<D3D11_INPUT_ELEMENT_DESC> PostProcessLayout =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
 	};
 
 	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
@@ -572,9 +687,11 @@ void URenderer::CreatePostProcessResources()
 	PostProcessSamplerState = FRenderResourceFactory::CreateSamplerState(
 		D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP
 	);
-	ConstantBufferPostProcessParameters = FRenderResourceFactory::CreateConstantBuffer<FPostProcessParameters>();
+	ConstantBufferPostProcessParameters = FRenderResourceFactory::CreateConstantBuffer<
+		FPostProcessParameters>();
 	PostProcessUserParameters = {}; // 기본값으로 구조체 디폴트
-	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters, PostProcessUserParameters);
+	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
+	                                                 PostProcessUserParameters);
 }
 
 void URenderer::ReleasePostProcessResources()
@@ -618,7 +735,8 @@ void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPOR
 	);
 
 	// Fog 파라미터 설정
-	const bool bShowFog = CurrentLevel && (CurrentLevel->GetShowFlags() & EEngineShowFlags::SF_Fog) != 0;
+	const bool bShowFog = CurrentLevel && (CurrentLevel->GetShowFlags() & EEngineShowFlags::SF_Fog)
+		!= 0;
 
 	// Find first enabled HeightFogComponent
 	UHeightFogComponent* FogComponent = nullptr;
@@ -669,16 +787,17 @@ void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPOR
 	FMatrix ViewProjMatrix = ViewProj.View * ViewProj.Projection;
 	postProcessParams.InvViewProj = ViewProjMatrix.Inverse();
 
-	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters, postProcessParams);
+	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
+	                                                 postProcessParams);
 
 	// 파이프라인 셋업
 	FPipelineInfo PipelineInfo = {
-		PostProcessInputLayout,                     // PostProcess fullscreen quad layout
-		PostProcessVertexShader,                    // PostProcess VS (fullscreen quad)
-		FRenderResourceFactory::GetRasterizerState({ ECullMode::None, EFillMode::Solid }),
-		NoTestButWriteDepthState,                   // Depth test X, Depth write O
-		PostProcessPixelShader,                     // PostProcess PS (Fog + FXAA 통합)
-		nullptr,                                    // Blend
+		PostProcessInputLayout, // PostProcess fullscreen quad layout
+		PostProcessVertexShader, // PostProcess VS (fullscreen quad)
+		FRenderResourceFactory::GetRasterizerState({ECullMode::None, EFillMode::Solid}),
+		NoTestButWriteDepthState, // Depth test X, Depth write O
+		PostProcessPixelShader, // PostProcess PS (Fog + FXAA 통합)
+		nullptr, // Blend
 		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
 	};
 	Pipeline->UpdatePipeline(PipelineInfo);
@@ -686,26 +805,28 @@ void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPOR
 	Pipeline->SetConstantBuffer(0, false, ConstantBufferPostProcessParameters);
 
 	// 소스 텍스처 샘플러 (Scene Color + Scene Depth)
-	ID3D11ShaderResourceView* srvs[2] = { SceneColorSRV, SceneDepthSRV };
+	ID3D11ShaderResourceView* srvs[2] = {SceneColorSRV, SceneDepthSRV};
 	Context->PSSetShaderResources(0, 2, srvs);
 	Pipeline->SetSamplerState(0, false, PostProcessSamplerState);
 
 	// Fullscreen Quad 그리기 (RenderFog과 동일한 방식)
-	uint32 stride = sizeof(float) * 5;  // Position(3) + TexCoord(2)
+	uint32 stride = sizeof(float) * 5; // Position(3) + TexCoord(2)
 	uint32 offset = 0;
 	Pipeline->SetVertexBuffer(FullscreenQuadVB, stride);
 	Pipeline->SetIndexBuffer(FullscreenQuadIB, sizeof(uint32));
 	Pipeline->DrawIndexed(6, 0, 0);
 
 	// SRV 언바인드 (경고 방지)
-	ID3D11ShaderResourceView* NullSrvs[2] = { nullptr, nullptr };
+	ID3D11ShaderResourceView* NullSrvs[2] = {nullptr, nullptr};
 	Context->PSSetShaderResources(0, 2, NullSrvs);
 }
+
 void URenderer::UpdatePostProcessConstantBuffer()
 {
 	if (ConstantBufferPostProcessParameters)
 	{
-		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters, PostProcessUserParameters);
+		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
+		                                                 PostProcessUserParameters);
 	}
 }
 
@@ -745,13 +866,19 @@ void URenderer::CreateFireBallShader()
 {
 	TArray<D3D11_INPUT_ELEMENT_DESC> FireBallLayout =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
 	};
 
-    // Use default factory entries (mainVS/mainPS)
-    // Viewport-corrected version of FireBall shader
-    FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/FireBallShaderFixed.hlsl", FireBallLayout, &FireBallVertexShader, &FireBallInputLayout);
-    FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/FireBallShaderFixed.hlsl", &FireBallPixelShader);
+	// Use default factory entries (mainVS/mainPS)
+	// Viewport-corrected version of FireBall shader
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/FireBallShaderFixed.hlsl", FireBallLayout, &FireBallVertexShader,
+		&FireBallInputLayout);
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/FireBallShaderFixed.hlsl",
+	                                          &FireBallPixelShader);
 
 	CBPerObject = FRenderResourceFactory::CreateConstantBuffer<FPerObjectCB>();
 	CBFireBall = FRenderResourceFactory::CreateConstantBuffer<FFireBallCB>();
@@ -760,7 +887,6 @@ void URenderer::CreateFireBallShader()
 
 void URenderer::ReleaseFireBallShader()
 {
-
 	SafeRelease(FireBallVertexShader);
 	SafeRelease(FireBallPixelShader);
 	SafeRelease(FireBallInputLayout);
@@ -768,37 +894,33 @@ void URenderer::ReleaseFireBallShader()
 
 void URenderer::CreateFullscreenQuad()
 {
-	struct
+	FFullscreenQuadVertex Vertices[] =
 	{
-		FVector Position;
-		float U, V;
-	} vertices[] =
-	{
-		{ FVector(-1.0f,  1.0f, 0.0f), 0.0f, 0.0f },  // Top-left
-		{ FVector( 1.0f,  1.0f, 0.0f), 1.0f, 0.0f },  // Top-right
-		{ FVector(-1.0f, -1.0f, 0.0f), 0.0f, 1.0f },  // Bottom-left
-		{ FVector( 1.0f, -1.0f, 0.0f), 1.0f, 1.0f }   // Bottom-right
+		{FVector(-1.0f, 1.0f, 0.0f), 0.0f, 0.0f}, // Top-left
+		{FVector(1.0f, 1.0f, 0.0f), 1.0f, 0.0f}, // Top-right
+		{FVector(-1.0f, -1.0f, 0.0f), 0.0f, 1.0f}, // Bottom-left
+		{FVector(1.0f, -1.0f, 0.0f), 1.0f, 1.0f} // Bottom-right
 	};
 
-	uint32 indices[] = { 0, 1, 2, 2, 1, 3 };
+	uint32 Indices[] = {0, 1, 2, 2, 1, 3};
 
-	D3D11_BUFFER_DESC vbd = {};
-	vbd.Usage = D3D11_USAGE_IMMUTABLE;
-	vbd.ByteWidth = sizeof(vertices);
-	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	D3D11_BUFFER_DESC VertexBufferDescription = {};
+	VertexBufferDescription.Usage = D3D11_USAGE_IMMUTABLE;
+	VertexBufferDescription.ByteWidth = sizeof(Vertices);
+	VertexBufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
-	D3D11_SUBRESOURCE_DATA vInitData = {};
-	vInitData.pSysMem = vertices;
-	GetDevice()->CreateBuffer(&vbd, &vInitData, &FullscreenQuadVB);
+	D3D11_SUBRESOURCE_DATA VertexInitialData = {};
+	VertexInitialData.pSysMem = Vertices;
+	GetDevice()->CreateBuffer(&VertexBufferDescription, &VertexInitialData, &FullscreenQuadVB);
 
-	D3D11_BUFFER_DESC ibd = {};
-	ibd.Usage = D3D11_USAGE_IMMUTABLE;
-	ibd.ByteWidth = sizeof(indices);
-	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	D3D11_BUFFER_DESC IndexBufferDescription = {};
+	IndexBufferDescription.Usage = D3D11_USAGE_IMMUTABLE;
+	IndexBufferDescription.ByteWidth = sizeof(Indices);
+	IndexBufferDescription.BindFlags = D3D11_BIND_INDEX_BUFFER;
 
-	D3D11_SUBRESOURCE_DATA iInitData = {};
-	iInitData.pSysMem = indices;
-	GetDevice()->CreateBuffer(&ibd, &iInitData, &FullscreenQuadIB);
+	D3D11_SUBRESOURCE_DATA IndexInitialData = {};
+	IndexInitialData.pSysMem = Indices;
+	GetDevice()->CreateBuffer(&IndexBufferDescription, &IndexInitialData, &FullscreenQuadIB);
 }
 
 void URenderer::ReleaseFullscreenQuad()
@@ -822,7 +944,8 @@ void URenderer::CreateSceneRenderTargets()
 		return;
 	}
 
-	UE_LOG("CreateSceneRenderTargets: Creating %ux%u textures (SwapChain full size)", Width, Height);
+	UE_LOG("CreateSceneRenderTargets: Creating %ux%u textures (SwapChain full size)", Width,
+	       Height);
 
 	// Scene Color Render Target
 	D3D11_TEXTURE2D_DESC ColorDescription = {};
@@ -873,14 +996,14 @@ void URenderer::CreateSceneRenderTargets()
 
 	// DSV 생성 (Depth 쓰기용)
 	D3D11_DEPTH_STENCIL_VIEW_DESC DSVDescription = {};
-	DSVDescription.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;  // Depth 24비트 + Stencil 8비트
+	DSVDescription.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // Depth 24비트 + Stencil 8비트
 	DSVDescription.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 	DSVDescription.Texture2D.MipSlice = 0;
 	GetDevice()->CreateDepthStencilView(SceneDepthTexture, &DSVDescription, &SceneDepthDSV);
 
 	// SRV 생성 (Depth 읽기용 - Stencil은 무시)
 	D3D11_SHADER_RESOURCE_VIEW_DESC depthSRVDesc = {};
-	depthSRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;  // Depth만 읽기, Stencil 무시
+	depthSRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS; // Depth만 읽기, Stencil 무시
 	depthSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	depthSRVDesc.Texture2D.MostDetailedMip = 0;
 	depthSRVDesc.Texture2D.MipLevels = 1;
@@ -912,13 +1035,28 @@ void URenderer::CreateFireBallForwardShader()
 {
 	TArray<D3D11_INPUT_ELEMENT_DESC> layout =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),   D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		}
 	};
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/FireBallForward.hlsl", layout, &FireBallFwdVertexShader, &FireBallFwdInputLayout);
-	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/FireBallForward.hlsl", &FireBallFwdPixelShader);
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/FireBallForward.hlsl", layout, &FireBallFwdVertexShader,
+		&FireBallFwdInputLayout);
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/FireBallForward.hlsl",
+	                                          &FireBallFwdPixelShader);
 }
 
 void URenderer::ReleaseFireBallForwardShader()
@@ -929,260 +1067,73 @@ void URenderer::ReleaseFireBallForwardShader()
 }
 
 // ========================================
-// UberLight Rendering (PointLight + SpotLight 통합)
+// UberLight Resources (LightPass용)
 // ========================================
 
-void URenderer::CreateUberLightShader()
+void URenderer::CreateUberLightResources()
 {
+	// Vertex Shader & Input Layout
 	TArray<D3D11_INPUT_ELEMENT_DESC> layout =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),   D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{
+			"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		}
 	};
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/UberLightShader.hlsl", layout, &UberLightVertexShader, &UberLightInputLayout);
-	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLightShader.hlsl", &UberLightPixelShader);
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/UberLightShader.hlsl",
+		layout,
+		&UberLightVertexShader,
+		&UberLightInputLayout
+	);
 
-	ConstantBufferLightProperties = FRenderResourceFactory::CreateConstantBuffer<FLightProperties>();
-	UberLightSamplerState = FRenderResourceFactory::CreateSamplerState(D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP);
+	// Pixel Shader (단일 UberShader - 런타임 분기 방식)
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLightShader.hlsl",
+	                                          &UberLightPixelShader);
+
+	// Sampler State
+	UberLightSamplerState = FRenderResourceFactory::CreateSamplerState(
+		D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP);
 
 	// Depth State: LESS_EQUAL, Write OFF (for camera outside light volume)
-	D3D11_DEPTH_STENCIL_DESC depthDesc = {};
-	depthDesc.DepthEnable = TRUE;
-	depthDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
-	depthDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
-	depthDesc.StencilEnable = FALSE;
-	GetDevice()->CreateDepthStencilState(&depthDesc, &UberLightDepthState);
+	D3D11_DEPTH_STENCIL_DESC depthDescLessEqual = {};
+	depthDescLessEqual.DepthEnable = TRUE;
+	depthDescLessEqual.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	depthDescLessEqual.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+	depthDescLessEqual.StencilEnable = FALSE;
+	GetDevice()->CreateDepthStencilState(&depthDescLessEqual, &UberLightDepthLessEqualNoWrite);
+
+	// Additive Blend State
+	D3D11_BLEND_DESC blendDesc = {};
+	blendDesc.RenderTarget[0].BlendEnable = TRUE;
+	blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+	blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+	blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
+	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+	GetDevice()->CreateBlendState(&blendDesc, &UberLightAdditiveBlend);
 }
 
-void URenderer::ReleaseUberLightShader()
+void URenderer::ReleaseUberLightResources()
 {
 	SafeRelease(UberLightVertexShader);
-	SafeRelease(UberLightPixelShader);
 	SafeRelease(UberLightInputLayout);
-	SafeRelease(ConstantBufferLightProperties);
+	SafeRelease(UberLightPixelShader);
 	SafeRelease(UberLightSamplerState);
-	SafeRelease(UberLightDepthState);
-}
-
-void URenderer::RenderUberLights(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport)
-{
-	const ULevel* CurrentLevel = GWorld->GetLevel();
-	if (!CurrentLevel) return;
-
-	const auto& PointLights = CurrentLevel->GetAllPointLights();
-	const auto& SpotLights = CurrentLevel->GetAllSpotLights();
-
-	// 렌더링할 라이트가 없으면 리턴
-	if (PointLights.empty() && SpotLights.empty())
-	{
-		return;
-	}
-
-	auto* Context = GetDeviceContext();
-
-	// IMPORTANT: Scene RT 바인딩, 하지만 DSV는 nullptr!
-	// Depth texture를 SRV로 읽어야 하므로 DSV로 바인딩하면 안됨
-	// (DirectX 11: 같은 리소스를 DSV와 SRV로 동시에 사용 불가)
-	ID3D11RenderTargetView* SceneRtvs[] = { SceneColorRTV };
-	Context->OMSetRenderTargets(1, SceneRtvs, nullptr);  // DSV = nullptr
-	Context->RSSetViewports(1, &InViewport);
-
-	// Additive Blend + NO Depth Test (DSV가 nullptr이므로 depth test 불가능)
-	Context->OMSetBlendState(AdditiveBlendState, nullptr, 0xFFFFFFFF);
-	Context->OMSetDepthStencilState(DisabledDepthStencilState, 0);  // Depth 완전 비활성화
-
-	// Pipeline 설정 (UberLight 셰이더 사용)
-	FPipelineInfo PipelineInfo = {
-		UberLightInputLayout,
-		UberLightVertexShader,
-		FRenderResourceFactory::GetRasterizerState({ ECullMode::None, EFillMode::Solid }),  // Culling 비활성화
-		DisabledDepthStencilState,  // Depth 완전 비활성화 (DSV가 nullptr)
-		UberLightPixelShader,
-		AdditiveBlendState,
-		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
-	};
-	Pipeline->UpdatePipeline(PipelineInfo);
-
-	// Constant Buffer 유효성 확인
-	if (!ConstantBufferLightProperties)
-	{
-		UE_LOG_ERROR("ConstantBufferLightProperties is nullptr! Skipping light rendering.");
-		return;
-	}
-
-	// Constant Buffers 설정
-	Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
-	Pipeline->SetConstantBuffer(2, false, ConstantBufferLightProperties);
-
-	// Depth Texture 바인딩
-	Context->PSSetShaderResources(0, 1, &SceneDepthSRV);
-	Pipeline->SetSamplerState(0, false, UberLightSamplerState);
-
-	// Inverse ViewProj Matrix 계산
-	const FViewProjConstants& ViewProj = InCurrentCamera->GetFViewProjConstants();
-	FMatrix ViewProjMatrix = ViewProj.View * ViewProj.Projection;
-	FMatrix InvViewProj = ViewProjMatrix.Inverse();
-
-	// Scene RT 크기 가져오기 (PostProcess와 동일)
-	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-	GetSwapChain()->GetDesc(&swapChainDesc);
-
-	// AssetManager에서 Sphere Mesh 가져오기 (PointLight와 SpotLight 공통 사용)
-	UAssetManager& AssetMgr = UAssetManager::GetInstance();
-	ID3D11Buffer* SphereVB = AssetMgr.GetVertexbuffer(EPrimitiveType::Sphere);
-	ID3D11Buffer* SphereIB = AssetMgr.GetIndexbuffer(EPrimitiveType::Sphere);
-	uint32 SphereNumIndices = AssetMgr.GetNumIndices(EPrimitiveType::Sphere);
-	uint32 SphereNumVertices = AssetMgr.GetNumVertices(EPrimitiveType::Sphere);
-
-	// ========== PointLight 렌더링 ==========
-	for (auto* PointLight : PointLights)
-	{
-		if (!PointLight || !PointLight->GetOwner())
-		{
-			continue;
-		}
-
-		// Light Properties 설정
-		FLightProperties lightProps = {};
-		lightProps.LightPosition = PointLight->GetWorldLocation();
-		lightProps.Intensity = PointLight->GetIntensity();
-		lightProps.LightColor = PointLight->GetLightColor();
-		lightProps.Radius = PointLight->GetAttenuationRadius();
-		lightProps.LightDirection = FVector::ZeroVector();  // PointLight는 방향 없음
-		lightProps.RadiusFalloff = PointLight->GetLightFalloffExponent();
-
-		// Viewport 정보 (PostProcess와 동일한 방식)
-		lightProps.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
-		lightProps.ViewportSize = FVector2(InViewport.Width, InViewport.Height);
-		lightProps.SceneRTSize = FVector2(
-			static_cast<float>(swapChainDesc.BufferDesc.Width),
-			static_cast<float>(swapChainDesc.BufferDesc.Height)
-		);
-
-		lightProps.InnerConeAngle = 0.0f;  // PointLight는 cone 없음
-		lightProps.OuterConeAngle = 0.0f;
-		lightProps.LightType = 0;  // 0 = PointLight
-		lightProps.Padding3 = FVector::ZeroVector();
-
-		lightProps.InvViewProj = InvViewProj;
-
-		// Constant Buffer 업데이트
-		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferLightProperties, lightProps);
-		Pipeline->SetConstantBuffer(2, false, ConstantBufferLightProperties);
-
-		// World Transform (Sphere를 라이트 위치/반경으로 스케일)
-		FVector LightPos = PointLight->GetWorldLocation();
-		FVector LightScale = FVector(PointLight->GetAttenuationRadius(),
-			PointLight->GetAttenuationRadius(), PointLight->GetAttenuationRadius());
-		FMatrix WorldMatrix = FMatrix::GetModelMatrix(LightPos, FVector::ZeroVector(), LightScale);
-
-		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModels, WorldMatrix);
-		Pipeline->SetConstantBuffer(0, true, ConstantBufferModels);
-
-		// Sphere Mesh 렌더링
-		Pipeline->SetVertexBuffer(SphereVB, sizeof(FNormalVertex));
-		if (SphereIB)
-		{
-			Pipeline->SetIndexBuffer(SphereIB, 0);
-			Pipeline->DrawIndexed(SphereNumIndices, 0, 0);
-		}
-		else
-		{
-			Pipeline->Draw(SphereNumVertices, 0);
-		}
-	}
-
-	// ========== SpotLight 렌더링 ==========
-	static int SpotLightDebugCount = 0;
-	for (auto* SpotLight : SpotLights)
-	{
-		if (!SpotLight || !SpotLight->GetOwner())
-		{
-			if (SpotLightDebugCount < 3)
-			{
-				UE_LOG("RenderUberLights: SpotLight skipped (nullptr or no owner)");
-				SpotLightDebugCount++;
-			}
-			continue;
-		}
-
-		if (SpotLightDebugCount < 3)
-		{
-			UE_LOG("RenderUberLights: Rendering SpotLight - Pos=(%.1f, %.1f, %.1f), Intensity=%.1f, Radius=%.1f",
-				SpotLight->GetWorldLocation().X, SpotLight->GetWorldLocation().Y, SpotLight->GetWorldLocation().Z,
-				SpotLight->GetIntensity(), SpotLight->GetRadius());
-			SpotLightDebugCount++;
-		}
-
-		// Light Properties 설정
-		FLightProperties lightProps = {};
-		lightProps.LightPosition = SpotLight->GetWorldLocation();
-		lightProps.Intensity = SpotLight->GetIntensity();
-		lightProps.LightColor = SpotLight->GetLightColor();
-		lightProps.Radius = SpotLight->GetRadius();
-
-		// SpotLight 방향
-		const FMatrix& TransformMatrix = SpotLight->GetWorldTransformMatrix();
-		FVector LightDirection = FVector(TransformMatrix.Data[0][0],
-		                                TransformMatrix.Data[0][1],
-		                                TransformMatrix.Data[0][2]);
-		LightDirection.Normalize();
-
-		lightProps.LightDirection = LightDirection;
-
-		lightProps.RadiusFalloff = SpotLight->GetRadiusFalloff();
-
-		// Viewport 정보
-		lightProps.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
-		lightProps.ViewportSize = FVector2(InViewport.Width, InViewport.Height);
-		lightProps.SceneRTSize = FVector2(
-			static_cast<float>(swapChainDesc.BufferDesc.Width),
-			static_cast<float>(swapChainDesc.BufferDesc.Height)
-		);
-
-		// Cone Angles (도 단위 -> 라디안 변환)
-		lightProps.InnerConeAngle = FVector::GetDegreeToRadian(SpotLight->GetInnerConeAngle());
-		lightProps.OuterConeAngle = FVector::GetDegreeToRadian(SpotLight->GetOuterConeAngle());
-		lightProps.LightType = 1;  // 1 = SpotLight
-		lightProps.Padding3 = FVector::ZeroVector();
-
-		lightProps.InvViewProj = InvViewProj;
-
-		// Constant Buffer 업데이트
-		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferLightProperties, lightProps);
-		Pipeline->SetConstantBuffer(2, false, ConstantBufferLightProperties);
-
-		// World Transform (Sphere를 라이트 위치/반경으로 스케일)
-		FVector LightPos = SpotLight->GetWorldLocation();
-		FVector LightScale = FVector(SpotLight->GetRadius(), SpotLight->GetRadius(), SpotLight->GetRadius());
-		FMatrix WorldMatrix = FMatrix::GetModelMatrix(LightPos, FVector::ZeroVector(), LightScale);
-
-		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModels, WorldMatrix);
-		Pipeline->SetConstantBuffer(0, true, ConstantBufferModels);
-
-		// Sphere Mesh 렌더링
-		Pipeline->SetVertexBuffer(SphereVB, sizeof(FNormalVertex));
-		if (SphereIB)
-		{
-			Pipeline->SetIndexBuffer(SphereIB, 0);
-			Pipeline->DrawIndexed(SphereNumIndices, 0, 0);
-		}
-		else
-		{
-			Pipeline->Draw(SphereNumVertices, 0);
-		}
-	}
-
-	// SRV 언바인드
-	ID3D11ShaderResourceView* NullSRV = nullptr;
-	Context->PSSetShaderResources(0, 1, &NullSRV);
-
-	// Scene RT 다시 바인딩 (RenderDebugPrimitives를 위해)
-	Context->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
-
-	// Blend/Depth State 복원
-	Context->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
-	Context->OMSetDepthStencilState(DefaultDepthStencilState, 0);
+	SafeRelease(UberLightDepthLessEqualNoWrite);
+	SafeRelease(UberLightAdditiveBlend);
 }

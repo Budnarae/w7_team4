@@ -20,7 +20,7 @@ PS_INPUT mainVS(VS_INPUT input)
 	float4 tmp = input.position;
 	tmp = mul(tmp, View);
 	tmp = mul(tmp, Projection);
-	
+
 	output.position = tmp;
 
 	return output;

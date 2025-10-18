@@ -25,6 +25,7 @@ UBatchLines::UBatchLines() : Grid(), BoundingBoxLines(), ConeLines()
 	Primitive.VertexShader = UAssetManager::GetInstance().GetVertexShader(EShaderType::BatchLine);
 	Primitive.InputLayout = UAssetManager::GetInstance().GetIputLayout(EShaderType::BatchLine);
 	Primitive.PixelShader = UAssetManager::GetInstance().GetPixelShader(EShaderType::BatchLine);
+	Primitive.bDepthWriteDisabled = true;
 }
 
 UBatchLines::~UBatchLines()
@@ -54,8 +55,8 @@ void UBatchLines::AddLines(const TArray<FVector>& InVertices, const TArray<uint3
 		Indices[CurrentNumIndices + i] = CurrentNumVertices + InIndices[i];
 	}
 
-	CurrentNumVertices += InVertices.size();
-	CurrentNumIndices += InIndices.size();
+	CurrentNumVertices += static_cast<int32>(InVertices.size());
+	CurrentNumIndices += static_cast<int32>(InIndices.size());
 
 	bChangedVertices = true;
 }
@@ -306,7 +307,7 @@ void UBatchLines::AddSphereLines(const FVector& CenterPosition, float Radius)
 		SphereIndices.push_back(i * 3);           // 현재 XY점
 		SphereIndices.push_back(nextI * 3);       // 다음 XY점
 
-		// XZ 평면 원 (1, 4, 7, 10, ... 연결)  
+		// XZ 평면 원 (1, 4, 7, 10, ... 연결)
 		SphereIndices.push_back(i * 3 + 1);       // 현재 XZ점
 		SphereIndices.push_back(nextI * 3 + 1);   // 다음 XZ점
 
@@ -575,7 +576,7 @@ void UBatchLines::SetIndices()
 		Indices.push_back(SphereBaseOffset + i * 3);           // 현재 XY점
 		Indices.push_back(SphereBaseOffset + nextI * 3);       // 다음 XY점
 
-		// XZ 평면 원 (1, 4, 7, 10, ... 연결)  
+		// XZ 평면 원 (1, 4, 7, 10, ... 연결)
 		Indices.push_back(SphereBaseOffset + i * 3 + 1);       // 현재 XZ점
 		Indices.push_back(SphereBaseOffset + nextI * 3 + 1);   // 다음 XZ점
 
