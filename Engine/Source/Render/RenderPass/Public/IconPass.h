@@ -24,5 +24,5 @@ private:
     ID3D11InputLayout* InputLayout = nullptr;
     ID3D11DepthStencilState* DS = nullptr;
 
-    ID3D11Buffer* ConstantBufferColor = nullptr;
+    ID3D11Buffer* ConstantBufferIconProperties = nullptr;
 };

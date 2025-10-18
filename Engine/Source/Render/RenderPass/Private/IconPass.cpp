@@ -17,7 +17,7 @@ FIconPass::FIconPass
 )
     :
     FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel),
-    ConstantBufferColor(InConstantBufferIconProperties),
+    ConstantBufferIconProperties(InConstantBufferIconProperties),
     VS(InVS),
     PS(InPS),
     InputLayout(InLayout), DS(InDS)
@@ -28,7 +28,14 @@ void FIconPass::Execute(FRenderingContext& Context)
 {
     FRenderState RenderState = UIconComponent::GetClassDefaultRenderState();
 
-    static FPipelineInfo PipelineInfo = { InputLayout, VS, FRenderResourceFactory::GetRasterizerState(RenderState), DS, PS, nullptr };
+    static FPipelineInfo PipelineInfo = {
+	    InputLayout,
+    	VS,
+    	FRenderResourceFactory::GetRasterizerState(RenderState),
+    	DS,
+    	PS,
+    	nullptr
+    };
 
     Pipeline->UpdatePipeline(PipelineInfo);
 
@@ -46,14 +53,14 @@ void FIconPass::Execute(FRenderingContext& Context)
         Pipeline->SetConstantBuffer(0, true, ConstantBufferModel);
 
         FRenderResourceFactory::UpdateConstantBufferData(
-            ConstantBufferColor,
+            ConstantBufferIconProperties,
             FIconProperties
             {
                 IconComp->GetIconColor(),
                 IconComp->GetIconIntensity()
 			}
         );
-        Pipeline->SetConstantBuffer(2, false, ConstantBufferColor);
+        Pipeline->SetConstantBuffer(2, false, ConstantBufferIconProperties);
         Pipeline->SetTexture(0, false, IconComp->GetSprite().second);
         Pipeline->SetSamplerState(0, false, IconComp->GetSampler());
         Pipeline->DrawIndexed(IconComp->GetNumIndices(), 0, 0);

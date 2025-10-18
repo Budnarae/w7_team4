@@ -101,7 +101,7 @@ int FClientApp::InitializeSystem() const
 	UAssetManager::GetInstance().Initialize();
 
 	GEditor = NewObject<UEditorEngine>();
-	
+
 	return S_OK;
 }
 
@@ -129,7 +129,7 @@ void FClientApp::UpdateSystem() const
 	{
 		TIME_PROFILE(UIManager)
 		UIManager.Update();
-	}	
+	}
 	{
 		TIME_PROFILE(Renderer)
 		Renderer.Update();

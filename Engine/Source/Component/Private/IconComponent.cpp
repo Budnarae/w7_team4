@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "Component/Public/IconComponent.h"
 #include "Component/Light/Public/LightComponent.h"
 #include "Component/Light/Public/PointLightComponent.h"

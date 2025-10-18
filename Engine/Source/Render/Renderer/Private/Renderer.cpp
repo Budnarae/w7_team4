@@ -550,7 +550,7 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 		{
 			// PIE가 아닐 때에만 아이콘 렌더링
 			if (!(GEditor->GetPIEState() == EPIEState::Playing))
-				RenderingContext.BillBoards.push_back(Icon);
+				RenderingContext.Icons.push_back(Icon);
 		}
 		else if (auto BillBoard = Cast<UBillBoardComponent>(Prim))
 		{
