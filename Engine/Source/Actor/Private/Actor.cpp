@@ -172,6 +172,12 @@ void AActor::Serialize(const bool bInIsLoading, JSON& InOutHandle)
         {
         	if (!Component) { continue; }
 
+        	// bShouldSerialize가 false인 컴포넌트는 저장 안함
+        	if (Component->GetClass()->MetaEquals("bShouldSerialize", "false"))
+        	{
+        		continue;
+        	}
+
             JSON ComponentJson;
             ComponentJson["Type"] = Component->GetClass()->GetName().ToString();
 
@@ -450,11 +456,16 @@ void AActor::BeginPlay()
 	}
 	bBegunPlay = true;
 	UE_LOG("BeginPlay: %s (Components: %zu)", GetName().ToString().c_str(), OwnedComponents.size());
-	for (auto& Component : OwnedComponents)
+
+	// Iterator Invalidation 방지 + 새로 등록된 Component도 BeginPlay 호출
+	// 인덱스 기반 순회로 동적으로 추가되는 Component도 처리
+	for (size_t i = 0; i < OwnedComponents.size(); ++i)
 	{
-		if (Component)
+		if (OwnedComponents[i])
 		{
-			Component->BeginPlay();
+			OwnedComponents[i]->BeginPlay();
+			// BeginPlay 중 새 Component 등록 시 OwnedComponents.size() 증가
+			// → 다음 반복에서 자동으로 처리됨
 		}
 	}
 }

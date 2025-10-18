@@ -49,7 +49,7 @@ void ULightComponent::DuplicateSubObjects(UObject* DuplicatedObject)
 {
 	Super::DuplicateSubObjects(DuplicatedObject);
 
-	ULightComponent* LightComponent = Cast<ULightComponent>(DuplicatedObject);
+	/*ULightComponent* LightComponent = Cast<ULightComponent>(DuplicatedObject);
 	LightComponent->IconComponent = Cast<UIconComponent>(IconComponent->Duplicate());
-	LightComponent->IconComponent->Initialize(LightComponent);
+	LightComponent->IconComponent->Initialize(LightComponent);*/
 }

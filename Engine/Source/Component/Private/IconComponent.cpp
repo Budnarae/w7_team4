@@ -10,6 +10,7 @@
 IMPLEMENT_CLASS(UIconComponent, UBillBoardComponent)
 SET_CLASS_META_IN_GLOBAL(UIconComponent, bIsRemovable, false)
 SET_CLASS_META_IN_GLOBAL(UIconComponent, bVisibleInComponentTree, false)
+SET_CLASS_META_IN_GLOBAL(UIconComponent, bShouldSerialize, false)
 
 void UIconComponent::Initialize(USceneComponent* Parent)
 {
@@ -25,7 +26,6 @@ void UIconComponent::Initialize(USceneComponent* Parent)
 	AActor* Owner = Parent->GetOwner();
 	if (!Owner)
 	{
-		UE_LOG_ERROR("IconComponent::Initialize - Parent has no Owner!");
 		return;
 	}
 
