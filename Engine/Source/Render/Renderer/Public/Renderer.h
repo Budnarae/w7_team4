@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "DeviceResources.h"
 #include "Core/Public/Object.h"
 #include "Component/Public/PrimitiveComponent.h"
@@ -70,6 +70,7 @@ public:
 	void CreateFireBallForwardShader();
 	void CreateUberLightResources();
 	void CreateIconShader();
+	void CreateFogResources();
 	void CreateFullscreenQuad();
 	void CreateConstantBuffers();
 	void CreateSceneRenderTargets();
@@ -84,6 +85,7 @@ public:
 	void ReleaseFireBallForwardShader();
 	void ReleaseUberLightResources();
 	void ReleaseIconShader();
+	void ReleaseFogResources();
 	void ReleaseFullscreenQuad();
 	void ReleaseSceneRenderTargets();
 
@@ -246,9 +248,6 @@ private:
 	void ReleasePostProcessResources();
 	void ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport);
 	void UpdatePostProcessConstantBuffer();
-
-	void CreateFogPassResources();
-	void ReleaseFogPassResources();
 
 	TArray<class FRenderPass*> RenderPasses;
 };

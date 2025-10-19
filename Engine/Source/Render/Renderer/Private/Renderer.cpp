@@ -65,7 +65,7 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateFullscreenQuad();
 	CreateConstantBuffers();
 	CreatePostProcessResources();
-	CreateFogPassResources();
+	CreateFogResources();
 
 	// FontRenderer 초기화
 	FontRenderer = new UFontRenderer;
@@ -141,6 +141,26 @@ void URenderer::Init(HWND InWindowHandle)
 		               LightSamplerState, LightDepthLessEqualNoWrite,
 		               LightAdditiveBlend);
 	RenderPasses.push_back(LightPass);
+
+	auto* BackBufferRTV = DeviceResources->GetRenderTargetView();
+	auto* BackBufferDSV = DeviceResources->GetDepthStencilView();
+
+	FFogPass* FogPass =
+		new FFogPass(
+			Pipeline,
+			BackBufferRTV,
+			BackBufferDSV,
+			SceneColorSRV,
+			SceneDepthSRV,
+			PostProcessSamplerState,
+			ConstantBufferViewProj,
+			ConstantBufferModels,
+			ConstantBufferFogProperties,
+			FogVertexShader,
+			FogPixelShader,
+			NoTestButWriteDepthState
+			);
+	RenderPasses.push_back(FogPass);
 }
 
 void URenderer::Release()
@@ -157,6 +177,7 @@ void URenderer::Release()
 	ReleaseDepthStencilState();
 	ReleaseBlendState();
 	ReleasePostProcessResources();
+	ReleaseFogResources();
 	FRenderResourceFactory::ReleaseRasterizerState();
 	for (auto& RenderPass : RenderPasses)
 	{
@@ -392,6 +413,12 @@ void URenderer::ReleaseIconShader()
 	SafeRelease(ConstantBufferIconProperties);
 }
 
+void URenderer::ReleaseFogResources()
+{
+	SafeRelease(FogVertexShader);
+	SafeRelease(FogPixelShader);
+	SafeRelease(ConstantBufferFogProperties);
+}
 
 void URenderer::ReleaseDepthShader()
 {
@@ -464,11 +491,10 @@ void URenderer::Update()
 		// 통합 포스트프로세싱 패스: Fog + Anti-Aliasing (FXAA)
 		// RenderLevel + RenderDebugPrimitives 결과에 모두 FXAA 적용
 		GetDeviceContext()->RSSetViewports(1, &ClientViewport);
-
-		{
-			TIME_PROFILE(ExecutePostProcess)
-			ExecutePostProcess(CurrentCamera, ClientViewport); // Fog + FXAA 통합
-		}
+		// {
+		// 	TIME_PROFILE(ExecutePostProcess)
+		// 	ExecutePostProcess(CurrentCamera, ClientViewport); // Fog + FXAA 통합
+		// }
 
 		// === 기즈모 렌더링: BackBuffer에 직접 렌더링 (FXAA 미적용, 항상 선명) ===
 		{
@@ -567,6 +593,11 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 			UUUIDTextComponent::StaticClass()))
 		{
 			RenderingContext.Texts.push_back(Text);
+		}
+		else if (auto Fog = Cast<UHeightFogComponent>(Prim); Fog && !Fog->IsExactly(
+			UHeightFogComponent::StaticClass()))
+		{
+			RenderingContext.Fogs.push_back(Fog);
 		}
 		else if (!Prim->IsA(UUUIDTextComponent::StaticClass()))
 		{
@@ -734,36 +765,6 @@ void URenderer::ReleasePostProcessResources()
 	SafeRelease(PostProcessPixelShader);
 	SafeRelease(PostProcessSamplerState);
 	SafeRelease(ConstantBufferPostProcessParameters);
-}
-
-void URenderer::CreateFogPassResources()
-{
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
-		L"Asset/Shader/FogShader.hlsl",
-		TArray<D3D11_INPUT_ELEMENT_DESC>{},
-		&FogVertexShader,
-		nullptr
-	);
-
-	FRenderResourceFactory::CreatePixelShader(
-		L"Asset/Shader/FogShader.hlsl",
-		&PostProcessPixelShader
-	);
-
-	ConstantBufferFogProperties = \
-		FRenderResourceFactory::CreateConstantBuffer<FHeightFogParameters>();
-
-	// Todo : 나중에 Fog 쓸 일 없으면 Pass 자체를 실행하지 않게 변경
-	ConstantBufferFogProperties = {}; // 기본값으로 구조체 디폴트
-	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
-	                                                 PostProcessUserParameters);
-}
-
-void URenderer::ReleaseFogPassResources()
-{
-	SafeRelease(FogVertexShader);
-	SafeRelease(FogPixelShader);
-	SafeRelease(ConstantBufferFogProperties);
 }
 
 void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport)
@@ -1232,6 +1233,29 @@ void URenderer::CreateIconShader()
 	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/IconShader.hlsl", &IconPixelShader);
 
 	ConstantBufferIconProperties = FRenderResourceFactory::CreateConstantBuffer<FIconProperties>();
+}
+
+
+void URenderer::CreateFogResources()
+{
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/FogShader.hlsl",
+		TArray<D3D11_INPUT_ELEMENT_DESC>{},
+		&FogVertexShader,
+		nullptr
+	);
+
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/FogShader.hlsl",
+		&FogPixelShader
+	);
+
+	ConstantBufferFogProperties = \
+		FRenderResourceFactory::CreateConstantBuffer<FHeightFogParameters>();
+
+	// Todo : 나중에 Fog 쓸 일 없으면 Pass 자체를 실행하지 않게 변경
+	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
+													 PostProcessUserParameters);
 }
 
 void URenderer::ReleaseUberLightResources()

@@ -1,4 +1,4 @@
-﻿cbuffer FogParameters : register(b0)
+cbuffer FogParameters : register(b0)
 {
 	float2 ViewportTopLeft;
 	float2 ViewportSize;
