@@ -1,3 +1,23 @@
+#ifndef LIGHTING_MODEL_GOURAUD
+#define LIGHTING_MODEL_GOURAUD 0
+#endif
+
+#ifndef LIGHTING_MODEL_LAMBERT
+#define LIGHTING_MODEL_LAMBERT 0
+#endif
+
+#ifndef LIGHTING_MODEL_PHONG
+#define LIGHTING_MODEL_PHONG 0
+#endif
+
+#ifndef LIGHT_TYPE_POINT
+#define LIGHT_TYPE_POINT 0
+#endif
+
+#ifndef LIGHT_TYPE_SPOT
+#define LIGHT_TYPE_SPOT 0
+#endif
+
 cbuffer PerObject : register(b0)
 {
     row_major float4x4 World;
@@ -8,14 +28,6 @@ cbuffer PerFrame : register(b1)
     row_major float4x4 View;
     row_major float4x4 Projection;
 };
-
-#ifndef LIGHT_TYPE_POINT
-#define LIGHT_TYPE_POINT 0
-#endif
-
-#ifndef LIGHT_TYPE_SPOT
-#define LIGHT_TYPE_SPOT 0
-#endif
 
 // Unified Light Properties (160 bytes)
 cbuffer LightProperties : register(b2)
@@ -64,7 +76,11 @@ struct PS_INPUT
 {
     float4 Position : SV_POSITION;
     float3 WorldPos : TEXCOORD0;
-    float4 ScreenPos : TEXCOORD1;
+    float3 Normal : TEXCOORD1;
+    float4 ScreenPos : TEXCOORD2;
+#if LIGHTING_MODEL_GOURAUD
+    float4 VertexColor : COLOR;
+#endif
 };
 
 // Vertex Shader
@@ -74,11 +90,18 @@ PS_INPUT mainVS(VS_INPUT input)
 
     float4 WorldPosition = mul(float4(input.Position, 1.0), World);
     Output.WorldPos = WorldPosition.xyz;
+    Output.Normal = normalize(mul(float4(input.Normal, 0.0), World).xyz);
 
     float4 viewPos = mul(WorldPosition, View);
     Output.Position = mul(viewPos, Projection);
 
     Output.ScreenPos = Output.Position;
+
+#if LIGHTING_MODEL_GOURAUD
+    // Gouraud Shading: Vertex Shader에서 라이팅 계산
+    // TODO: 여기서 정점 라이팅 계산 후 Output.VertexColor에 저장
+    Output.VertexColor = float4(0, 0, 0, 1);
+#endif
 
     return Output;
 }
@@ -112,6 +135,32 @@ float CalculateSpotLightConeAttenuation(float3 LightToSurfaceDir)
 // Pixel Shader
 float4 mainPS(PS_INPUT Input) : SV_TARGET
 {
+#if LIGHTING_MODEL_GOURAUD
+    // Gouraud Shading: VS에서 계산한 색상 사용
+    // TODO: VS에서 계산한 VertexColor 활용
+    return Input.VertexColor;
+
+#elif LIGHTING_MODEL_LAMBERT
+    // Lambert Shading: PS에서 Diffuse 라이팅 계산
+    // TODO: Ambient + Diffuse 라이팅 계산
+    // float3 normal = normalize(Input.Normal);
+    // float3 lightDir = normalize(LightPosition - Input.WorldPos);
+    // float NdotL = max(dot(normal, lightDir), 0.0);
+    // float3 diffuse = LightColor * Intensity * NdotL;
+    return float4(0, 0, 0, 1);
+
+#elif LIGHTING_MODEL_PHONG
+    // Phong Shading: PS에서 Diffuse + Specular 라이팅 계산
+    // TODO: Ambient + Diffuse + Specular 라이팅 계산
+    // float3 normal = normalize(Input.Normal);
+    // float3 lightDir = normalize(LightPosition - Input.WorldPos);
+    // float3 viewDir = normalize(CameraPosition - Input.WorldPos);
+    // float3 reflectDir = reflect(-lightDir, normal);
+    // float spec = pow(max(dot(viewDir, reflectDir), 0.0), Shininess);
+    return float4(0, 0, 0, 1);
+
+#else
+    // Deferred Light Volume Rendering (기존 방식)
     // Viewport UV 계산
     float2 ViewportUV = Input.ScreenPos.xy / Input.ScreenPos.w;
     ViewportUV = ViewportUV * 0.5 + 0.5;
@@ -163,4 +212,5 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     float3 LightContribution = LightColor * Intensity * FinalAttenuation;
 
     return float4(LightContribution, FinalAttenuation);
+#endif
 }

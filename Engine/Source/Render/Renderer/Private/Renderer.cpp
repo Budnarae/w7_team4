@@ -1131,7 +1131,7 @@ void URenderer::CreateUberLightResources()
 		}
 	};
 	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
-		L"Asset/Shader/UberLightShader.hlsl",
+		L"Asset/Shader/UberLit.hlsl",
 		Layout,
 		&LightVertexShader,
 		&LightInputLayout
@@ -1143,7 +1143,7 @@ void URenderer::CreateUberLightResources()
 		{ nullptr, nullptr }
 	};
 	FRenderResourceFactory::CreatePixelShader(
-		L"Asset/Shader/UberLightShader.hlsl",
+		L"Asset/Shader/UberLit.hlsl",
 		DefinesPointLight,
 		&LightPointLightPS);
 
@@ -1158,7 +1158,7 @@ void URenderer::CreateUberLightResources()
 		{ nullptr, nullptr }
 	};
 	FRenderResourceFactory::CreatePixelShader(
-		L"Asset/Shader/UberLightShader.hlsl",
+		L"Asset/Shader/UberLit.hlsl",
 		DefinesSpotLight,
 		&LightSpotLightPS);
 
