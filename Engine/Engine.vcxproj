@@ -438,7 +438,6 @@
     <ClInclude Include="Source\Render\RenderPass\Public\BillboardPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\DebugPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\DecalPass.h" />
-    <ClInclude Include="Source\Render\RenderPass\Public\FireBallForwardPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\FireBallPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\FogPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\FXAAPass.h" />
@@ -633,7 +632,6 @@
     <ClCompile Include="Source\Render\RenderPass\Private\BillboardPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\DebugPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\DecalPass.cpp" />
-    <ClCompile Include="Source\Render\RenderPass\Private\FireBallForwardPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\FireBallPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\FogPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\FXAAPass.cpp" />

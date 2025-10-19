@@ -42,18 +42,14 @@ void FFireBallPass::Execute(FRenderingContext& Context)
     const FMatrix ProjMat = VP->Projection;
     const FMatrix ViewProj = ViewMat * ProjMat;
 
-    
-    ID3D11RenderTargetView* rtv = URenderer::GetInstance().GetSceneColorRTV();
-    ID3D11ShaderResourceView* colorSRV = URenderer::GetInstance().GetSceneColorSRV();
-    ID3D11Texture2D* depthTexture = URenderer::GetInstance().GetSceneDepthTexture();
-    ID3D11DepthStencilView* depthDSV = URenderer::GetInstance().GetSceneDepthDSV();
-    ID3D11DepthStencilView* depthReadOnlyDSV = URenderer::GetInstance().GetReadOnlyDSV();
+    // 기존 RenderTarget 상태 저장
+    ID3D11RenderTargetView* PrevRTV = nullptr;
+    ID3D11DepthStencilView* PrevDSV = nullptr;
+    ctx->OMGetRenderTargets(1, &PrevRTV, &PrevDSV);
+
     ID3D11ShaderResourceView* depthSRV = URenderer::GetInstance().GetSceneDepthSRV();
 
     ID3D11ShaderResourceView* nullSRV = nullptr;
-    //ctx->PSSetShaderResources(0, 1, &nullSRV); // <- SceneColorSRV 쓰던 슬롯
-    //ctx->VSSetShaderResources(0, 1, &nullSRV);
-    //ctx->OMSetRenderTargets(1, &rtv, depthReadOnlyDSV);
 
     ctx->PSSetShaderResources(5, 1, &depthSRV);
     ctx->PSSetSamplers(5, 1, &DepthSampler);
@@ -183,7 +179,18 @@ void FFireBallPass::Execute(FRenderingContext& Context)
 
    ctx->PSSetShaderResources(5, 1, &nullSRV);
 
-   ctx->OMSetRenderTargets(1, &rtv, depthDSV);
+   // RenderTarget 상태 복원
+   ctx->OMSetRenderTargets(1, &PrevRTV, PrevDSV);
+
+   // COM 객체 참조 카운트 감소
+   if (PrevRTV)
+   {
+       PrevRTV->Release();
+   }
+   if (PrevDSV)
+   {
+       PrevDSV->Release();
+   }
 }
 
 void FFireBallPass::Release()

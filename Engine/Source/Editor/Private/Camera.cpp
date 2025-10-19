@@ -87,7 +87,7 @@ void UCamera::Update(const D3D11_VIEWPORT& InViewport)
 	const FVector4 Forward4 = FVector4::ForwardVector() * RotationMatrix;
 	const FVector4 WorldUp4 = FVector4::UpVector() * RotationMatrix;
 	const FVector WorldUp = { WorldUp4.X, WorldUp4.Y, WorldUp4.Z };
-		
+
 	Forward = FVector(Forward4.X, Forward4.Y, Forward4.Z);
 	Forward.Normalize();
 	Right = Forward.Cross(WorldUp);

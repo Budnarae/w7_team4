@@ -557,9 +557,6 @@ void URenderer::Update()
 			RenderLevel(CurrentCamera, ClientViewport);
 		}
 
-		// LightPass가 DSV를 nullptr로 설정했을 수 있으므로 Scene RT 재바인딩
-		GetDeviceContext()->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
-
 		// === 오버레이 프리미티브 렌더링: 이제 DebugPass에서 처리됨 ===
 		// RenderDebugPrimitives()는 DebugPass에서 RenderLevel 내부에서 호출되므로 여기서는 제거
 
