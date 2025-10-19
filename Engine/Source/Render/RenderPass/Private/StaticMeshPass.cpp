@@ -39,7 +39,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	ID3D11VertexShader* SelectedVS = VS;
 	ID3D11PixelShader* SelectedPS = PS;
 	ID3D11InputLayout* SelectedLayout = InputLayout;
-	
+
 	if (Context.ViewMode == EViewModeIndex::VMI_SceneDepth)
 	{
 		SelectedVS = DepthVS;

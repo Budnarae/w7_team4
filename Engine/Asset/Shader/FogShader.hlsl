@@ -86,7 +86,7 @@ float4 CalculateFogColor(float Depth, float2 viewportUV)
 
 	// Exponential Height Fog - Line Integral (Iquilezles formula)
 	float vh = rayDir.z / max(d, 1e-5); // z-axis component (normalized ray direction)
-	float h0 = CameraPosition.z - FogHeight; // Use relative height from fog origin
+	float h0 = CameraPosition.z - FogHeight; // Camera height relative to fog origin
 	float a = vh * FogHeightFalloff;
 	float tau;
 
@@ -98,16 +98,19 @@ float4 CalculateFogColor(float Depth, float2 viewportUV)
 	else
 	{
 		// Ray with height change - analytical integration
+		// exponent represents the exponential change over the adjusted distance
 		float exponent = -adjustedDistance * a;
 
 		// Prevent exp() overflow (exp(87) ≈ 6e37, near float max)
 		if (exponent > 87.0)
 		{
-			return float4(FogInscatteringColor * FogMaxOpacity, FogMaxOpacity);
+			// Very dense fog at this point
+			return float4(FogInscatteringColor, FogMaxOpacity);
 		}
 
 		exponent = max(exponent, -87.0); // Clamp negative side too
 
+		// Integrated optical depth along the ray
 		tau = (FogDensity / FogHeightFalloff) * exp(-h0 * FogHeightFalloff) *
 		      (1.0 - exp(exponent)) / vh;
 	}
