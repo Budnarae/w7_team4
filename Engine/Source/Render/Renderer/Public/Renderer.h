@@ -46,12 +46,6 @@ struct FPostProcessParameters
 	FMatrix InvViewProj;
 };
 
-struct FIconProperties
-{
-	FVector LightColor;			// Icon에 적용할 빛의 색상
-	float Intensity;			// Icon에 적용할 빛의 강도
-};
-
 /**
  * @brief Rendering Pipeline 전반을 처리하는 클래스
  */
@@ -214,6 +208,11 @@ private:
 	ID3D11InputLayout* IconInputLayout = nullptr;
 	ID3D11Buffer* ConstantBufferIconProperties = nullptr;
 
+	// Fog Shaders
+	ID3D11VertexShader* FogVertexShader = nullptr;
+	ID3D11PixelShader* FogPixelShader = nullptr;
+	ID3D11Buffer* ConstantBufferFogProperties = nullptr;
+
 	// Fullscreen Quad for Post-Processing
 	ID3D11Buffer* FullscreenQuadVB = nullptr;
 	ID3D11Buffer* FullscreenQuadIB = nullptr;
@@ -247,6 +246,9 @@ private:
 	void ReleasePostProcessResources();
 	void ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport);
 	void UpdatePostProcessConstantBuffer();
+
+	void CreateFogPassResources();
+	void ReleaseFogPassResources();
 
 	TArray<class FRenderPass*> RenderPasses;
 };

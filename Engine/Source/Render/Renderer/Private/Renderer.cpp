@@ -31,6 +31,7 @@
 #include "Render/RenderPass/Public/FireBallForwardPass.h"
 #include "Render/RenderPass/Public/LightPass.h"
 #include "Render/RenderPass/Public/IconPass.h"
+#include "Render/RenderPass/Public/FogPass.h"
 
 IMPLEMENT_SINGLETON_CLASS_BASE(URenderer)
 
@@ -64,6 +65,7 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateFullscreenQuad();
 	CreateConstantBuffers();
 	CreatePostProcessResources();
+	CreateFogPassResources();
 
 	// FontRenderer 초기화
 	FontRenderer = new UFontRenderer;
@@ -734,6 +736,36 @@ void URenderer::ReleasePostProcessResources()
 	SafeRelease(ConstantBufferPostProcessParameters);
 }
 
+void URenderer::CreateFogPassResources()
+{
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/FogShader.hlsl",
+		TArray<D3D11_INPUT_ELEMENT_DESC>{},
+		&FogVertexShader,
+		nullptr
+	);
+
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/FogShader.hlsl",
+		&PostProcessPixelShader
+	);
+
+	ConstantBufferFogProperties = \
+		FRenderResourceFactory::CreateConstantBuffer<FHeightFogParameters>();
+
+	// Todo : 나중에 Fog 쓸 일 없으면 Pass 자체를 실행하지 않게 변경
+	ConstantBufferFogProperties = {}; // 기본값으로 구조체 디폴트
+	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
+	                                                 PostProcessUserParameters);
+}
+
+void URenderer::ReleaseFogPassResources()
+{
+	SafeRelease(FogVertexShader);
+	SafeRelease(FogPixelShader);
+	SafeRelease(ConstantBufferFogProperties);
+}
+
 void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport)
 {
 	auto* Context = GetDeviceContext();
@@ -742,6 +774,8 @@ void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPOR
 	// 출력: 백버퍼 RTV로
 	auto* BackBufferRTV = DeviceResources->GetRenderTargetView();
 	auto* BackBufferDSV = DeviceResources->GetDepthStencilView();
+
+	// 여기서부터 +
 	Context->OMSetRenderTargets(1, &BackBufferRTV, BackBufferDSV);
 
 	// Viewport 설정 (각 ViewportClient 영역에만 적용)

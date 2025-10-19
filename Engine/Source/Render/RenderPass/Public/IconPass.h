@@ -1,6 +1,12 @@
 ﻿#pragma once
 #include "Render/RenderPass/Public/RenderPass.h"
 
+struct FIconProperties
+{
+	FVector LightColor;			// Icon에 적용할 빛의 색상
+	float Intensity;			// Icon에 적용할 빛의 강도
+};
+
 class FIconPass : public FRenderPass
 {
 public:

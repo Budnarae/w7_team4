@@ -24,4 +24,5 @@ struct FRenderingContext
 	TArray<class UPrimitiveComponent*> DefaultPrimitives;
     TArray<class UFireBallComponent*> FireBalls;
 	TArray<class ULightComponent*> Lights;
+	TArray<class UHeightFogComponent*> Fogs;
 };
