@@ -21,33 +21,6 @@ class FViewport;
 class UCamera;
 class UPipeline;
 
-struct FPostProcessParameters
-{
-	float SubpixelBlend = 0.5f; // 0~1 권장: 0.5
-	float EdgeThreshold = 0.125f; // 0.0312~0.25
-	float EdgeThresholdMin = 0.0312f; // 0~0.0833
-	float EnableFXAA = 1.0f; // FXAA 활성화 플래그 (0.0 = OFF, 1.0 = ON)
-
-	FVector2 ViewportTopLeft;
-	FVector2 ViewportSize;
-	FVector2 SceneRTSize;
-	FVector2 Padding2;
-
-	// Fog Parameters
-	float FogDensity;
-	float FogHeightFalloff;
-	float StartDistance;
-	float FogCutoffDistance;
-
-	float FogMaxOpacity;
-	FVector FogInscatteringColor;
-
-	FVector CameraPosition;
-	float FogHeight;
-
-	FMatrix InvViewProj;
-};
-
 /**
  * @brief Rendering Pipeline 전반을 처리하는 클래스
  */
@@ -132,17 +105,6 @@ public:
 	ID3D11InputLayout* GetDepthInputLayout() const { return DepthInputLayout; }
 
 	void SetIsResizing(bool isResizing) { bIsResizing = isResizing; }
-
-	void SetFXAAEnabled(bool bEnabled) { bIsFXAAEnabled = bEnabled; }
-	bool IsFXAAEnabled() const { return bIsFXAAEnabled; }
-
-	void SetFXAASubpixelBlend(float InValue);
-	void SetFXAAEdgeThreshold(float InValue);
-	void SetFXAAEdgeThresholdMin(float InValue);
-
-	float GetFXAASubpixelBlend() const { return PostProcessUserParameters.SubpixelBlend; }
-	float GetFXAAEdgeThreshold() const { return PostProcessUserParameters.EdgeThreshold; }
-	float GetFXAAEdgeThresholdMin() const { return PostProcessUserParameters.EdgeThresholdMin; }
 private:
 	UPipeline* Pipeline = nullptr;
 	UDeviceResources* DeviceResources = nullptr;
@@ -190,10 +152,6 @@ private:
 	ID3D11VertexShader* DepthVertexShader = nullptr;
 	ID3D11PixelShader* DepthPixelShader = nullptr;
 	ID3D11InputLayout* DepthInputLayout = nullptr;
-
-	// PostProcess Shaders
-	ID3D11VertexShader* PostProcessVertexShader = nullptr;
-	ID3D11InputLayout* PostProcessInputLayout = nullptr;
 
 	ID3D11VertexShader* FireBallVertexShader = nullptr;
 	ID3D11PixelShader* FireBallPixelShader = nullptr;
@@ -247,18 +205,7 @@ private:
 
 	bool bIsResizing = false;
 
-	bool bIsFXAAEnabled = false;
-
-	ID3D11PixelShader* PostProcessPixelShader = nullptr;
 	ID3D11SamplerState* PostProcessSamplerState = nullptr;
-
-	ID3D11Buffer* ConstantBufferPostProcessParameters = nullptr;
-	FPostProcessParameters PostProcessUserParameters;
-
-	void CreatePostProcessResources();
-	void ReleasePostProcessResources();
-	void ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport);
-	void UpdatePostProcessConstantBuffer();
 
 	// Render Level에서 초기화 전 사용 불가
 	FRenderingContext RenderingContext{

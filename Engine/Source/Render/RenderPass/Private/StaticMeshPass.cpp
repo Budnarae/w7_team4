@@ -39,7 +39,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	ID3D11VertexShader* SelectedVS = VS;
 	ID3D11PixelShader* SelectedPS = PS;
 	ID3D11InputLayout* SelectedLayout = InputLayout;
-
+	
 	if (Context.ViewMode == EViewModeIndex::VMI_SceneDepth)
 	{
 		SelectedVS = DepthVS;
@@ -50,7 +50,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, RS, DS, SelectedPS, nullptr };
 	Pipeline->UpdatePipeline(PipelineInfo);
 
-	for (UStaticMeshComponent* MeshComp : MeshComponents) 
+	for (UStaticMeshComponent* MeshComp : MeshComponents)
 	{
 		if (!MeshComp->GetStaticMesh()) { continue; }
 		FStaticMesh* MeshAsset = MeshComp->GetStaticMesh()->GetStaticMeshAsset();
@@ -62,7 +62,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 			Pipeline->SetIndexBuffer(MeshComp->GetIndexBuffer(), 0);
 			CurrentMeshAsset = MeshAsset;
 		}
-		
+
 		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModel, MeshComp->GetWorldTransformMatrix());
 		Pipeline->SetConstantBuffer(0, true, ConstantBufferModel);
 
@@ -72,7 +72,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 			continue;
 		}
 
-		if (MeshComp->IsScrollEnabled()) 
+		if (MeshComp->IsScrollEnabled())
 		{
 			MeshComp->SetElapsedTime(MeshComp->GetElapsedTime() + UTimeManager::GetInstance().GetDeltaTime());
 		}
@@ -123,7 +123,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 						Pipeline->SetTexture(4, false, Proxy->GetSRV());
 					}
 				}
-				
+
 				CurrentMaterial = Material;
 			}
 			Pipeline->DrawIndexed(Section.IndexCount, Section.StartIndex, 0);

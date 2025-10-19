@@ -64,7 +64,6 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateUberLightResources();
 	CreateFullscreenQuad();
 	CreateConstantBuffers();
-	CreatePostProcessResources();
 	CreateFogResources();
 	CreateFXAAResources();
 
@@ -195,7 +194,6 @@ void URenderer::Release()
 	ReleaseFullscreenQuad();
 	ReleaseDepthStencilState();
 	ReleaseBlendState();
-	ReleasePostProcessResources();
 	ReleaseFogResources();
 	ReleaseFXAAResources();
 	FRenderResourceFactory::ReleaseRasterizerState();
@@ -446,6 +444,7 @@ void URenderer::ReleaseFogResources()
 	SafeRelease(FogVertexShader);
 	SafeRelease(FogPixelShader);
 	SafeRelease(ConstantBufferFogProperties);
+	SafeRelease(PostProcessSamplerState);
 }
 
 void URenderer::ReleaseFXAAResources()
@@ -780,207 +779,6 @@ void URenderer::OnResize(uint32 InWidth, uint32 InHeight)
 	                                       DeviceResources->GetDepthStencilView());
 }
 
-void URenderer::CreatePostProcessResources()
-{
-	// PostProcess 셰이더 로드 (통합 포스트프로세싱: Fog + FXAA)
-	TArray<D3D11_INPUT_ELEMENT_DESC> PostProcessLayout =
-	{
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
-	};
-
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
-		L"Asset/Shader/PostProcess.hlsl",
-		PostProcessLayout,
-		&PostProcessVertexShader,
-		&PostProcessInputLayout
-	);
-
-	FRenderResourceFactory::CreatePixelShader(
-		L"Asset/Shader/PostProcess.hlsl",
-		&PostProcessPixelShader
-	);
-
-	// 선형 보간 샘플러
-	PostProcessSamplerState = FRenderResourceFactory::CreateSamplerState(
-		D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP
-	);
-	ConstantBufferPostProcessParameters = FRenderResourceFactory::CreateConstantBuffer<
-		FPostProcessParameters>();
-	PostProcessUserParameters = {}; // 기본값으로 구조체 디폴트
-	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
-	                                                 PostProcessUserParameters);
-}
-
-void URenderer::ReleasePostProcessResources()
-{
-	SafeRelease(PostProcessVertexShader);
-	SafeRelease(PostProcessInputLayout);
-	SafeRelease(PostProcessPixelShader);
-	SafeRelease(PostProcessSamplerState);
-	SafeRelease(ConstantBufferPostProcessParameters);
-}
-
-void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport)
-{
-	auto* Context = GetDeviceContext();
-	const ULevel* CurrentLevel = GWorld->GetLevel();
-
-	// 출력: 백버퍼 RTV로
-	auto* BackBufferRTV = DeviceResources->GetRenderTargetView();
-	auto* BackBufferDSV = DeviceResources->GetDepthStencilView();
-
-	// 여기서부터 +
-	Context->OMSetRenderTargets(1, &BackBufferRTV, BackBufferDSV);
-
-	// Viewport 설정 (각 ViewportClient 영역에만 적용)
-	Context->RSSetViewports(1, &InViewport);
-
-	// PostProcess 상수 버퍼 업데이트 (viewport + fog + FXAA 정보)
-	FPostProcessParameters postProcessParams = PostProcessUserParameters; // 기존 사용자 파라미터 복사
-
-	// FXAA 활성화 플래그 설정
-	postProcessParams.EnableFXAA = bIsFXAAEnabled ? 1.0f : 0.0f;
-
-	// Viewport 정보 설정
-	postProcessParams.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
-	postProcessParams.ViewportSize = FVector2(InViewport.Width, InViewport.Height);
-
-	// Scene RT 크기 가져오기
-	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-	GetSwapChain()->GetDesc(&swapChainDesc);
-	postProcessParams.SceneRTSize = FVector2(
-		static_cast<float>(swapChainDesc.BufferDesc.Width),
-		static_cast<float>(swapChainDesc.BufferDesc.Height)
-	);
-
-	// Fog 파라미터 설정
-	const bool bShowFog = CurrentLevel && (CurrentLevel->GetShowFlags() & EEngineShowFlags::SF_Fog)
-		!= 0;
-
-	// Find first enabled HeightFogComponent
-	UHeightFogComponent* FogComponent = nullptr;
-	if (CurrentLevel && bShowFog)
-	{
-		for (AActor* Actor : CurrentLevel->GetActors())
-		{
-			if (!Actor) continue;
-			for (UActorComponent* Comp : Actor->GetOwnedComponents())
-			{
-				if (auto* Fog = Cast<UHeightFogComponent>(Comp))
-				{
-					if (Fog->IsEnabled())
-					{
-						FogComponent = Fog;
-						break;
-					}
-				}
-			}
-			if (FogComponent) break;
-		}
-	}
-
-	// Fog 파라미터 채우기
-	if (FogComponent && bShowFog)
-	{
-		postProcessParams.FogDensity = FogComponent->GetFogDensity();
-		postProcessParams.FogHeightFalloff = FogComponent->GetFogHeightFalloff();
-		postProcessParams.StartDistance = FogComponent->GetStartDistance();
-		postProcessParams.FogCutoffDistance = FogComponent->GetFogCutoffDistance();
-		postProcessParams.FogMaxOpacity = FogComponent->GetFogMaxOpacity();
-
-		FVector4 ColorRGBA = FogComponent->GetFogInscatteringColor();
-		postProcessParams.FogInscatteringColor = FVector(ColorRGBA.X, ColorRGBA.Y, ColorRGBA.Z);
-
-		postProcessParams.CameraPosition = InCurrentCamera->GetLocation();
-		postProcessParams.FogHeight = FogComponent->GetWorldLocation().Z;
-	}
-	else
-	{
-		// Fog 비활성화
-		postProcessParams.FogDensity = 0.0f;
-		postProcessParams.FogMaxOpacity = 0.0f;
-	}
-
-	// Inverse View-Projection Matrix
-	const FViewProjConstants& ViewProj = InCurrentCamera->GetFViewProjConstants();
-	FMatrix ViewProjMatrix = ViewProj.View * ViewProj.Projection;
-	postProcessParams.InvViewProj = ViewProjMatrix.Inverse();
-
-	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
-	                                                 postProcessParams);
-
-	// 파이프라인 셋업
-	FPipelineInfo PipelineInfo = {
-		PostProcessInputLayout, // PostProcess fullscreen quad layout
-		PostProcessVertexShader, // PostProcess VS (fullscreen quad)
-		FRenderResourceFactory::GetRasterizerState({ECullMode::None, EFillMode::Solid}),
-		NoTestButWriteDepthState, // Depth test X, Depth write O
-		PostProcessPixelShader, // PostProcess PS (Fog + FXAA 통합)
-		nullptr, // Blend
-		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
-	};
-	Pipeline->UpdatePipeline(PipelineInfo);
-
-	Pipeline->SetConstantBuffer(0, false, ConstantBufferPostProcessParameters);
-
-	// 소스 텍스처 샘플러 (Scene Color + Scene Depth)
-	ID3D11ShaderResourceView* srvs[2] = {SceneColorSRV, SceneDepthSRV};
-	Context->PSSetShaderResources(0, 2, srvs);
-	Pipeline->SetSamplerState(0, false, PostProcessSamplerState);
-
-	// Fullscreen Quad 그리기 (RenderFog과 동일한 방식)
-	uint32 stride = sizeof(float) * 5; // Position(3) + TexCoord(2)
-	uint32 offset = 0;
-	Pipeline->SetVertexBuffer(FullscreenQuadVB, stride);
-	Pipeline->SetIndexBuffer(FullscreenQuadIB, sizeof(uint32));
-	Pipeline->DrawIndexed(6, 0, 0);
-
-	// SRV 언바인드 (경고 방지)
-	ID3D11ShaderResourceView* NullSrvs[2] = {nullptr, nullptr};
-	Context->PSSetShaderResources(0, 2, NullSrvs);
-}
-
-void URenderer::UpdatePostProcessConstantBuffer()
-{
-	if (ConstantBufferPostProcessParameters)
-	{
-		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
-		                                                 PostProcessUserParameters);
-	}
-}
-
-void URenderer::SetFXAASubpixelBlend(float InValue)
-{
-	float Clamped = std::clamp(InValue, 0.0f, 1.0f);
-	if (PostProcessUserParameters.SubpixelBlend != Clamped)
-	{
-		PostProcessUserParameters.SubpixelBlend = Clamped;
-		UpdatePostProcessConstantBuffer();
-	}
-}
-
-void URenderer::SetFXAAEdgeThreshold(float InValue)
-{
-	// 일반적으로 0.05 ~ 0.25 권장
-	float Clamped = std::clamp(InValue, 0.01f, 0.5f);
-	if (PostProcessUserParameters.EdgeThreshold != Clamped)
-	{
-		PostProcessUserParameters.EdgeThreshold = Clamped;
-		UpdatePostProcessConstantBuffer();
-	}
-}
-
-void URenderer::SetFXAAEdgeThresholdMin(float InValue)
-{
-	// 일반적으로 0.002 ~ 0.05 권장
-	float Clamped = std::clamp(InValue, 0.001f, 0.1f);
-	if (PostProcessUserParameters.EdgeThresholdMin != Clamped)
-	{
-		PostProcessUserParameters.EdgeThresholdMin = Clamped;
-		UpdatePostProcessConstantBuffer();
-	}
-}
 
 void URenderer::CreateFireBallShader()
 {
@@ -1304,12 +1102,13 @@ void URenderer::CreateFogResources()
 		&FogPixelShader
 	);
 
-	ConstantBufferFogProperties = \
+	ConstantBufferFogProperties =
 		FRenderResourceFactory::CreateConstantBuffer<FHeightFogParameters>();
 
-	// Todo : 나중에 Fog 쓸 일 없으면 Pass 자체를 실행하지 않게 변경
-	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
-													 PostProcessUserParameters);
+	// PostProcess용 선형 보간 샘플러 (FogPass와 FXAAPass에서 공유)
+	PostProcessSamplerState = FRenderResourceFactory::CreateSamplerState(
+		D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP
+	);
 }
 
 void URenderer::CreateFXAAResources()
