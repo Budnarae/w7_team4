@@ -55,10 +55,10 @@ public:
 		return Grid.GetCellSize();
 	}
 
-	/*void SetCellSize(const float newCellSize)
+	void SetCellSize(const float newCellSize)
 	{
 		Grid.SetCellSize(newCellSize);
-	}*/
+	}
 
 	void DisableRenderBoundingBox()
 	{

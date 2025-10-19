@@ -108,7 +108,7 @@ void UFPSWidget::RenderWidget()
 	CellSize = PbatchLine->GetCellSize();
 	if (ImGui::SliderFloat("Grid Spacing", &CellSize, 0.0f, 10.0f, "%.1f"))
 	{
-		PbatchLine->AddGridLines(CellSize);
+		PbatchLine->SetCellSize(CellSize);
 	}
 
 	ImGui::Separator();
