@@ -66,6 +66,7 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateConstantBuffers();
 	CreatePostProcessResources();
 	CreateFogResources();
+	CreateFXAAResources();
 
 	// FontRenderer 초기화
 	FontRenderer = new UFontRenderer;
@@ -145,12 +146,10 @@ void URenderer::Init(HWND InWindowHandle)
 	auto* BackBufferRTV = DeviceResources->GetRenderTargetView();
 	auto* BackBufferDSV = DeviceResources->GetDepthStencilView();
 
-	FFogPass* FogPass =
+	FFogPass* InFogPass =
 		new FFogPass(
 			Pipeline,
-			BackBufferRTV,
-			BackBufferDSV,
-			SceneColorSRV,
+			SceneColorRTV,
 			SceneDepthSRV,
 			PostProcessSamplerState,
 			ConstantBufferViewProj,
@@ -158,9 +157,29 @@ void URenderer::Init(HWND InWindowHandle)
 			ConstantBufferFogProperties,
 			FogVertexShader,
 			FogPixelShader,
-			NoTestButWriteDepthState
+			DepthTestAlwaysNoWriteState,
+			AlphaBlendState
 			);
-	RenderPasses.push_back(FogPass);
+	RenderPasses.push_back(InFogPass);  // Forward 방식으로 RenderPasses에 추가
+	FogPass = InFogPass;
+
+	// FXAAPass 생성
+	FFXAAPass* InFXAAPass = new FFXAAPass(
+		Pipeline,
+		BackBufferRTV,
+		BackBufferDSV,
+		SceneColorSRV,
+		SceneDepthSRV,
+		PostProcessSamplerState,
+		ConstantBufferViewProj,
+		ConstantBufferModels,
+		ConstantBufferFXAAParameters,
+		FXAAVertexShader,
+		FXAAPixelShader,
+		NoTestButWriteDepthState
+	);
+
+	FXAAPass = InFXAAPass;
 }
 
 void URenderer::Release()
@@ -178,6 +197,7 @@ void URenderer::Release()
 	ReleaseBlendState();
 	ReleasePostProcessResources();
 	ReleaseFogResources();
+	ReleaseFXAAResources();
 	FRenderResourceFactory::ReleaseRasterizerState();
 	for (auto& RenderPass : RenderPasses)
 	{
@@ -222,6 +242,14 @@ void URenderer::CreateDepthStencilState()
 	NoTestWriteDescription.DepthFunc = D3D11_COMPARISON_ALWAYS; // 항상 통과 (test 비활성화)
 	NoTestWriteDescription.StencilEnable = FALSE;
 	GetDevice()->CreateDepthStencilState(&NoTestWriteDescription, &NoTestButWriteDepthState);
+
+	// Test Always No Write Depth (Depth Test Always, Depth Write X): Fog용
+	D3D11_DEPTH_STENCIL_DESC TestAlwaysNoWriteDescription = {};
+	TestAlwaysNoWriteDescription.DepthEnable = TRUE; // Depth 활성화
+	TestAlwaysNoWriteDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; // Depth write 비활성화
+	TestAlwaysNoWriteDescription.DepthFunc = D3D11_COMPARISON_ALWAYS; // 항상 통과
+	TestAlwaysNoWriteDescription.StencilEnable = FALSE;
+	GetDevice()->CreateDepthStencilState(&TestAlwaysNoWriteDescription, &DepthTestAlwaysNoWriteState);
 
 	// Debug Line Depth State (Depth Test ON, Write OFF): BatchLines용
 	D3D11_DEPTH_STENCIL_DESC DebugLineDescription = {};
@@ -420,6 +448,13 @@ void URenderer::ReleaseFogResources()
 	SafeRelease(ConstantBufferFogProperties);
 }
 
+void URenderer::ReleaseFXAAResources()
+{
+	SafeRelease(FXAAVertexShader);
+	SafeRelease(FXAAPixelShader);
+	SafeRelease(ConstantBufferFXAAParameters);
+}
+
 void URenderer::ReleaseDepthShader()
 {
 	SafeRelease(DepthInputLayout);
@@ -433,6 +468,7 @@ void URenderer::ReleaseDepthStencilState()
 	SafeRelease(DecalDepthStencilState);
 	SafeRelease(DisabledDepthStencilState);
 	SafeRelease(NoTestButWriteDepthState);
+	SafeRelease(DepthTestAlwaysNoWriteState);
 	SafeRelease(DebugLineDepthState);
 	if (GetDeviceContext())
 	{
@@ -495,6 +531,8 @@ void URenderer::Update()
 		// 	TIME_PROFILE(ExecutePostProcess)
 		// 	ExecutePostProcess(CurrentCamera, ClientViewport); // Fog + FXAA 통합
 		// }
+		//FogPass->Execute(RenderingContext);
+		FXAAPass->Execute(RenderingContext);
 
 		// === 기즈모 렌더링: BackBuffer에 직접 렌더링 (FXAA 미적용, 항상 선명) ===
 		{
@@ -554,7 +592,7 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 	// TIME_PROFILE_END(Occlusion)
 
 
-	FRenderingContext RenderingContext(&ViewProj, InCurrentCamera,
+	RenderingContext = FRenderingContext(&ViewProj, InCurrentCamera,
 	                                   GEditor->GetEditorModule()->GetViewMode(),
 	                                   CurrentLevel->GetShowFlags());
 	RenderingContext.AllPrimitives = FinalVisiblePrims;
@@ -594,14 +632,30 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 		{
 			RenderingContext.Texts.push_back(Text);
 		}
-		else if (auto Fog = Cast<UHeightFogComponent>(Prim); Fog && !Fog->IsExactly(
-			UHeightFogComponent::StaticClass()))
-		{
-			RenderingContext.Fogs.push_back(Fog);
-		}
 		else if (!Prim->IsA(UUUIDTextComponent::StaticClass()))
 		{
 			RenderingContext.DefaultPrimitives.push_back(Prim);
+		}
+	}
+
+	// HeightFog는 USceneComponent이므로 Primitive 시스템에 등록되지 않음
+	// Level의 모든 Actor를 순회하며 직접 수집 (Decal/PointLight 방식과 동일)
+	const bool bShowFog = (CurrentLevel->GetShowFlags() & EEngineShowFlags::SF_Fog) != 0;
+	if (bShowFog)
+	{
+		for (AActor* Actor : CurrentLevel->GetActors())
+		{
+			if (!Actor) continue;
+			for (UActorComponent* Component : Actor->GetOwnedComponents())
+			{
+				if (auto Fog = Cast<UHeightFogComponent>(Component))
+				{
+					if (Fog->IsEnabled())
+					{
+						RenderingContext.Fogs.push_back(Fog);
+					}
+				}
+			}
 		}
 	}
 	// 편집 씬에 데칼 표시
@@ -1256,6 +1310,23 @@ void URenderer::CreateFogResources()
 	// Todo : 나중에 Fog 쓸 일 없으면 Pass 자체를 실행하지 않게 변경
 	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
 													 PostProcessUserParameters);
+}
+
+void URenderer::CreateFXAAResources()
+{
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/FXAAShader.hlsl",
+		TArray<D3D11_INPUT_ELEMENT_DESC>{},
+		&FXAAVertexShader,
+		nullptr
+	);
+
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/FXAAShader.hlsl",
+		&FXAAPixelShader
+	);
+
+	ConstantBufferFXAAParameters = FRenderResourceFactory::CreateConstantBuffer<FFXAAParameters>();
 }
 
 void URenderer::ReleaseUberLightResources()

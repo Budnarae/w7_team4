@@ -1,35 +1,35 @@
 #include "pch.h"
 #include "Render/UI/Widget/Public/PostProcessWidget.h"
-#include "Render/Renderer/Public/Renderer.h"
+#include "Manager/PostProcess/Public/FXAAManager.h"
 
 void UPostProcessWidget::RenderWidget()
 {
     if (ImGui::CollapsingHeader("Post Process - FXAA", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        auto& RendererInstance = URenderer::GetInstance();
+        auto& FXAAMgr = UFXAAManager::GetInstance();
 
-        bool IsFXAAEnabled = RendererInstance.IsFXAAEnabled();
+        bool IsFXAAEnabled = FXAAMgr.IsEnabled();
         if (ImGui::Checkbox("Enable FXAA", &IsFXAAEnabled))
         {
-            RendererInstance.SetFXAAEnabled(IsFXAAEnabled);
+            FXAAMgr.SetEnabled(IsFXAAEnabled);
         }
 
-        float SubpixelBlend = RendererInstance.GetFXAASubpixelBlend();
+        float SubpixelBlend = FXAAMgr.GetSubpixelBlend();
         if (ImGui::DragFloat("Subpixel Blend", &SubpixelBlend, 0.01f, 0.0f, 1.0f, "%.3f"))
         {
-            RendererInstance.SetFXAASubpixelBlend(SubpixelBlend);
+            FXAAMgr.SetSubpixelBlend(SubpixelBlend);
         }
 
-        float EdgeThreshold = RendererInstance.GetFXAAEdgeThreshold();
+        float EdgeThreshold = FXAAMgr.GetEdgeThreshold();
         if (ImGui::DragFloat("Edge Threshold", &EdgeThreshold, 0.001f, 0.01f, 0.5f, "%.4f"))
         {
-            RendererInstance.SetFXAAEdgeThreshold(EdgeThreshold);
+            FXAAMgr.SetEdgeThreshold(EdgeThreshold);
         }
 
-        float EdgeThresholdMin = RendererInstance.GetFXAAEdgeThresholdMin();
+        float EdgeThresholdMin = FXAAMgr.GetEdgeThresholdMin();
         if (ImGui::DragFloat("Edge Threshold Min", &EdgeThresholdMin, 0.001f, 0.001f, 0.1f, "%.4f"))
         {
-            RendererInstance.SetFXAAEdgeThresholdMin(EdgeThresholdMin);
+            FXAAMgr.SetEdgeThresholdMin(EdgeThresholdMin);
         }
 
         ImGui::Text("흐릿하면 Subpixel Blend를 낮추고,");

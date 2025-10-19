@@ -6,6 +6,8 @@
 #include "Render/Renderer/Public/Pipeline.h"
 #include "Component/Public/BillBoardComponent.h"
 #include "Component/Public/TextComponent.h"
+#include "Render/RenderPass/Public/FogPass.h"
+#include "Render/RenderPass/Public/FXAAPass.h"
 
 class UDeviceResources;
 class UPrimitiveComponent;
@@ -71,6 +73,7 @@ public:
 	void CreateUberLightResources();
 	void CreateIconShader();
 	void CreateFogResources();
+	void CreateFXAAResources();
 	void CreateFullscreenQuad();
 	void CreateConstantBuffers();
 	void CreateSceneRenderTargets();
@@ -86,6 +89,7 @@ public:
 	void ReleaseUberLightResources();
 	void ReleaseIconShader();
 	void ReleaseFogResources();
+	void ReleaseFXAAResources();
 	void ReleaseFullscreenQuad();
 	void ReleaseSceneRenderTargets();
 
@@ -110,6 +114,7 @@ public:
 
 	ID3D11DepthStencilState* GetDefaultDepthStencilState() const { return DefaultDepthStencilState; }
 	ID3D11DepthStencilState* GetDisabledDepthStencilState() const { return DisabledDepthStencilState; }
+	ID3D11DepthStencilState* GetDepthTestAlwaysNoWriteState() const { return DepthTestAlwaysNoWriteState; }
 	ID3D11BlendState* GetAlphaBlendState() const { return AlphaBlendState; }
 	ID3D11BlendState* GetAdditiveBlendState() const { return AdditiveBlendState; }
 	ID3D11BlendState* GetFireBallBlendState() const { return FireBallBlendState; }
@@ -149,6 +154,7 @@ private:
 	ID3D11DepthStencilState* DecalDepthStencilState = nullptr;
 	ID3D11DepthStencilState* DisabledDepthStencilState = nullptr;
 	ID3D11DepthStencilState* NoTestButWriteDepthState = nullptr;  // Depth test 비활성화, depth write 활성화
+	ID3D11DepthStencilState* DepthTestAlwaysNoWriteState = nullptr;  // Depth test ALWAYS, Write OFF (for Fog)
 	ID3D11DepthStencilState* DebugLineDepthState = nullptr;  // Depth test ON (LESS_EQUAL), Write OFF (for BatchLines)
 	ID3D11BlendState* AlphaBlendState = nullptr;
 	ID3D11BlendState* AdditiveBlendState = nullptr;
@@ -215,6 +221,11 @@ private:
 	ID3D11PixelShader* FogPixelShader = nullptr;
 	ID3D11Buffer* ConstantBufferFogProperties = nullptr;
 
+	// FXAA Shaders
+	ID3D11VertexShader* FXAAVertexShader = nullptr;
+	ID3D11PixelShader* FXAAPixelShader = nullptr;
+	ID3D11Buffer* ConstantBufferFXAAParameters = nullptr;
+
 	// Fullscreen Quad for Post-Processing
 	ID3D11Buffer* FullscreenQuadVB = nullptr;
 	ID3D11Buffer* FullscreenQuadIB = nullptr;
@@ -249,5 +260,15 @@ private:
 	void ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport);
 	void UpdatePostProcessConstantBuffer();
 
+	// Render Level에서 초기화 전 사용 불가
+	FRenderingContext RenderingContext{
+		nullptr,
+		nullptr,
+		EViewModeIndex::VMI_Lit,
+		0
+	};
+
 	TArray<class FRenderPass*> RenderPasses;
+	FFogPass* FogPass = nullptr;
+	FFXAAPass* FXAAPass = nullptr;
 };

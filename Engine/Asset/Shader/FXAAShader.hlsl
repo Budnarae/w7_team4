@@ -1,4 +1,4 @@
-﻿cbuffer PostProcessParameters : register(b0)
+cbuffer PostProcessParameters : register(b0)
 {
     // FXAA Parameters
     float SubpixelBlend; // 권장 0.5 (값이 높을수록 부드러우나 흐릿해짐)
@@ -52,7 +52,7 @@ float Luma(float3 Rgb)
     return dot(Rgb, float3(0.299, 0.587, 0.114));
 }
 
-PS_OUTPUT PS_INPUT(PS_INPUT In)
+PS_OUTPUT mainPS(PS_INPUT In)
 {
     PS_OUTPUT Output;
 

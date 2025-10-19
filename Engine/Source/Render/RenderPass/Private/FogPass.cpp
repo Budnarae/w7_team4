@@ -8,9 +8,7 @@
 FFogPass::FFogPass
 (
     UPipeline* InPipeline,
-    ID3D11RenderTargetView* InBackBufferRTV,
-    ID3D11DepthStencilView* InBackBufferDSV,
-    ID3D11ShaderResourceView* InSceneColorSRV,
+    ID3D11RenderTargetView* InSceneColorRTV,
     ID3D11ShaderResourceView* InSceneDepthSRV,
     ID3D11SamplerState* InLinearSamplerState,
     ID3D11Buffer* InConstantBufferViewProj,
@@ -18,19 +16,19 @@ FFogPass::FFogPass
     ID3D11Buffer* InConstantBufferFogProperties,
     ID3D11VertexShader* InVS,
     ID3D11PixelShader* InPS,
-    ID3D11DepthStencilState* InDS
+    ID3D11DepthStencilState* InDepthTestNoWriteState,
+    ID3D11BlendState* InAlphaBlendState
 )
     :
     FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel),
-	BackBufferRTV(InBackBufferRTV),
-	BackBufferDSV(InBackBufferDSV),
-	SceneColorSRV(InSceneColorSRV),
+	SceneColorRTV(InSceneColorRTV),
 	SceneDepthSRV(InSceneDepthSRV),
 	LinearSamplerState(InLinearSamplerState),
     ConstantBufferFogProperties(InConstantBufferFogProperties),
     VS(InVS),
     PS(InPS),
-	DS(InDS)
+	DepthTestNoWriteState(InDepthTestNoWriteState),
+	AlphaBlendState(InAlphaBlendState)
 {
 }
 
@@ -38,8 +36,8 @@ void FFogPass::Execute(FRenderingContext& Context)
 {
 	FHeightFogParameters FogParams = {};
 
-	// 여기서부터 +
-	Pipeline->GetContext()->OMSetRenderTargets(1, &BackBufferRTV, BackBufferDSV);
+	// Forward 방식: SceneColorRTV에 렌더링, DSV는 nullptr (Depth Read 가능)
+	Pipeline->GetContext()->OMSetRenderTargets(1, &SceneColorRTV, nullptr);
 	// Viewport 설정 (각 ViewportClient 영역에만 적용)
 	Pipeline->GetContext()->RSSetViewports(1, &Context.Viewport);
 
@@ -54,7 +52,6 @@ void FFogPass::Execute(FRenderingContext& Context)
 		!= 0;
 
 	UHeightFogComponent* FogComponent = Context.Fogs.empty() ? nullptr : Context.Fogs.front();
-
 
 	// Fog 파라미터 채우기
 	if (FogComponent && bShowFog)
@@ -91,12 +88,12 @@ void FFogPass::Execute(FRenderingContext& Context)
 
 	// 파이프라인 셋업
 	FPipelineInfo PipelineInfo = {
-		nullptr, // PostProcess fullscreen quad layout
+		nullptr, // PostProcess fullscreen quad layout (SV_VertexID 사용)
 		VS, // PostProcess VS (fullscreen quad)
 		FRenderResourceFactory::GetRasterizerState({ECullMode::None, EFillMode::Solid}),
-		DS, // Depth test X, Depth write O
-		PS, // PostProcess PS (Fog + FXAA 통합)
-		nullptr, // Blend
+		DepthTestNoWriteState, // Depth Test ALWAYS, Depth Write OFF
+		PS, // PostProcess PS (Fog)
+		AlphaBlendState, // Alpha Blend: Source.rgb * Source.a + Dest.rgb * (1 - Source.a)
 		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
 	};
 	Pipeline->UpdatePipeline(PipelineInfo);
@@ -105,13 +102,10 @@ void FFogPass::Execute(FRenderingContext& Context)
 
 	Pipeline->SetSamplerState(0, false, LinearSamplerState);
 
-	// 소스 텍스처 샘플러 (Scene Color + Scene Depth)
-	ID3D11ShaderResourceView* srvs[2] = {SceneColorSRV, SceneDepthSRV};
-	Pipeline->GetContext()->PSSetShaderResources(0, 2, srvs);
+	// Depth 텍스처만 바인딩 (SceneColorRTV에 쓰고 있으므로 SRV로 읽을 수 없음)
+	Pipeline->GetContext()->PSSetShaderResources(0, 1, &SceneDepthSRV);
 
-	// Fullscreen Quad 그리기 (RenderFog과 동일한 방식)
-	uint32 stride = sizeof(float) * 5; // Position(3) + TexCoord(2)
-	uint32 offset = 0;
+	// Fullscreen Quad 그리기 (SV_VertexID 사용)
 	Pipeline->GetContext()->Draw(3, 0);
 
 	// SRV 언바인드 (경고 방지)

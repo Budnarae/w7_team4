@@ -29,11 +29,10 @@ struct PS_INPUT
 struct PS_OUTPUT
 {
 	float4 Color : SV_TARGET;
-	float Depth : SV_DEPTH;
 };
 
-Texture2D SceneTexture : register(t0);
-Texture2D SceneDepthTexture : register(t1);
+// Forward Alpha Blend 방식: Depth만 읽음 (SceneColor는 RTV로 쓰고 있으므로 읽을 수 없음)
+Texture2D SceneDepthTexture : register(t0);
 SamplerState LinearClamp : register(s0);
 
 // Fullscreen Quad Vertex Shader
@@ -53,13 +52,14 @@ PS_INPUT mainVS(uint VertexID : SV_VertexID)
 	return Out;
 }
 
-// Apply Fog (same logic as HeightFogShader.hlsl)
-float3 ApplyFog(float3 SceneColor, float Depth, float2 viewportUV)
+// Calculate Fog Color (Alpha Blend 방식)
+float4 CalculateFogColor(float Depth, float2 viewportUV)
 {
 	// If FogDensity is 0, fog is disabled
 	if (FogDensity <= 0.0)
 	{
-		return SceneColor;
+		// Alpha = 0 means no fog blending (100% scene color visible)
+		return float4(FogInscatteringColor, 0.0);
 	}
 
 	// Reconstruct World Position from Depth
@@ -71,41 +71,55 @@ float3 ApplyFog(float3 SceneColor, float Depth, float2 viewportUV)
 	worldPos /= worldPos.w;
 
 	float3 worldPosition = worldPos.xyz;
-	float DistanceFromCamera = length(worldPosition - CameraPosition);
+	float3 rayDir = worldPosition - CameraPosition;
+	float d = length(rayDir);
 
 	// Apply Start Distance
-	float fogDistance = max(0.0, DistanceFromCamera - StartDistance);
+	float adjustedDistance = max(0.0, d - StartDistance);
 
-	// Exponential Height Fog - Line Integral
-	float CameraHeight = CameraPosition.z;
-	float PixelHeight = worldPosition.z;
-	float Falloff = FogHeightFalloff * (PixelHeight - CameraHeight);
-	float LineIntegral;
-
-	if (abs(Falloff) > 0.01)
+	// Early exit for cutoff distance
+	if (FogCutoffDistance > 0.0 && adjustedDistance > FogCutoffDistance)
 	{
-		float ExpStart = exp(-FogHeightFalloff * (CameraHeight - FogHeight));
-		float ExpEnd = exp(-FogHeightFalloff * (PixelHeight - FogHeight));
-		LineIntegral = (ExpStart - ExpEnd) / Falloff;
+		// Alpha = 0 means no fog blending (100% scene color visible)
+		return float4(FogInscatteringColor, 0.0);
+	}
+
+	// Exponential Height Fog - Line Integral (Iquilezles formula)
+	float vh = rayDir.z / max(d, 1e-5); // z-axis component (normalized ray direction)
+	float h0 = CameraPosition.z - FogHeight; // Use relative height from fog origin
+	float a = vh * FogHeightFalloff;
+	float tau;
+
+	if (abs(a) < 1e-5)
+	{
+		// Horizontal ray (no height change) - simple exponential fog
+		tau = FogDensity * exp(-h0 * FogHeightFalloff) * adjustedDistance;
 	}
 	else
 	{
-		float AvgHeight = (CameraHeight + PixelHeight) * 0.5;
-		LineIntegral = exp(-FogHeightFalloff * (AvgHeight - FogHeight));
+		// Ray with height change - analytical integration
+		float exponent = -adjustedDistance * a;
+
+		// Prevent exp() overflow (exp(87) ≈ 6e37, near float max)
+		if (exponent > 87.0)
+		{
+			return float4(FogInscatteringColor * FogMaxOpacity, FogMaxOpacity);
+		}
+
+		exponent = max(exponent, -87.0); // Clamp negative side too
+
+		tau = (FogDensity / FogHeightFalloff) * exp(-h0 * FogHeightFalloff) *
+		      (1.0 - exp(exponent)) / vh;
 	}
 
-	float FogAmount = FogDensity * LineIntegral * fogDistance;
-	float FogFactor = 1.0 - exp(-FogAmount);
-
-	if (DistanceFromCamera > FogCutoffDistance)
-	{
-		FogFactor = 1.0;
-	}
-
-	FogFactor = saturate(FogFactor);
+	// Convert optical depth to fog factor and clamp to max opacity
+	float FogFactor = 1.0 - exp(-tau);
 	FogFactor = min(FogFactor, FogMaxOpacity);
 
-	return lerp(SceneColor, FogInscatteringColor, FogFactor);
+	// Alpha Blend: Fog 색상 그대로 반환, Alpha는 FogFactor
+	// BlendState = Source.rgb * Source.a + Dest.rgb * (1 - Source.a)
+	// Result = FogColor * FogFactor + SceneColor * (1 - FogFactor)
+	return float4(FogInscatteringColor, FogFactor);
 }
 
 PS_OUTPUT mainPS(PS_INPUT In)
@@ -117,12 +131,11 @@ PS_OUTPUT mainPS(PS_INPUT In)
     // Scene RT UV로 변환: (ViewportTopLeft + UV * ViewportSize) / SceneRTSize
     float2 sceneUV = (ViewportTopLeft + In.UV * ViewportSize) / SceneRTSize;
 
-    // Sample Scene Depth and output to BackBuffer DSV
+    // Sample Scene Depth
     float Depth = SceneDepthTexture.Sample(LinearClamp, sceneUV).r;
-    Output.Depth = Depth;
 
-    float3 SceneColor = SceneTexture.Sample(LinearClamp, sceneUV).rgb;
-    SceneColor = ApplyFog(SceneColor, Depth, In.UV);
-    Output.Color = float4(SceneColor, 1.0);
+    // Calculate Fog Color (Additive 방식)
+    // BlendState가 Additive이므로 기존 SceneColor에 FogColor가 더해짐
+    Output.Color = CalculateFogColor(Depth, In.UV);
     return Output;
 }
