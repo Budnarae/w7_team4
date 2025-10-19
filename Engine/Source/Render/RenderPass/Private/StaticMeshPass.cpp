@@ -6,11 +6,20 @@
 #include "Texture/Public/Texture.h"
 #include "Texture/Public/TextureRenderProxy.h"
 
-FStaticMeshPass::FStaticMeshPass(UPipeline* InPipeline, ID3D11Buffer* InConstantBufferViewProj, ID3D11Buffer* InConstantBufferModel,
-	ID3D11VertexShader* InVS, ID3D11PixelShader* InPS, ID3D11InputLayout* InLayout, ID3D11DepthStencilState* InDS,
-	ID3D11VertexShader* InDepthVS, ID3D11PixelShader* InDepthPS, ID3D11InputLayout* InDepthLayout)
-	: FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel), VS(InVS), PS(InPS), InputLayout(InLayout), DS(InDS),
-	  DepthVS(InDepthVS), DepthPS(InDepthPS), DepthInputLayout(InDepthLayout)
+FStaticMeshPass::FStaticMeshPass(
+	UPipeline* InPipeline,
+	ID3D11Buffer* InConstantBufferViewProj,
+	ID3D11Buffer* InConstantBufferModel,
+	ID3D11VertexShader* InVS,
+	ID3D11PixelShader* InPS,
+	ID3D11InputLayout* InLayout,
+	ID3D11DepthStencilState* InDS
+	) :
+	FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel),
+	VS(InVS),
+	PS(InPS),
+	InputLayout(InLayout),
+	DS(InDS)
 {
 	ConstantBufferMaterial = FRenderResourceFactory::CreateConstantBuffer<FMaterialConstants>();
 }
@@ -39,13 +48,6 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	ID3D11VertexShader* SelectedVS = VS;
 	ID3D11PixelShader* SelectedPS = PS;
 	ID3D11InputLayout* SelectedLayout = InputLayout;
-
-	if (Context.ViewMode == EViewModeIndex::VMI_SceneDepth)
-	{
-		SelectedVS = DepthVS;
-		SelectedPS = DepthPS;
-		SelectedLayout = DepthInputLayout;
-	}
 
 	FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, RS, DS, SelectedPS, nullptr };
 	Pipeline->UpdatePipeline(PipelineInfo);

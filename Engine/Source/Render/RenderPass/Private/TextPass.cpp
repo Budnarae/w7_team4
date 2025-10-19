@@ -21,10 +21,6 @@ FTextPass::FTextPass(UPipeline* InPipeline, ID3D11Buffer* InConstantBufferViewPr
     FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/ShaderFont.hlsl", layoutDesc, &FontVertexShader, &FontInputLayout);
     FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/ShaderFont.hlsl", &FontPixelShader);
 
-    // Create depth shaders
-    FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/DepthShaderFont.hlsl", layoutDesc, &DepthVertexShader, &DepthInputLayout);
-    FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/DepthShaderFont.hlsl", &DepthPixelShader);
-
     // Create sampler state
     FontSampler = FRenderResourceFactory::CreateSamplerState(D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP);
 
@@ -53,13 +49,6 @@ void FTextPass::Execute(FRenderingContext& Context)
     ID3D11VertexShader* SelectedVS = FontVertexShader;
     ID3D11PixelShader* SelectedPS = FontPixelShader;
     ID3D11InputLayout* SelectedLayout = FontInputLayout;
-
-    if (Context.ViewMode == EViewModeIndex::VMI_SceneDepth)
-    {
-        SelectedVS = DepthVertexShader;
-        SelectedPS = DepthPixelShader;
-        SelectedLayout = DepthInputLayout;
-    }
 
     // Set up pipeline
     FPipelineInfo PipelineInfo = {};
@@ -163,9 +152,6 @@ void FTextPass::Release()
     SafeRelease(FontVertexShader);
     SafeRelease(FontPixelShader);
     SafeRelease(FontInputLayout);
-    SafeRelease(DepthVertexShader);
-    SafeRelease(DepthPixelShader);
-    SafeRelease(DepthInputLayout);
     SafeRelease(FontSampler);
     SafeRelease(DynamicVertexBuffer);
     SafeRelease(FontDataConstantBuffer);

@@ -32,6 +32,7 @@
 #include "Render/RenderPass/Public/LightPass.h"
 #include "Render/RenderPass/Public/IconPass.h"
 #include "Render/RenderPass/Public/FogPass.h"
+#include "Render/RenderPass/Public/SceneDepthPass.h"
 
 IMPLEMENT_SINGLETON_CLASS_BASE(URenderer)
 
@@ -60,12 +61,13 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateDepthShader();
 	CreateFireBallShader();
 	CreateFireBallForwardShader();
-	CreateIconShader();
+	CreateIconResources();
 	CreateUberLightResources();
 	CreateFullscreenQuad();
 	CreateConstantBuffers();
 	CreateFogResources();
 	CreateFXAAResources();
+	CreateSceneDepthResources();
 
 	// FontRenderer 초기화
 	FontRenderer = new UFontRenderer;
@@ -83,15 +85,13 @@ void URenderer::Init(HWND InWindowHandle)
 	FStaticMeshPass* StaticMeshPass =
 		new FStaticMeshPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
 		                    TextureVertexShader, TexturePixelShader, TextureInputLayout,
-		                    DefaultDepthStencilState, DepthVertexShader, DepthPixelShader,
-		                    DepthInputLayout);
+		                    DefaultDepthStencilState);
 	RenderPasses.push_back(StaticMeshPass);
 
 	FPrimitivePass* PrimitivePass =
 		new FPrimitivePass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
 		                   DefaultVertexShader, DefaultPixelShader, DefaultInputLayout,
-		                   DefaultDepthStencilState, DepthVertexShader, DepthPixelShader,
-		                   DepthInputLayout);
+		                   DefaultDepthStencilState);
 	RenderPasses.push_back(PrimitivePass);
 
 	// 알파 블렌딩을 사용하는 일반 데칼 패스
@@ -145,7 +145,7 @@ void URenderer::Init(HWND InWindowHandle)
 	auto* BackBufferRTV = DeviceResources->GetRenderTargetView();
 	auto* BackBufferDSV = DeviceResources->GetDepthStencilView();
 
-	FFogPass* InFogPass =
+	FFogPass* FogPass =
 		new FFogPass(
 			Pipeline,
 			SceneColorRTV,
@@ -159,8 +159,19 @@ void URenderer::Init(HWND InWindowHandle)
 			DepthTestAlwaysNoWriteState,
 			AlphaBlendState
 			);
-	RenderPasses.push_back(InFogPass);  // Forward 방식으로 RenderPasses에 추가
-	FogPass = InFogPass;
+	RenderPasses.push_back(FogPass);  // Forward 방식으로 RenderPasses에 추가
+
+	FSceneDepthPass* InSceneDepthPass = new FSceneDepthPass(
+		Pipeline,
+		SceneColorRTV,
+		SceneDepthSRV,
+		PostProcessSamplerState,
+		SceneDepthVertexShader,
+		SceneDepthPixelShader,
+		NoTestButWriteDepthState,
+		ConstantBufferSceneDepthProperties
+		);
+	SceneDepthPass = InSceneDepthPass;
 
 	// FXAAPass 생성
 	FFXAAPass* InFXAAPass = new FFXAAPass(
@@ -190,12 +201,13 @@ void URenderer::Release()
 	ReleaseFireBallShader();
 	ReleaseFireBallForwardShader();
 	ReleaseUberLightResources();
-	ReleaseIconShader();
+	ReleaseIconResources();
 	ReleaseFullscreenQuad();
 	ReleaseDepthStencilState();
 	ReleaseBlendState();
 	ReleaseFogResources();
 	ReleaseFXAAResources();
+	ReleaseSceneDepthResources();
 	FRenderResourceFactory::ReleaseRasterizerState();
 	for (auto& RenderPass : RenderPasses)
 	{
@@ -431,7 +443,7 @@ void URenderer::ReleaseDefaultShader()
 	SafeRelease(DecalPixelShader);
 }
 
-void URenderer::ReleaseIconShader()
+void URenderer::ReleaseIconResources()
 {
 	SafeRelease(IconVertexShader);
 	SafeRelease(IconPixelShader);
@@ -531,6 +543,13 @@ void URenderer::Update()
 		// 	ExecutePostProcess(CurrentCamera, ClientViewport); // Fog + FXAA 통합
 		// }
 		//FogPass->Execute(RenderingContext);
+
+		if (RenderingContext.ViewMode == EViewModeIndex::VMI_SceneDepth)
+			SceneDepthPass->Execute(RenderingContext);
+
+		// LightPass가 DSV를 nullptr로 설정했을 수 있으므로 Scene RT 재바인딩
+		//GetDeviceContext()->OMSetRenderTargets(1, , );
+
 		FXAAPass->Execute(RenderingContext);
 
 		// === 기즈모 렌더링: BackBuffer에 직접 렌더링 (FXAA 미적용, 항상 선명) ===
@@ -938,6 +957,8 @@ void URenderer::CreateSceneRenderTargets()
 	UE_LOG("Scene Render Targets Created: %ux%u", Width, Height);
 }
 
+
+
 void URenderer::ReleaseSceneRenderTargets()
 {
 	SafeRelease(SceneColorSRV);
@@ -947,6 +968,31 @@ void URenderer::ReleaseSceneRenderTargets()
 	SafeRelease(SceneDepthSRV);
 	SafeRelease(SceneDepthDSV);
 	SafeRelease(SceneDepthTexture);
+}
+
+void URenderer::CreateSceneDepthResources()
+{
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/SceneDepthShader.hlsl",
+		TArray<D3D11_INPUT_ELEMENT_DESC>{},
+		&SceneDepthVertexShader,
+		nullptr
+	);
+
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/SceneDepthShader.hlsl",
+		&SceneDepthPixelShader
+	);
+
+	ConstantBufferSceneDepthProperties =
+		FRenderResourceFactory::CreateConstantBuffer<FSceneDepthParameters>();
+}
+
+void URenderer::ReleaseSceneDepthResources()
+{
+	SafeRelease(SceneDepthVertexShader);
+	SafeRelease(SceneDepthPixelShader);
+	SafeRelease(ConstantBufferSceneDepthProperties);
 }
 
 void URenderer::CreateFireBallForwardShader()
@@ -1072,7 +1118,7 @@ void URenderer::CreateUberLightResources()
 	GetDevice()->CreateBlendState(&blendDesc, &LightAdditiveBlend);
 }
 
-void URenderer::CreateIconShader()
+void URenderer::CreateIconResources()
 {
 	TArray<D3D11_INPUT_ELEMENT_DESC> layout =
 	{

@@ -4,9 +4,6 @@
 #include "Component/Public/PrimitiveComponent.h"
 #include "Editor/Public/EditorPrimitive.h"
 #include "Render/Renderer/Public/Pipeline.h"
-#include "Component/Public/BillBoardComponent.h"
-#include "Component/Public/TextComponent.h"
-#include "Render/RenderPass/Public/FogPass.h"
 #include "Render/RenderPass/Public/FXAAPass.h"
 
 class UDeviceResources;
@@ -20,6 +17,7 @@ class UFontRenderer;
 class FViewport;
 class UCamera;
 class UPipeline;
+class FSceneDepthPass;
 
 /**
  * @brief Rendering Pipeline 전반을 처리하는 클래스
@@ -44,12 +42,13 @@ public:
 	void CreateFireBallShader();
 	void CreateFireBallForwardShader();
 	void CreateUberLightResources();
-	void CreateIconShader();
+	void CreateIconResources();
 	void CreateFogResources();
 	void CreateFXAAResources();
 	void CreateFullscreenQuad();
 	void CreateConstantBuffers();
 	void CreateSceneRenderTargets();
+	void CreateSceneDepthResources();
 
 	// Release
 	void ReleaseConstantBuffers();
@@ -60,11 +59,12 @@ public:
 	void ReleaseFireBallShader();
 	void ReleaseFireBallForwardShader();
 	void ReleaseUberLightResources();
-	void ReleaseIconShader();
+	void ReleaseIconResources();
 	void ReleaseFogResources();
 	void ReleaseFXAAResources();
 	void ReleaseFullscreenQuad();
 	void ReleaseSceneRenderTargets();
+	void ReleaseSceneDepthResources();
 
 	// Render
 	void Update();
@@ -179,6 +179,11 @@ private:
 	ID3D11PixelShader* FogPixelShader = nullptr;
 	ID3D11Buffer* ConstantBufferFogProperties = nullptr;
 
+	// Scene Depth
+	ID3D11VertexShader* SceneDepthVertexShader = nullptr;
+	ID3D11PixelShader* SceneDepthPixelShader = nullptr;
+	ID3D11Buffer* ConstantBufferSceneDepthProperties = nullptr;
+
 	// FXAA Shaders
 	ID3D11VertexShader* FXAAVertexShader = nullptr;
 	ID3D11PixelShader* FXAAPixelShader = nullptr;
@@ -216,6 +221,6 @@ private:
 	};
 
 	TArray<class FRenderPass*> RenderPasses;
-	FFogPass* FogPass = nullptr;
+	FSceneDepthPass* SceneDepthPass = nullptr;
 	FFXAAPass* FXAAPass = nullptr;
 };

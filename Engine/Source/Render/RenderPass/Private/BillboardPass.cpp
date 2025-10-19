@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "Render/RenderPass/Public/BillboardPass.h"
+#include "Component/Public/BillBoardComponent.h"
 #include "Editor/Public/Camera.h"
 #include "Render/Renderer/Public/RenderResourceFactory.h"
 
@@ -24,7 +25,7 @@ void FBillboardPass::Execute(FRenderingContext& Context)
 
         Pipeline->SetVertexBuffer(BillBoardComp->GetVertexBuffer(), sizeof(FNormalVertex));
         Pipeline->SetIndexBuffer(BillBoardComp->GetIndexBuffer(), 0);
-		
+
         // 3) 모델 상수버퍼에는 '월드행렬' 대신 '빌보드 RT 행렬'을 사용
         FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModel, BillBoardComp->GetRTMatrix());
         Pipeline->SetConstantBuffer(0, true, ConstantBufferModel);

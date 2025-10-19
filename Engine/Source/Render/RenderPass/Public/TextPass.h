@@ -22,10 +22,5 @@ private:
     ID3D11Buffer* FontDataConstantBuffer = nullptr;
     UFontRenderer::FFontConstantBuffer ConstantBufferData;
 
-    // Depth shader resources
-    ID3D11VertexShader* DepthVertexShader = nullptr;
-    ID3D11PixelShader* DepthPixelShader = nullptr;
-    ID3D11InputLayout* DepthInputLayout = nullptr;
-
     static constexpr uint32 MAX_FONT_VERTICES = 4096;
 };
