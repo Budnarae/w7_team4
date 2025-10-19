@@ -32,6 +32,8 @@
 #include "Render/RenderPass/Public/LightPass.h"
 #include "Render/RenderPass/Public/IconPass.h"
 #include "Render/RenderPass/Public/DebugPass.h"
+#include "Render/RenderPass/Public/FogPass.h"
+#include "Render/RenderPass/Public/SceneDepthPass.h"
 
 IMPLEMENT_SINGLETON_CLASS_BASE(URenderer)
 
@@ -60,11 +62,13 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateDepthShader();
 	CreateFireBallShader();
 	CreateFireBallForwardShader();
-	CreateIconShader();
+	CreateIconResources();
 	CreateUberLightResources();
 	CreateFullscreenQuad();
 	CreateConstantBuffers();
-	CreatePostProcessResources();
+	CreateFogResources();
+	CreateFXAAResources();
+	CreateSceneDepthResources();
 
 	// FontRenderer 초기화
 	FontRenderer = new UFontRenderer;
@@ -82,15 +86,13 @@ void URenderer::Init(HWND InWindowHandle)
 	FStaticMeshPass* StaticMeshPass =
 		new FStaticMeshPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
 		                    TextureVertexShader, TexturePixelShader, TextureInputLayout,
-		                    DefaultDepthStencilState, DepthVertexShader, DepthPixelShader,
-		                    DepthInputLayout);
+		                    DefaultDepthStencilState);
 	RenderPasses.push_back(StaticMeshPass);
 
 	FPrimitivePass* PrimitivePass =
 		new FPrimitivePass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
 		                   DefaultVertexShader, DefaultPixelShader, DefaultInputLayout,
-		                   DefaultDepthStencilState, DepthVertexShader, DepthPixelShader,
-		                   DepthInputLayout);
+		                   DefaultDepthStencilState);
 	RenderPasses.push_back(PrimitivePass);
 
 	// 알파 블렌딩을 사용하는 일반 데칼 패스
@@ -137,6 +139,54 @@ void URenderer::Init(HWND InWindowHandle)
 
 	FTextPass* TextPass = new FTextPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels);
 	RenderPasses.push_back(TextPass);
+	auto* BackBufferRTV = DeviceResources->GetRenderTargetView();
+	auto* BackBufferDSV = DeviceResources->GetDepthStencilView();
+
+	FFogPass* FogPass =
+		new FFogPass(
+			Pipeline,
+			SceneColorRTV,
+			SceneDepthSRV,
+			PostProcessSamplerState,
+			ConstantBufferViewProj,
+			ConstantBufferModels,
+			ConstantBufferFogProperties,
+			FogVertexShader,
+			FogPixelShader,
+			DepthTestAlwaysNoWriteState,
+			AlphaBlendState
+			);
+	RenderPasses.push_back(FogPass);  // Forward 방식으로 RenderPasses에 추가
+
+	FSceneDepthPass* InSceneDepthPass = new FSceneDepthPass(
+		Pipeline,
+		SceneColorRTV,
+		SceneDepthSRV,
+		PostProcessSamplerState,
+		SceneDepthVertexShader,
+		SceneDepthPixelShader,
+		NoTestButWriteDepthState,
+		ConstantBufferSceneDepthProperties
+		);
+	SceneDepthPass = InSceneDepthPass;
+
+	// FXAAPass 생성
+	FFXAAPass* InFXAAPass = new FFXAAPass(
+		Pipeline,
+		BackBufferRTV,
+		BackBufferDSV,
+		SceneColorSRV,
+		SceneDepthSRV,
+		PostProcessSamplerState,
+		ConstantBufferViewProj,
+		ConstantBufferModels,
+		ConstantBufferFXAAParameters,
+		FXAAVertexShader,
+		FXAAPixelShader,
+		NoTestButWriteDepthState
+	);
+
+	FXAAPass = InFXAAPass;
 }
 
 void URenderer::Release()
@@ -148,11 +198,13 @@ void URenderer::Release()
 	ReleaseFireBallShader();
 	ReleaseFireBallForwardShader();
 	ReleaseUberLightResources();
-	ReleaseIconShader();
+	ReleaseIconResources();
 	ReleaseFullscreenQuad();
 	ReleaseDepthStencilState();
 	ReleaseBlendState();
-	ReleasePostProcessResources();
+	ReleaseFogResources();
+	ReleaseFXAAResources();
+	ReleaseSceneDepthResources();
 	FRenderResourceFactory::ReleaseRasterizerState();
 	for (auto& RenderPass : RenderPasses)
 	{
@@ -197,6 +249,14 @@ void URenderer::CreateDepthStencilState()
 	NoTestWriteDescription.DepthFunc = D3D11_COMPARISON_ALWAYS; // 항상 통과 (test 비활성화)
 	NoTestWriteDescription.StencilEnable = FALSE;
 	GetDevice()->CreateDepthStencilState(&NoTestWriteDescription, &NoTestButWriteDepthState);
+
+	// Test Always No Write Depth (Depth Test Always, Depth Write X): Fog용
+	D3D11_DEPTH_STENCIL_DESC TestAlwaysNoWriteDescription = {};
+	TestAlwaysNoWriteDescription.DepthEnable = TRUE; // Depth 활성화
+	TestAlwaysNoWriteDescription.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; // Depth write 비활성화
+	TestAlwaysNoWriteDescription.DepthFunc = D3D11_COMPARISON_ALWAYS; // 항상 통과
+	TestAlwaysNoWriteDescription.StencilEnable = FALSE;
+	GetDevice()->CreateDepthStencilState(&TestAlwaysNoWriteDescription, &DepthTestAlwaysNoWriteState);
 
 	// Debug Line Depth State (Depth Test ON, Write OFF): BatchLines용
 	D3D11_DEPTH_STENCIL_DESC DebugLineDescription = {};
@@ -380,7 +440,7 @@ void URenderer::ReleaseDefaultShader()
 	SafeRelease(DecalPixelShader);
 }
 
-void URenderer::ReleaseIconShader()
+void URenderer::ReleaseIconResources()
 {
 	SafeRelease(IconVertexShader);
 	SafeRelease(IconPixelShader);
@@ -388,6 +448,20 @@ void URenderer::ReleaseIconShader()
 	SafeRelease(ConstantBufferIconProperties);
 }
 
+void URenderer::ReleaseFogResources()
+{
+	SafeRelease(FogVertexShader);
+	SafeRelease(FogPixelShader);
+	SafeRelease(ConstantBufferFogProperties);
+	SafeRelease(PostProcessSamplerState);
+}
+
+void URenderer::ReleaseFXAAResources()
+{
+	SafeRelease(FXAAVertexShader);
+	SafeRelease(FXAAPixelShader);
+	SafeRelease(ConstantBufferFXAAParameters);
+}
 
 void URenderer::ReleaseDepthShader()
 {
@@ -402,6 +476,7 @@ void URenderer::ReleaseDepthStencilState()
 	SafeRelease(DecalDepthStencilState);
 	SafeRelease(DisabledDepthStencilState);
 	SafeRelease(NoTestButWriteDepthState);
+	SafeRelease(DepthTestAlwaysNoWriteState);
 	SafeRelease(DebugLineDepthState);
 	if (GetDeviceContext())
 	{
@@ -457,11 +532,19 @@ void URenderer::Update()
 		// 통합 포스트프로세싱 패스: Fog + Anti-Aliasing (FXAA)
 		// RenderLevel + RenderDebugPrimitives 결과에 모두 FXAA 적용
 		GetDeviceContext()->RSSetViewports(1, &ClientViewport);
+		// {
+		// 	TIME_PROFILE(ExecutePostProcess)
+		// 	ExecutePostProcess(CurrentCamera, ClientViewport); // Fog + FXAA 통합
+		// }
+		//FogPass->Execute(RenderingContext);
 
-		{
-			TIME_PROFILE(ExecutePostProcess)
-			ExecutePostProcess(CurrentCamera, ClientViewport); // Fog + FXAA 통합
-		}
+		if (RenderingContext.ViewMode == EViewModeIndex::VMI_SceneDepth)
+			SceneDepthPass->Execute(RenderingContext);
+
+		// LightPass가 DSV를 nullptr로 설정했을 수 있으므로 Scene RT 재바인딩
+		//GetDeviceContext()->OMSetRenderTargets(1, , );
+
+		FXAAPass->Execute(RenderingContext);
 
 		// === 기즈모 렌더링: BackBuffer에 직접 렌더링 (FXAA 미적용, 항상 선명) ===
 		{
@@ -527,7 +610,7 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 	// TIME_PROFILE_END(Occlusion)
 
 
-	FRenderingContext RenderingContext(&ViewProj, InCurrentCamera,
+	RenderingContext = FRenderingContext(&ViewProj, InCurrentCamera,
 	                                   GEditor->GetEditorModule()->GetViewMode(),
 	                                   CurrentLevel->GetShowFlags());
 	RenderingContext.AllPrimitives = FinalVisiblePrims;
@@ -570,6 +653,27 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 		else if (!Prim->IsA(UUUIDTextComponent::StaticClass()))
 		{
 			RenderingContext.DefaultPrimitives.push_back(Prim);
+		}
+	}
+
+	// HeightFog는 USceneComponent이므로 Primitive 시스템에 등록되지 않음
+	// Level의 모든 Actor를 순회하며 직접 수집 (Decal/PointLight 방식과 동일)
+	const bool bShowFog = (CurrentLevel->GetShowFlags() & EEngineShowFlags::SF_Fog) != 0;
+	if (bShowFog)
+	{
+		for (AActor* Actor : CurrentLevel->GetActors())
+		{
+			if (!Actor) continue;
+			for (UActorComponent* Component : Actor->GetOwnedComponents())
+			{
+				if (auto Fog = Cast<UHeightFogComponent>(Component))
+				{
+					if (Fog->IsEnabled())
+					{
+						RenderingContext.Fogs.push_back(Fog);
+					}
+				}
+			}
 		}
 	}
 	// 편집 씬에 데칼 표시
@@ -695,205 +799,6 @@ void URenderer::OnResize(uint32 InWidth, uint32 InHeight)
 	                                       DeviceResources->GetDepthStencilView());
 }
 
-void URenderer::CreatePostProcessResources()
-{
-	// PostProcess 셰이더 로드 (통합 포스트프로세싱: Fog + FXAA)
-	TArray<D3D11_INPUT_ELEMENT_DESC> PostProcessLayout =
-	{
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
-	};
-
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
-		L"Asset/Shader/PostProcess.hlsl",
-		PostProcessLayout,
-		&PostProcessVertexShader,
-		&PostProcessInputLayout
-	);
-
-	FRenderResourceFactory::CreatePixelShader(
-		L"Asset/Shader/PostProcess.hlsl",
-		&PostProcessPixelShader
-	);
-
-	// 선형 보간 샘플러
-	PostProcessSamplerState = FRenderResourceFactory::CreateSamplerState(
-		D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP
-	);
-	ConstantBufferPostProcessParameters = FRenderResourceFactory::CreateConstantBuffer<
-		FPostProcessParameters>();
-	PostProcessUserParameters = {}; // 기본값으로 구조체 디폴트
-	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
-	                                                 PostProcessUserParameters);
-}
-
-void URenderer::ReleasePostProcessResources()
-{
-	SafeRelease(PostProcessVertexShader);
-	SafeRelease(PostProcessInputLayout);
-	SafeRelease(PostProcessPixelShader);
-	SafeRelease(PostProcessSamplerState);
-	SafeRelease(ConstantBufferPostProcessParameters);
-}
-
-void URenderer::ExecutePostProcess(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport)
-{
-	auto* Context = GetDeviceContext();
-	const ULevel* CurrentLevel = GWorld->GetLevel();
-
-	// 출력: 백버퍼 RTV로
-	auto* BackBufferRTV = DeviceResources->GetRenderTargetView();
-	auto* BackBufferDSV = DeviceResources->GetDepthStencilView();
-	Context->OMSetRenderTargets(1, &BackBufferRTV, BackBufferDSV);
-
-	// Viewport 설정 (각 ViewportClient 영역에만 적용)
-	Context->RSSetViewports(1, &InViewport);
-
-	// PostProcess 상수 버퍼 업데이트 (viewport + fog + FXAA 정보)
-	FPostProcessParameters postProcessParams = PostProcessUserParameters; // 기존 사용자 파라미터 복사
-
-	// FXAA 활성화 플래그 설정
-	postProcessParams.EnableFXAA = bIsFXAAEnabled ? 1.0f : 0.0f;
-
-	// Viewport 정보 설정
-	postProcessParams.ViewportTopLeft = FVector2(InViewport.TopLeftX, InViewport.TopLeftY);
-	postProcessParams.ViewportSize = FVector2(InViewport.Width, InViewport.Height);
-
-	// Scene RT 크기 가져오기
-	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-	GetSwapChain()->GetDesc(&swapChainDesc);
-	postProcessParams.SceneRTSize = FVector2(
-		static_cast<float>(swapChainDesc.BufferDesc.Width),
-		static_cast<float>(swapChainDesc.BufferDesc.Height)
-	);
-
-	// Fog 파라미터 설정
-	const bool bShowFog = CurrentLevel && (CurrentLevel->GetShowFlags() & EEngineShowFlags::SF_Fog)
-		!= 0;
-
-	// Find first enabled HeightFogComponent
-	UHeightFogComponent* FogComponent = nullptr;
-	if (CurrentLevel && bShowFog)
-	{
-		for (AActor* Actor : CurrentLevel->GetActors())
-		{
-			if (!Actor) continue;
-			for (UActorComponent* Comp : Actor->GetOwnedComponents())
-			{
-				if (auto* Fog = Cast<UHeightFogComponent>(Comp))
-				{
-					if (Fog->IsEnabled())
-					{
-						FogComponent = Fog;
-						break;
-					}
-				}
-			}
-			if (FogComponent) break;
-		}
-	}
-
-	// Fog 파라미터 채우기
-	if (FogComponent && bShowFog)
-	{
-		postProcessParams.FogDensity = FogComponent->GetFogDensity();
-		postProcessParams.FogHeightFalloff = FogComponent->GetFogHeightFalloff();
-		postProcessParams.StartDistance = FogComponent->GetStartDistance();
-		postProcessParams.FogCutoffDistance = FogComponent->GetFogCutoffDistance();
-		postProcessParams.FogMaxOpacity = FogComponent->GetFogMaxOpacity();
-
-		FVector4 ColorRGBA = FogComponent->GetFogInscatteringColor();
-		postProcessParams.FogInscatteringColor = FVector(ColorRGBA.X, ColorRGBA.Y, ColorRGBA.Z);
-
-		postProcessParams.CameraPosition = InCurrentCamera->GetLocation();
-		postProcessParams.FogHeight = FogComponent->GetWorldLocation().Z;
-	}
-	else
-	{
-		// Fog 비활성화
-		postProcessParams.FogDensity = 0.0f;
-		postProcessParams.FogMaxOpacity = 0.0f;
-	}
-
-	// Inverse View-Projection Matrix
-	const FViewProjConstants& ViewProj = InCurrentCamera->GetFViewProjConstants();
-	FMatrix ViewProjMatrix = ViewProj.View * ViewProj.Projection;
-	postProcessParams.InvViewProj = ViewProjMatrix.Inverse();
-
-	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
-	                                                 postProcessParams);
-
-	// 파이프라인 셋업
-	FPipelineInfo PipelineInfo = {
-		PostProcessInputLayout, // PostProcess fullscreen quad layout
-		PostProcessVertexShader, // PostProcess VS (fullscreen quad)
-		FRenderResourceFactory::GetRasterizerState({ECullMode::None, EFillMode::Solid}),
-		NoTestButWriteDepthState, // Depth test X, Depth write O
-		PostProcessPixelShader, // PostProcess PS (Fog + FXAA 통합)
-		nullptr, // Blend
-		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
-	};
-	Pipeline->UpdatePipeline(PipelineInfo);
-
-	Pipeline->SetConstantBuffer(0, false, ConstantBufferPostProcessParameters);
-
-	// 소스 텍스처 샘플러 (Scene Color + Scene Depth)
-	ID3D11ShaderResourceView* srvs[2] = {SceneColorSRV, SceneDepthSRV};
-	Context->PSSetShaderResources(0, 2, srvs);
-	Pipeline->SetSamplerState(0, false, PostProcessSamplerState);
-
-	// Fullscreen Quad 그리기 (RenderFog과 동일한 방식)
-	uint32 stride = sizeof(float) * 5; // Position(3) + TexCoord(2)
-	uint32 offset = 0;
-	Pipeline->SetVertexBuffer(FullscreenQuadVB, stride);
-	Pipeline->SetIndexBuffer(FullscreenQuadIB, sizeof(uint32));
-	Pipeline->DrawIndexed(6, 0, 0);
-
-	// SRV 언바인드 (경고 방지)
-	ID3D11ShaderResourceView* NullSrvs[2] = {nullptr, nullptr};
-	Context->PSSetShaderResources(0, 2, NullSrvs);
-}
-
-void URenderer::UpdatePostProcessConstantBuffer()
-{
-	if (ConstantBufferPostProcessParameters)
-	{
-		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferPostProcessParameters,
-		                                                 PostProcessUserParameters);
-	}
-}
-
-void URenderer::SetFXAASubpixelBlend(float InValue)
-{
-	float Clamped = std::clamp(InValue, 0.0f, 1.0f);
-	if (PostProcessUserParameters.SubpixelBlend != Clamped)
-	{
-		PostProcessUserParameters.SubpixelBlend = Clamped;
-		UpdatePostProcessConstantBuffer();
-	}
-}
-
-void URenderer::SetFXAAEdgeThreshold(float InValue)
-{
-	// 일반적으로 0.05 ~ 0.25 권장
-	float Clamped = std::clamp(InValue, 0.01f, 0.5f);
-	if (PostProcessUserParameters.EdgeThreshold != Clamped)
-	{
-		PostProcessUserParameters.EdgeThreshold = Clamped;
-		UpdatePostProcessConstantBuffer();
-	}
-}
-
-void URenderer::SetFXAAEdgeThresholdMin(float InValue)
-{
-	// 일반적으로 0.002 ~ 0.05 권장
-	float Clamped = std::clamp(InValue, 0.001f, 0.1f);
-	if (PostProcessUserParameters.EdgeThresholdMin != Clamped)
-	{
-		PostProcessUserParameters.EdgeThresholdMin = Clamped;
-		UpdatePostProcessConstantBuffer();
-	}
-}
 
 void URenderer::CreateFireBallShader()
 {
@@ -1053,6 +958,8 @@ void URenderer::CreateSceneRenderTargets()
 	UE_LOG("Scene Render Targets Created: %ux%u", Width, Height);
 }
 
+
+
 void URenderer::ReleaseSceneRenderTargets()
 {
 	SafeRelease(SceneColorSRV);
@@ -1062,6 +969,31 @@ void URenderer::ReleaseSceneRenderTargets()
 	SafeRelease(SceneDepthSRV);
 	SafeRelease(SceneDepthDSV);
 	SafeRelease(SceneDepthTexture);
+}
+
+void URenderer::CreateSceneDepthResources()
+{
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/SceneDepthShader.hlsl",
+		TArray<D3D11_INPUT_ELEMENT_DESC>{},
+		&SceneDepthVertexShader,
+		nullptr
+	);
+
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/SceneDepthShader.hlsl",
+		&SceneDepthPixelShader
+	);
+
+	ConstantBufferSceneDepthProperties =
+		FRenderResourceFactory::CreateConstantBuffer<FSceneDepthParameters>();
+}
+
+void URenderer::ReleaseSceneDepthResources()
+{
+	SafeRelease(SceneDepthVertexShader);
+	SafeRelease(SceneDepthPixelShader);
+	SafeRelease(ConstantBufferSceneDepthProperties);
 }
 
 void URenderer::CreateFireBallForwardShader()
@@ -1187,7 +1119,7 @@ void URenderer::CreateUberLightResources()
 	GetDevice()->CreateBlendState(&blendDesc, &LightAdditiveBlend);
 }
 
-void URenderer::CreateIconShader()
+void URenderer::CreateIconResources()
 {
 	TArray<D3D11_INPUT_ELEMENT_DESC> layout =
 	{
@@ -1200,6 +1132,47 @@ void URenderer::CreateIconShader()
 	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/IconShader.hlsl", &IconPixelShader);
 
 	ConstantBufferIconProperties = FRenderResourceFactory::CreateConstantBuffer<FIconProperties>();
+}
+
+
+void URenderer::CreateFogResources()
+{
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/FogShader.hlsl",
+		TArray<D3D11_INPUT_ELEMENT_DESC>{},
+		&FogVertexShader,
+		nullptr
+	);
+
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/FogShader.hlsl",
+		&FogPixelShader
+	);
+
+	ConstantBufferFogProperties =
+		FRenderResourceFactory::CreateConstantBuffer<FHeightFogParameters>();
+
+	// PostProcess용 선형 보간 샘플러 (FogPass와 FXAAPass에서 공유)
+	PostProcessSamplerState = FRenderResourceFactory::CreateSamplerState(
+		D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_CLAMP
+	);
+}
+
+void URenderer::CreateFXAAResources()
+{
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/FXAAShader.hlsl",
+		TArray<D3D11_INPUT_ELEMENT_DESC>{},
+		&FXAAVertexShader,
+		nullptr
+	);
+
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/FXAAShader.hlsl",
+		&FXAAPixelShader
+	);
+
+	ConstantBufferFXAAParameters = FRenderResourceFactory::CreateConstantBuffer<FFXAAParameters>();
 }
 
 void URenderer::ReleaseUberLightResources()

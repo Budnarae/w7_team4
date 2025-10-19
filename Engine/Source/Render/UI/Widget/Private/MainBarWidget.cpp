@@ -7,6 +7,7 @@
 #include <algorithm>
 #include "Level/Public/Level.h"
 #include "Render/Renderer/Public/Renderer.h"
+#include "Manager/PostProcess/Public/FXAAManager.h"
 
 
 
@@ -367,10 +368,10 @@ void UMainBarWidget::RenderShowFlagsMenu()
 			}
 			CurrentLevel->SetShowFlags(ShowFlags);
 		}
-		bool bFxaaEnabled = URenderer::GetInstance().IsFXAAEnabled();
+		bool bFxaaEnabled = UFXAAManager::GetInstance().IsEnabled();
 		if (ImGui::MenuItem("FXAA 활성화", nullptr, bFxaaEnabled))
 		{
-			URenderer::GetInstance().SetFXAAEnabled(!bFxaaEnabled);
+			UFXAAManager::GetInstance().SetEnabled(!bFxaaEnabled);
 		}
 
 		// Fog 표시 옵션

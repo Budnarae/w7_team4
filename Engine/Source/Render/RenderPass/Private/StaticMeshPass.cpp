@@ -6,11 +6,20 @@
 #include "Texture/Public/Texture.h"
 #include "Texture/Public/TextureRenderProxy.h"
 
-FStaticMeshPass::FStaticMeshPass(UPipeline* InPipeline, ID3D11Buffer* InConstantBufferViewProj, ID3D11Buffer* InConstantBufferModel,
-	ID3D11VertexShader* InVS, ID3D11PixelShader* InPS, ID3D11InputLayout* InLayout, ID3D11DepthStencilState* InDS,
-	ID3D11VertexShader* InDepthVS, ID3D11PixelShader* InDepthPS, ID3D11InputLayout* InDepthLayout)
-	: FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel), VS(InVS), PS(InPS), InputLayout(InLayout), DS(InDS),
-	  DepthVS(InDepthVS), DepthPS(InDepthPS), DepthInputLayout(InDepthLayout)
+FStaticMeshPass::FStaticMeshPass(
+	UPipeline* InPipeline,
+	ID3D11Buffer* InConstantBufferViewProj,
+	ID3D11Buffer* InConstantBufferModel,
+	ID3D11VertexShader* InVS,
+	ID3D11PixelShader* InPS,
+	ID3D11InputLayout* InLayout,
+	ID3D11DepthStencilState* InDS
+	) :
+	FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel),
+	VS(InVS),
+	PS(InPS),
+	InputLayout(InLayout),
+	DS(InDS)
 {
 	ConstantBufferMaterial = FRenderResourceFactory::CreateConstantBuffer<FMaterialConstants>();
 }
@@ -40,17 +49,10 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	ID3D11PixelShader* SelectedPS = PS;
 	ID3D11InputLayout* SelectedLayout = InputLayout;
 
-	if (Context.ViewMode == EViewModeIndex::VMI_SceneDepth)
-	{
-		SelectedVS = DepthVS;
-		SelectedPS = DepthPS;
-		SelectedLayout = DepthInputLayout;
-	}
-
 	FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, RS, DS, SelectedPS, nullptr };
 	Pipeline->UpdatePipeline(PipelineInfo);
 
-	for (UStaticMeshComponent* MeshComp : MeshComponents) 
+	for (UStaticMeshComponent* MeshComp : MeshComponents)
 	{
 		if (!MeshComp->GetStaticMesh()) { continue; }
 		FStaticMesh* MeshAsset = MeshComp->GetStaticMesh()->GetStaticMeshAsset();
@@ -62,7 +64,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 			Pipeline->SetIndexBuffer(MeshComp->GetIndexBuffer(), 0);
 			CurrentMeshAsset = MeshAsset;
 		}
-		
+
 		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModel, MeshComp->GetWorldTransformMatrix());
 		Pipeline->SetConstantBuffer(0, true, ConstantBufferModel);
 
@@ -72,7 +74,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 			continue;
 		}
 
-		if (MeshComp->IsScrollEnabled()) 
+		if (MeshComp->IsScrollEnabled())
 		{
 			MeshComp->SetElapsedTime(MeshComp->GetElapsedTime() + UTimeManager::GetInstance().GetDeltaTime());
 		}
@@ -123,7 +125,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 						Pipeline->SetTexture(4, false, Proxy->GetSRV());
 					}
 				}
-				
+
 				CurrentMaterial = Material;
 			}
 			Pipeline->DrawIndexed(Section.IndexCount, Section.StartIndex, 0);

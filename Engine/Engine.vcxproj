@@ -382,6 +382,7 @@
     <ClInclude Include="Source\Manager\Asset\Public\ObjManager.h">
       <DeploymentContent>false</DeploymentContent>
     </ClInclude>
+    <ClInclude Include="Source\Manager\PostProcess\Public\FXAAManager.h" />
     <ClInclude Include="Source\Optimization\Public\OcclusionCuller.h" />
     <ClInclude Include="Source\Optimization\Public\ViewVolumeCuller.h" />
     <ClInclude Include="Source\Physics\Public\AABB.h" />
@@ -439,6 +440,8 @@
     <ClInclude Include="Source\Render\RenderPass\Public\DecalPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\FireBallForwardPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\FireBallPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\FogPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\FXAAPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\LightPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\IconPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\PrimitivePass.h" />
@@ -499,6 +502,12 @@
     <ClInclude Include="Source\Utility\Public\UELogParser.h" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Asset\Shader\FogShader.hlsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Asset\Shader\FXAAShader.hlsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -579,6 +588,7 @@
     <ClCompile Include="Source\Manager\Asset\Private\ObjManager.cpp">
       <DeploymentContent>false</DeploymentContent>
     </ClCompile>
+    <ClCompile Include="Source\Manager\PostProcess\Private\FXAAManager.cpp" />
     <ClCompile Include="Source\Optimization\Private\OcclusionCuller.cpp" />
     <ClCompile Include="Source\Optimization\Private\ViewVolumeCuller.cpp" />
     <ClCompile Include="Source\Physics\Private\AABB.cpp" />
@@ -623,12 +633,16 @@
     <ClCompile Include="Source\Render\RenderPass\Private\DecalPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\FireBallForwardPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\FireBallPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\FogPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\FXAAPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\LightPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\IconPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\PrimitivePass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\RenderPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\SceneDepthPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\StaticMeshPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\TextPass.cpp" />
+    <ClInclude Include="Source\Render\RenderPass\Public\SceneDepthPass.h" />
     <ClCompile Include="Source\Render\UI\Factory\Private\UIWindowFactory.cpp" />
     <ClCompile Include="Source\Render\UI\ImGui\Private\ImGuiHelper.cpp" />
     <ClCompile Include="Source\Render\UI\Overlay\Private\StatOverlay.cpp" />

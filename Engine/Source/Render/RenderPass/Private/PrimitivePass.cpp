@@ -2,11 +2,20 @@
 #include "Render/RenderPass/Public/PrimitivePass.h"
 #include "Render/Renderer/Public/RenderResourceFactory.h"
 
-FPrimitivePass::FPrimitivePass(UPipeline* InPipeline, ID3D11Buffer* InConstantBufferViewProj, ID3D11Buffer* InConstantBufferModel,
-                               ID3D11VertexShader* InVS, ID3D11PixelShader* InPS, ID3D11InputLayout* InLayout, ID3D11DepthStencilState* InDS,
-                               ID3D11VertexShader* InDepthVS, ID3D11PixelShader* InDepthPS, ID3D11InputLayout* InDepthLayout)
-        : FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel), VS(InVS), PS(InPS), InputLayout(InLayout), DS(InDS),
-          DepthVS(InDepthVS), DepthPS(InDepthPS), DepthInputLayout(InDepthLayout)
+FPrimitivePass::FPrimitivePass(
+	UPipeline* InPipeline,
+	ID3D11Buffer* InConstantBufferViewProj,
+	ID3D11Buffer* InConstantBufferModel,
+	ID3D11VertexShader* InVS,
+	ID3D11PixelShader* InPS,
+	ID3D11InputLayout* InLayout,
+	ID3D11DepthStencilState* InDS
+	) :
+	FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel),
+	VS(InVS),
+	PS(InPS),
+	InputLayout(InLayout),
+	DS(InDS)
 {
     ConstantBufferColor = FRenderResourceFactory::CreateConstantBuffer<FVector4>();
 }
@@ -25,30 +34,23 @@ void FPrimitivePass::Execute(FRenderingContext& Context)
     ID3D11PixelShader* SelectedPS = PS;
     ID3D11InputLayout* SelectedLayout = InputLayout;
 
-    if (Context.ViewMode == EViewModeIndex::VMI_SceneDepth)
-    {
-        SelectedVS = DepthVS;
-        SelectedPS = DepthPS;
-        SelectedLayout = DepthInputLayout;
-    }
-
     FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, nullptr, DS, SelectedPS, nullptr };
     Pipeline->UpdatePipeline(PipelineInfo);
     Pipeline->SetConstantBuffer(0, true, ConstantBufferModel);
     Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
     Pipeline->SetConstantBuffer(2, false, ConstantBufferColor);
     if (!(Context.ShowFlags & EEngineShowFlags::SF_Primitives)) return;
-    
+
     for (UPrimitiveComponent* PrimitiveComponent : Context.DefaultPrimitives)
     {
         if (Context.ViewMode != EViewModeIndex::VMI_Wireframe)
         {
             DefaultState = PrimitiveComponent->GetRenderState();
         }
-        
+
         PipelineInfo.RasterizerState = FRenderResourceFactory::GetRasterizerState(DefaultState);
         Pipeline->UpdatePipeline(PipelineInfo);
-        
+
         FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModel, PrimitiveComponent->GetWorldTransformMatrix());
         Pipeline->SetConstantBuffer(0, true, ConstantBufferModel);
         FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferColor, PrimitiveComponent->GetColor());

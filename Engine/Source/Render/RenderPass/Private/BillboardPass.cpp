@@ -1,5 +1,6 @@
 ﻿#include "pch.h"
 #include "Render/RenderPass/Public/BillboardPass.h"
+#include "Component/Public/BillBoardComponent.h"
 #include "Editor/Public/Camera.h"
 #include "Render/Renderer/Public/RenderResourceFactory.h"
 

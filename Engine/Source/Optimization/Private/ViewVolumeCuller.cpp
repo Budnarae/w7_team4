@@ -50,7 +50,8 @@ void ViewVolumeCuller::Cull(FOctree* StaticOctree, TArray<UPrimitiveComponent*>&
 	for (UPrimitiveComponent* Primitive : DynamicPrimitives)
 	{
 		if (!Primitive || !Primitive->GetOwner()) continue;
-		
+
+		// FireBall은 Frustum Culling 제외 (전역 효과)
 		if (Primitive->IsA(UFireBallComponent::StaticClass()))
 		{
 			RenderableObjects.push_back(Primitive);
