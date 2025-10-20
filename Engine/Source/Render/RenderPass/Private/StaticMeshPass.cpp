@@ -77,9 +77,8 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 		SelectedLayout = Renderer.GetUberLitInputLayout();
 		break;
 	case EViewModeIndex::VMI_SceneDepth:
-		SelectedVS = Renderer.GetDepthVertexShader();
-		SelectedPS = Renderer.GetDepthPixelShader();
-		SelectedLayout = Renderer.GetDepthInputLayout();
+		// SceneDepthPass가 최종 시각화를 담당
+		// StaticMeshPass는 일반 렌더링으로 Depth 버퍼에만 기록
 		break;
 	case EViewModeIndex::VMI_Wireframe:
 		// Wireframe은 PS 필요 없음
