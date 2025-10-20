@@ -216,14 +216,27 @@ PS_INPUT mainVS(VS_INPUT input)
 
 #if LIGHTING_MODEL_GOURAUD
     // Gouraud Shading: Vertex Shader에서 라이팅 계산
-    float3 totalLight = float3(0, 0, 0);
+    float3 TotalLight = float3(0, 0, 0);
 
     // Ambient
-    totalLight += CalculateAmbientLight(Ambient);
+    TotalLight += CalculateAmbientLight(Ambient);
 
-    // TODO: Directional, Point, Spot lights in VS
+    // Directional Light
+    TotalLight += CalculateDirectionalLight(Directional, Output.Normal);
 
-    Output.VertexColor = float4(totalLight, 1.0);
+    // Point Lights
+    for (uint i = 0; i < NumActivePointLights; ++i)
+    {
+        TotalLight += CalculatePointLight(PointLights[i], Output.WorldPos, Output.Normal);
+    }
+
+    // Spot Lights
+    for (uint j = 0; j < NumActiveSpotLights; ++j)
+    {
+        TotalLight += CalculateSpotLight(SpotLights[j], Output.WorldPos, Output.Normal);
+    }
+
+    Output.VertexColor = float4(TotalLight, 1.0);
 #endif
 
     return Output;
@@ -241,21 +254,24 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
 
 #elif LIGHTING_MODEL_LAMBERT
     // Lambert Shading: PS에서 Diffuse 라이팅 계산
+    // 보간된 Normal을 normalize (보간 과정에서 길이가 변하기 때문)
+    float3 Normal = normalize(Input.Normal);
+
     float3 TotalLight = CalculateAmbientLight(Ambient);
 
     // Directional Light
-    TotalLight += CalculateDirectionalLight(Directional, Input.Normal);
+    TotalLight += CalculateDirectionalLight(Directional, Normal);
 
     // Point Lights
     for (uint i = 0; i < NumActivePointLights; ++i)
     {
-        TotalLight += CalculatePointLight(PointLights[i], Input.WorldPos, Input.Normal);
+        TotalLight += CalculatePointLight(PointLights[i], Input.WorldPos, Normal);
     }
 
     // Spot Lights
     for (uint j = 0; j < NumActiveSpotLights; ++j)
     {
-        TotalLight += CalculateSpotLight(SpotLights[j], Input.WorldPos, Input.Normal);
+        TotalLight += CalculateSpotLight(SpotLights[j], Input.WorldPos, Normal);
     }
 
     return float4(BaseColor.rgb * TotalLight, BaseColor.a);
