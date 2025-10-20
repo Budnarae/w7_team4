@@ -268,7 +268,7 @@ void UMainBarWidget::RenderViewMenu()
 			UE_LOG("MainBarWidget: ViewMode를 SceneDepth으로 변경");
 		}
 
-		if (ImGui::MenuItem("노멀(Normal)", nullptr, bIsNormal) && !bIsNormal)
+		if (ImGui::MenuItem("Normal", nullptr, bIsNormal) && !bIsNormal)
 		{
 			EditorInstance->SetViewMode(EViewModeIndex::VMI_Normal);
 			UE_LOG("MainBarWidget: ViewMode를 Normal으로 변경");
