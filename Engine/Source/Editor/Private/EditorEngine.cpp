@@ -20,12 +20,12 @@ UEditorEngine::UEditorEngine()
     {
         FWorldContext EditorContext;
         EditorContext.SetWorld(EditorWorld);
-        WorldContexts.push_back(EditorContext); 
+        WorldContexts.push_back(EditorContext);
 
         GWorld = EditorWorld;
     }
     EditorModule = NewObject<UEditor>();
-    
+
     FString LastSavedLevelPath = UConfigManager::GetInstance().GetLastSavedLevelPath();
     bool bSuccessLoad = LoadLevel(LastSavedLevelPath);
     if (!bSuccessLoad) { CreateNewLevel(); }
@@ -43,7 +43,7 @@ UEditorEngine::~UEditorEngine()
         const UWorld* EditorWorld = WorldContexts[0].World();
         delete EditorWorld;
     }
-    
+
     GWorld = nullptr;
 }
 
@@ -80,7 +80,7 @@ void UEditorEngine::Tick(float DeltaSeconds)
 }
 
 bool UEditorEngine::IsPIESessionActive() const
-{    
+{
     for (const FWorldContext& Context : WorldContexts)
     {
         if (Context.World() && Context.GetType() == EWorldType::PIE)
@@ -110,7 +110,7 @@ void UEditorEngine::StartPIE()
 
         // PIE 시작 전 현재 ViewMode 저장하고 Lit으로 변경
         SavedViewMode = EditorModule->GetViewMode();
-        EditorModule->SetViewMode(EViewModeIndex::VMI_Lit);
+        EditorModule->SetViewMode(EViewModeIndex::VMI_Unlit);
     }
     UWorld* PIEWorld = Cast<UWorld>(EditorWorld->Duplicate());
 
@@ -166,7 +166,7 @@ void UEditorEngine::ResumePIE()
 bool UEditorEngine::LoadLevel(const FString& InFilePath)
 {
     UE_LOG("GEditor: Loading Level: %s", InFilePath.data());
-    
+
     // PIE 실행 시 PIE 종료 후 로직 실행
     if (IsPIESessionActive()) { EndPIE(); }
     return GetEditorWorldContext().World()->LoadLevel(path(InFilePath));
@@ -175,7 +175,7 @@ bool UEditorEngine::LoadLevel(const FString& InFilePath)
 bool UEditorEngine::SaveCurrentLevel(const FString& InLevelName)
 {
     UE_LOG("GEditor: Saving Level: %s", InLevelName.c_str());
-    
+
     // PIE 실행 시 PIE 종료 후 로직 실행
     if (IsPIESessionActive()) { EndPIE(); }
 
@@ -213,7 +213,7 @@ bool UEditorEngine::SaveCurrentLevel(const FString& InLevelName)
 bool UEditorEngine::CreateNewLevel(const FString& InLevelName)
 {
     UE_LOG("GEditor: Create New Level: %s", InLevelName.c_str());
-    
+
     // PIE 실행 시 PIE 종료 후 로직 실행
     if (IsPIESessionActive()) { EndPIE(); }
     GetEditorWorldContext().World()->CreateNewLevel(InLevelName);
@@ -239,7 +239,7 @@ FWorldContext* UEditorEngine::GetPIEWorldContext()
     {
         if (Context.World() && Context.GetType() == EWorldType::PIE)
         {
-            return &Context; 
+            return &Context;
         }
     }
     return nullptr;
@@ -252,7 +252,7 @@ FWorldContext* UEditorEngine::GetActiveWorldContext()
     {
         return PIEContext;
     }
-    
+
     if (!WorldContexts.empty()) { return &WorldContexts[0]; }
 
     return nullptr;

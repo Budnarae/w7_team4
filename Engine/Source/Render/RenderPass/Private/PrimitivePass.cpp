@@ -1,7 +1,6 @@
 ﻿#include "pch.h"
 #include "Render/RenderPass/Public/PrimitivePass.h"
 
-#include "Editor/Public/Camera.h"
 #include "Render/Renderer/Public/RenderResourceFactory.h"
 
 FPrimitivePass::FPrimitivePass(

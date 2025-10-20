@@ -9,8 +9,8 @@ class UPipeline;
 class FRenderPass
 {
 public:
-    FRenderPass(UPipeline* InPipeline, ID3D11Buffer* InConstantBufferViewProj, ID3D11Buffer* InConstantBufferModel)
-        : Pipeline(InPipeline), ConstantBufferViewProj(InConstantBufferViewProj), ConstantBufferModel(InConstantBufferModel) {}
+    FRenderPass(UPipeline* InPipeline, ID3D11Buffer* InConstantBufferViewProj, ID3D11Buffer* InConstantBufferModel, ID3D11Buffer* InConstantBufferLighting = nullptr)
+        : Pipeline(InPipeline), ConstantBufferViewProj(InConstantBufferViewProj), ConstantBufferModel(InConstantBufferModel), ConstantBufferLighting(InConstantBufferLighting) {}
 
     virtual ~FRenderPass() = default;
 
@@ -27,6 +27,7 @@ public:
 
 protected:
     UPipeline* Pipeline;
-    ID3D11Buffer* ConstantBufferViewProj;
     ID3D11Buffer* ConstantBufferModel;
+    ID3D11Buffer* ConstantBufferViewProj;
+    ID3D11Buffer* ConstantBufferLighting;
 };

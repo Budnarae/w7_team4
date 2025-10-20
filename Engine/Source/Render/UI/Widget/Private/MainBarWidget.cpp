@@ -216,31 +216,53 @@ void UMainBarWidget::RenderViewMenu()
 		EViewModeIndex CurrentMode = EditorInstance->GetViewMode();
 
 		// ViewMode 메뉴 아이템
-		bool bIsLit = (CurrentMode == EViewModeIndex::VMI_Lit);
-		bool bIsUnlit = (CurrentMode == EViewModeIndex::VMI_Unlit);
-		bool bIsWireframe = (CurrentMode == EViewModeIndex::VMI_Wireframe);
-		bool bIsSceneDepth = (CurrentMode == EViewModeIndex::VMI_SceneDepth);
-		bool bIsNormal = (CurrentMode == EViewModeIndex::VMI_Normal);
+		bool bIsUnlit = CurrentMode == EViewModeIndex::VMI_Unlit;
+		bool bIsWireframe = CurrentMode == EViewModeIndex::VMI_Wireframe;
+		bool bIsSceneDepth = CurrentMode == EViewModeIndex::VMI_SceneDepth;
+		bool bIsNormal = CurrentMode == EViewModeIndex::VMI_Normal;
 
-		if (ImGui::MenuItem("조명 적용(Lit)", nullptr, bIsLit) && !bIsLit)
+		// "Lit"을 하위 메뉴로 변경
+		if (ImGui::BeginMenu("Lit"))
 		{
-			EditorInstance->SetViewMode(EViewModeIndex::VMI_Lit);
-			UE_LOG("MainBarWidget: ViewMode를 Lit으로 변경");
+			// 현재 선택된 Lit 모드에 체크(v) 표시를 하기 위한 bool 변수들
+			bool bIsLambert = CurrentMode == EViewModeIndex::VMI_Lit_Lambert;
+			bool bIsGouraud = CurrentMode == EViewModeIndex::VMI_Lit_Gouraud;
+			bool bIsBlinnPhong = CurrentMode == EViewModeIndex::VMI_Lit_Blinn_Phong;
+
+			if (ImGui::MenuItem("Lambert", nullptr, bIsLambert))
+			{
+				EditorInstance->SetViewMode(EViewModeIndex::VMI_Lit_Lambert);
+				UE_LOG("MainBarWidget: ViewMode를 Lit (Lambert)로 변경");
+			}
+
+			if (ImGui::MenuItem("Gouraud", nullptr, bIsGouraud))
+			{
+				EditorInstance->SetViewMode(EViewModeIndex::VMI_Lit_Gouraud);
+				UE_LOG("MainBarWidget: ViewMode를 Lit (Gouraud)으로 변경");
+			}
+
+			if (ImGui::MenuItem("Blinn-Phong", nullptr, bIsBlinnPhong))
+			{
+				EditorInstance->SetViewMode(EViewModeIndex::VMI_Lit_Blinn_Phong);
+				UE_LOG("MainBarWidget: ViewMode를 Lit (Blinn-Phong)으로 변경");
+			}
+
+			ImGui::EndMenu();
 		}
 
-		if (ImGui::MenuItem("조명 비적용(Unlit)", nullptr, bIsUnlit) && !bIsUnlit)
+		if (ImGui::MenuItem("Unlit", nullptr, bIsUnlit) && !bIsUnlit)
 		{
 			EditorInstance->SetViewMode(EViewModeIndex::VMI_Unlit);
 			UE_LOG("MainBarWidget: ViewMode를 Unlit으로 변경");
 		}
 
-		if (ImGui::MenuItem("와이어프레임(Wireframe)", nullptr, bIsWireframe) && !bIsWireframe)
+		if (ImGui::MenuItem("Wireframe", nullptr, bIsWireframe) && !bIsWireframe)
 		{
 			EditorInstance->SetViewMode(EViewModeIndex::VMI_Wireframe);
 			UE_LOG("MainBarWidget: ViewMode를 Wireframe으로 변경");
 		}
 
-		if (ImGui::MenuItem("씬 뎁스(Scene Depth)", nullptr, bIsSceneDepth) && !bIsSceneDepth)
+		if (ImGui::MenuItem("Scene Depth", nullptr, bIsSceneDepth) && !bIsSceneDepth)
 		{
 			EditorInstance->SetViewMode(EViewModeIndex::VMI_SceneDepth);
 			UE_LOG("MainBarWidget: ViewMode를 SceneDepth으로 변경");

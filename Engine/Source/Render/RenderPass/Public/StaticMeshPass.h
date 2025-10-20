@@ -11,6 +11,7 @@ public:
     	ID3D11DepthStencilView* InSceneDepthDSV,
     	ID3D11Buffer* InConstantBufferViewProj,
     	ID3D11Buffer* InConstantBufferModel,
+    	ID3D11Buffer* InConstantBufferLighting,
         ID3D11VertexShader* InVS,
         ID3D11PixelShader* InPS,
         ID3D11InputLayout* InLayout,

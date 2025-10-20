@@ -8,6 +8,7 @@
 #include "Component/Public/HeightFogComponent.h"
 #include "Component/Public/SemiLightComponent.h"
 #include "Component/Public/FireBallComponent.h"
+#include "Component/Light/Public/AmbientLightComponent.h"
 #include "Component/Light/Public/PointLightComponent.h"
 #include "Component/Light/Public/SpotLightComponent.h"
 #include "Editor/Public/Editor.h"
@@ -92,6 +93,7 @@ void URenderer::Init(HWND InWindowHandle)
 			SceneDepthDSV,
 			ConstantBufferViewProj,
 			ConstantBufferModels,
+			ConstantBufferLighting,
 			TextureVertexShader,
 			TexturePixelShader,
 			TextureInputLayout,
@@ -174,8 +176,8 @@ void URenderer::Init(HWND InWindowHandle)
 			FogPixelShader,
 			DepthTestAlwaysNoWriteState,
 			AlphaBlendState
-			);
-	RenderPasses.push_back(FogPass);  // Forward 방식으로 RenderPasses에 추가
+		);
+	RenderPasses.push_back(FogPass); // Forward 방식으로 RenderPasses에 추가
 
 	FSceneDepthPass* InSceneDepthPass = new FSceneDepthPass(
 		Pipeline,
@@ -186,7 +188,7 @@ void URenderer::Init(HWND InWindowHandle)
 		SceneDepthPixelShader,
 		DepthTestAlwaysNoWriteState,
 		ConstantBufferSceneDepthProperties
-		);
+	);
 	SceneDepthPass = InSceneDepthPass;
 
 	FNormalPass* InNormalPass = new FNormalPass(
@@ -421,6 +423,32 @@ void URenderer::CreateTextureShader()
 		&TextureInputLayout);
 	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/TextureShader.hlsl",
 	                                          &TexturePixelShader);
+
+	// Lit Shaders
+	// Vertex Shader (모든 UberLit 모드에서 공통 사용)
+	TArray<D3D11_INPUT_ELEMENT_DESC> UberLitLayout =
+	{
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0}
+	};
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/UberLit.hlsl", UberLitLayout, &UberLitVertexShader, &UberLitInputLayout);
+
+	// Unlit Pixel Shader
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLit.hlsl", &TextureUnlitPixelShader);
+
+	// Lambert Lit Pixel Shader
+	D3D_SHADER_MACRO DefinesLambert[] = {
+		{"LIGHTING_MODEL_LAMBERT", "1"},
+		{nullptr, nullptr}
+	};
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLit.hlsl", DefinesLambert,
+	                                          &TextureLitPixelShader);
 }
 
 void URenderer::CreateDepthShader()
@@ -452,15 +480,17 @@ void URenderer::CreateDepthShader()
 void URenderer::CreateConstantBuffers()
 {
 	ConstantBufferModels = FRenderResourceFactory::CreateConstantBuffer<FMatrix>();
-	ConstantBufferColor = FRenderResourceFactory::CreateConstantBuffer<FVector4>();
 	ConstantBufferViewProj = FRenderResourceFactory::CreateConstantBuffer<FViewProjConstants>();
+	ConstantBufferColor = FRenderResourceFactory::CreateConstantBuffer<FVector4>();
+	ConstantBufferLighting = FRenderResourceFactory::CreateConstantBuffer<FLightingConstants>();
 }
 
 void URenderer::ReleaseConstantBuffers()
 {
 	SafeRelease(ConstantBufferModels);
-	SafeRelease(ConstantBufferColor);
 	SafeRelease(ConstantBufferViewProj);
+	SafeRelease(ConstantBufferColor);
+	SafeRelease(ConstantBufferLighting);
 }
 
 void URenderer::ReleaseDefaultShader()
@@ -471,6 +501,11 @@ void URenderer::ReleaseDefaultShader()
 	SafeRelease(TextureInputLayout);
 	SafeRelease(TexturePixelShader);
 	SafeRelease(TextureVertexShader);
+
+	SafeRelease(UberLitInputLayout);
+	SafeRelease(UberLitVertexShader);
+	SafeRelease(TextureLitPixelShader);
+	SafeRelease(TextureUnlitPixelShader);
 	SafeRelease(DecalVertexShader);
 	SafeRelease(DecalPixelShader);
 }
@@ -571,15 +606,7 @@ void URenderer::Update()
 		//FogPass->Execute(RenderingContext);
 
 		if (RenderingContext.ViewMode == EViewModeIndex::VMI_SceneDepth)
-		{
 			SceneDepthPass->Execute(RenderingContext);
-		}
-		else if (RenderingContext.ViewMode == EViewModeIndex::VMI_Normal)
-		{
-			NormalPass->Execute(RenderingContext);
-			float ClearColor[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-			GetDeviceContext()->ClearRenderTargetView(SceneNormalRTV, ClearColor);
-		}
 
 		// LightPass가 DSV를 nullptr로 설정했을 수 있으므로 Scene RT 재바인딩
 		//GetDeviceContext()->OMSetRenderTargets(1, , );
@@ -651,8 +678,8 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 
 
 	RenderingContext = FRenderingContext(&ViewProj, InCurrentCamera,
-	                                   GEditor->GetEditorModule()->GetViewMode(),
-	                                   CurrentLevel->GetShowFlags());
+	                                     GEditor->GetEditorModule()->GetViewMode(),
+	                                     CurrentLevel->GetShowFlags());
 	RenderingContext.AllPrimitives = FinalVisiblePrims;
 
 	// LightPass용 추가 정보 설정
@@ -738,6 +765,35 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 			static_cast<uint32>(CurrentLevel->GetVisibleDecals().size())
 		);
 	}
+
+	// Lighting 정보 수집 및 cbuffer 업데이트
+	FLightingConstants LightingData = {};
+
+	// Light 수집
+	// TODO(KHJ): Level에 Register 하는 값을 사용할 것
+	for (AActor* Actor : CurrentLevel->GetActors())
+	{
+		if (!Actor)
+		{
+			continue;
+		}
+		for (UActorComponent* Component : Actor->GetOwnedComponents())
+		{
+			if (auto AmbientLight = Cast<UAmbientLightComponent>(Component))
+			{
+				if (AmbientLight->IsVisible())
+				{
+					LightingData.Ambient.Color = AmbientLight->GetLightColor();
+					LightingData.Ambient.Intensity = AmbientLight->GetIntensity();
+					break;
+				}
+			}
+		}
+	}
+	LightingData.NumActivePointLights = 0;
+	LightingData.NumActiveSpotLights = 0;
+
+	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferLighting, LightingData);
 
 	for (auto RenderPass : RenderPasses)
 	{
@@ -1136,8 +1192,8 @@ void URenderer::CreateUberLightResources()
 
 	// PointLight Pixel Shader
 	D3D_SHADER_MACRO DefinesPointLight[] = {
-		{ "LIGHT_TYPE_POINT", "1" },
-		{ nullptr, nullptr }
+		{"LIGHT_TYPE_POINT", "1"},
+		{nullptr, nullptr}
 	};
 	FRenderResourceFactory::CreatePixelShader(
 		L"Asset/Shader/UberLit.hlsl",
@@ -1151,8 +1207,8 @@ void URenderer::CreateUberLightResources()
 
 	// SpotLight Pixel Shader
 	D3D_SHADER_MACRO DefinesSpotLight[] = {
-		{ "LIGHT_TYPE_SPOT", "1" },
-		{ nullptr, nullptr }
+		{"LIGHT_TYPE_SPOT", "1"},
+		{nullptr, nullptr}
 	};
 	FRenderResourceFactory::CreatePixelShader(
 		L"Asset/Shader/UberLit.hlsl",
@@ -1191,14 +1247,18 @@ void URenderer::CreateUberLightResources()
 
 void URenderer::CreateIconResources()
 {
-	TArray<D3D11_INPUT_ELEMENT_DESC> layout =
+	TArray<D3D11_INPUT_ELEMENT_DESC> InputLayout =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord),   D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0}
 	};
-	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/IconShader.hlsl", layout, &IconVertexShader, &IconInputLayout);
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(L"Asset/Shader/IconShader.hlsl", InputLayout, &IconVertexShader,
+	                                                         &IconInputLayout);
 	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/IconShader.hlsl", &IconPixelShader);
 
 	ConstantBufferIconProperties = FRenderResourceFactory::CreateConstantBuffer<FIconProperties>();

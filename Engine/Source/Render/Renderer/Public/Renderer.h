@@ -107,6 +107,15 @@ public:
 	ID3D11PixelShader* GetDepthPixelShader() const { return DepthPixelShader; }
 	ID3D11InputLayout* GetDepthInputLayout() const { return DepthInputLayout; }
 
+	ID3D11VertexShader* GetTextureVertexShader() const { return TextureVertexShader; }
+	ID3D11PixelShader* GetTexturePixelShader() const { return TexturePixelShader; }
+	ID3D11InputLayout* GetTextureInputLayout() const { return TextureInputLayout; }
+
+	ID3D11VertexShader* GetUberLitVertexShader() const { return UberLitVertexShader; }
+	ID3D11PixelShader* GetTextureLitPixelShader() const { return TextureLitPixelShader; }
+	ID3D11PixelShader* GetTextureUnlitPixelShader() const { return TextureUnlitPixelShader; }
+	ID3D11InputLayout* GetUberLitInputLayout() const { return UberLitInputLayout; }
+
 	void SetIsResizing(bool isResizing) { bIsResizing = isResizing; }
 private:
 	UPipeline* Pipeline = nullptr;
@@ -134,6 +143,7 @@ private:
 	ID3D11Buffer* ConstantBufferViewProj = nullptr;
 	ID3D11Buffer* ConstantBufferColor = nullptr;
 	ID3D11Buffer* ConstantBufferBatchLine = nullptr;
+	ID3D11Buffer* ConstantBufferLighting = nullptr;
 
 	FLOAT ClearColor[4] = {0.025f, 0.025f, 0.025f, 1.0f};
 
@@ -146,6 +156,12 @@ private:
 	ID3D11VertexShader* TextureVertexShader = nullptr;
 	ID3D11PixelShader* TexturePixelShader = nullptr;
 	ID3D11InputLayout* TextureInputLayout = nullptr;
+
+	// UberLit Shaders
+	ID3D11VertexShader* UberLitVertexShader = nullptr;    // UberLit VS
+	ID3D11InputLayout* UberLitInputLayout = nullptr;      // UberLit Input Layout
+	ID3D11PixelShader* TextureLitPixelShader = nullptr;   // Lambert shading
+	ID3D11PixelShader* TextureUnlitPixelShader = nullptr; // Unlit
 
 	ID3D11VertexShader* DecalVertexShader = nullptr;
 	ID3D11PixelShader* DecalPixelShader = nullptr;
@@ -228,7 +244,7 @@ private:
 	FRenderingContext RenderingContext{
 		nullptr,
 		nullptr,
-		EViewModeIndex::VMI_Lit,
+		EViewModeIndex::VMI_Unlit,
 		0
 	};
 

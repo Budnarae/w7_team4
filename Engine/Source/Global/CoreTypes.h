@@ -37,6 +37,68 @@ struct FMaterialConstants
 	float Time; // Time in seconds
 };
 
+// UberLit Shader Light Structures
+struct FAmbientLightInfo
+{
+	FVector Color;          // 12 bytes
+	float Intensity;        // 4 bytes
+	// Total: 16 bytes (HLSL: float3 Color + float Intensity = 16 bytes aligned)
+};
+
+struct FDirectionalLightInfo
+{
+	FVector Direction;      // 12 bytes
+	float Intensity;        // 4 bytes
+	FVector Color;          // 12 bytes
+	float _Padding;         // 4 bytes
+};
+
+struct FPointLightInfo
+{
+	FVector Position;       // 12 bytes
+	float Intensity;        // 4 bytes
+	FVector Color;          // 12 bytes
+	float Radius;           // 4 bytes
+	float Falloff;          // 4 bytes
+	FVector _Padding;       // 12 bytes (padding for alignment)
+};
+
+struct FSpotLightInfo
+{
+	FVector Position;       // 12 bytes
+	float Intensity;        // 4 bytes
+	FVector Direction;      // 12 bytes
+	float Radius;           // 4 bytes
+	FVector Color;          // 12 bytes
+	float InnerConeAngle;   // 4 bytes
+	float OuterConeAngle;   // 4 bytes
+	float Falloff;          // 4 bytes
+	FVector2 _Padding;      // 8 bytes
+};
+
+// UberLit Shader Constant Buffers
+struct FPerObjectConstants
+{
+	FMatrix World;
+	FMatrix View;
+	FMatrix Projection;
+};
+
+#define MAX_POINT_LIGHTS 4
+#define MAX_SPOT_LIGHTS 4
+
+struct FLightingConstants
+{
+	FAmbientLightInfo Ambient;
+	FDirectionalLightInfo Directional;
+	FPointLightInfo PointLights[MAX_POINT_LIGHTS];
+	FSpotLightInfo SpotLights[MAX_SPOT_LIGHTS];
+
+	uint32 NumActivePointLights;
+	uint32 NumActiveSpotLights;
+	FVector2 _LightingPadding;
+};
+
 struct FVertex
 {
 	FVector Position;

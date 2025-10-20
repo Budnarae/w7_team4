@@ -12,7 +12,7 @@ private:
     UWorld* WorldPtr = nullptr;
 public:
     UWorld* World() const { return WorldPtr; }
-    EWorldType GetType() const { return WorldPtr ? WorldPtr->GetWorldType() : EWorldType::Game; } 
+    EWorldType GetType() const { return WorldPtr ? WorldPtr->GetWorldType() : EWorldType::Game; }
     void SetWorld(UWorld* InWorld) { WorldPtr = InWorld; }
     bool operator==(const FWorldContext& Other) const { return WorldPtr == Other.WorldPtr; }
 };
@@ -37,7 +37,7 @@ class UEditorEngine final : public UObject
 public:
     UEditorEngine();
     ~UEditorEngine();
-    
+
     /**
      * @brief WorldContext를 순회하며 World의 Tick을 처리, EditorModule Update
      */
@@ -72,15 +72,15 @@ public:
 
     // Level Management
     /**
-     * @brief 경로의 파일을 불러와서 현재 Editor 월드의 Level 교체 
+     * @brief 경로의 파일을 불러와서 현재 Editor 월드의 Level 교체
      */
-    bool LoadLevel(const FString& InFilePath); 
-    
+    bool LoadLevel(const FString& InFilePath);
+
     /**
      * @brief 현재 Editor 월드의 레벨을 파일로 저장
      */
     bool SaveCurrentLevel(const FString& InLevelName = "Untitled");
-    
+
     /**
      * @brief 현재 Editor 월드에 새 레벨 변경
      */
@@ -104,10 +104,10 @@ private:
     UEditor* EditorModule;
 
     // PIE 시작 전 에디터의 ViewMode 저장
-    EViewModeIndex SavedViewMode = EViewModeIndex::VMI_Lit;
+    EViewModeIndex SavedViewMode = EViewModeIndex::VMI_Unlit;
 };
 
 // UEditorEngine의 전역 인스턴스 포인터
-extern UEditorEngine* GEditor; 
-// 현재 활성화된 UWorld 포인터 
+extern UEditorEngine* GEditor;
+// 현재 활성화된 UWorld 포인터
 extern UWorld* GWorld;

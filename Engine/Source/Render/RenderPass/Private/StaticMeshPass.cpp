@@ -13,12 +13,13 @@ FStaticMeshPass::FStaticMeshPass(
     ID3D11DepthStencilView* InSceneDepthDSV,
 	ID3D11Buffer* InConstantBufferViewProj,
 	ID3D11Buffer* InConstantBufferModel,
+	ID3D11Buffer* InConstantBufferLighting,
 	ID3D11VertexShader* InVS,
 	ID3D11PixelShader* InPS,
 	ID3D11InputLayout* InLayout,
 	ID3D11DepthStencilState* InDS
 	) :
-	FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel),
+	FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel, InConstantBufferLighting),
 	SceneColorRTV(InSceneColorRTV),
 	SceneNormalRTV(InSceneNormalRTV),
 	SceneDepthDSV(InSceneDepthDSV),
@@ -36,7 +37,10 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	ID3D11RenderTargetView* RTVs[] = {SceneColorRTV, SceneNormalRTV};
 	Pipeline->GetContext()->OMSetRenderTargets(2, RTVs, SceneDepthDSV);
 
-	if (!(Context.ShowFlags & EEngineShowFlags::SF_StaticMesh)) {	return; }
+	if (!(Context.ShowFlags & EEngineShowFlags::SF_StaticMesh))
+	{
+		return;
+	}
 	TArray<UStaticMeshComponent*>& MeshComponents = Context.StaticMeshes;
 	sort(MeshComponents.begin(), MeshComponents.end(),
 		[](UStaticMeshComponent* A, UStaticMeshComponent* B) {
@@ -59,14 +63,55 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	ID3D11PixelShader* SelectedPS = PS;
 	ID3D11InputLayout* SelectedLayout = InputLayout;
 
+	auto& Renderer = URenderer::GetInstance();
+	switch (Context.ViewMode)
+	{
+	case EViewModeIndex::VMI_Lit_Lambert:
+		SelectedVS = Renderer.GetUberLitVertexShader();
+		SelectedPS = Renderer.GetTextureLitPixelShader();
+		SelectedLayout = Renderer.GetUberLitInputLayout();
+		break;
+	case EViewModeIndex::VMI_Unlit:
+		SelectedVS = Renderer.GetUberLitVertexShader();
+		SelectedPS = Renderer.GetTextureUnlitPixelShader();
+		SelectedLayout = Renderer.GetUberLitInputLayout();
+		break;
+	case EViewModeIndex::VMI_SceneDepth:
+		SelectedVS = Renderer.GetDepthVertexShader();
+		SelectedPS = Renderer.GetDepthPixelShader();
+		SelectedLayout = Renderer.GetDepthInputLayout();
+		break;
+	case EViewModeIndex::VMI_Wireframe:
+		// Wireframe은 PS 필요 없음
+		break;
+	default:
+		break;
+	}
+
 	FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, RS, DS, SelectedPS, nullptr };
 	Pipeline->UpdatePipeline(PipelineInfo);
 
+	// ViewProj cbuffer 바인딩
+	Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
+
+	// Lighting cbuffer 바인딩
+	if (ConstantBufferLighting)
+	{
+		Pipeline->SetConstantBuffer(3, true, ConstantBufferLighting);
+		Pipeline->SetConstantBuffer(3, false, ConstantBufferLighting);
+	}
+
 	for (UStaticMeshComponent* MeshComp : MeshComponents)
 	{
-		if (!MeshComp->GetStaticMesh()) { continue; }
+		if (!MeshComp->GetStaticMesh())
+		{
+			continue;
+		}
 		FStaticMesh* MeshAsset = MeshComp->GetStaticMesh()->GetStaticMeshAsset();
-		if (!MeshAsset) { continue; }
+		if (!MeshAsset)
+		{
+			continue;
+		}
 
 		if (CurrentMeshAsset != MeshAsset)
 		{
