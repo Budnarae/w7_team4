@@ -145,6 +145,8 @@ private:
 	ID3D11Buffer* ConstantBufferBatchLine = nullptr;
 	ID3D11Buffer* ConstantBufferLighting = nullptr;
 
+	ID3D11Buffer* ConstantBufferModelForLight = nullptr;
+
 	FLOAT ClearColor[4] = {0.025f, 0.025f, 0.025f, 1.0f};
 
 	// Default Shaders

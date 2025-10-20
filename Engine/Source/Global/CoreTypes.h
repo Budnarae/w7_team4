@@ -99,6 +99,12 @@ struct FLightingConstants
 	FVector2 _LightingPadding;
 };
 
+struct FModelForLight
+{
+	FMatrix World;
+	FMatrix WorldTransInv;
+};
+
 struct FVertex
 {
 	FVector Position;

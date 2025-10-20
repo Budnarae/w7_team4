@@ -119,7 +119,14 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 			CurrentMeshAsset = MeshAsset;
 		}
 
-		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferModel, MeshComp->GetWorldTransformMatrix());
+		FRenderResourceFactory::UpdateConstantBufferData(
+			ConstantBufferModel,
+			FModelForLight
+			{
+				MeshComp->GetWorldTransformMatrix(),
+				MeshComp->GetWorldTransformMatrix().Transpose().Inverse()
+			}
+			);
 		Pipeline->SetConstantBuffer(0, true, ConstantBufferModel);
 
 		if (MeshAsset->MaterialInfo.empty() || MeshComp->GetStaticMesh()->GetNumMaterials() == 0)

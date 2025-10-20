@@ -59,6 +59,7 @@ struct FSpotLightInfo
 cbuffer PerObject : register(b0)
 {
     row_major float4x4 World;
+	row_major float4x4 WorldTransInv;
 };
 
 cbuffer PerFrame : register(b1)
@@ -202,7 +203,7 @@ PS_INPUT mainVS(VS_INPUT input)
     Output.Position = mul(ViewPosition, Projection);
 
     Output.WorldPos = WorldPosition.xyz;
-    Output.Normal = normalize(mul(float4(input.Normal, 0.0), World).xyz);
+    Output.Normal = normalize(mul(float4(input.Normal, 0.0), WorldTransInv).xyz);
     Output.TexCoord = input.TexCoord;
 
 #if LIGHTING_MODEL_GOURAUD

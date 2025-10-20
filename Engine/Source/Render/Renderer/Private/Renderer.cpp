@@ -92,7 +92,7 @@ void URenderer::Init(HWND InWindowHandle)
 			SceneNormalRTV,
 			SceneDepthDSV,
 			ConstantBufferViewProj,
-			ConstantBufferModels,
+			ConstantBufferModelForLight,
 			ConstantBufferLighting,
 			TextureVertexShader,
 			TexturePixelShader,
@@ -484,6 +484,8 @@ void URenderer::CreateConstantBuffers()
 	ConstantBufferViewProj = FRenderResourceFactory::CreateConstantBuffer<FViewProjConstants>();
 	ConstantBufferColor = FRenderResourceFactory::CreateConstantBuffer<FVector4>();
 	ConstantBufferLighting = FRenderResourceFactory::CreateConstantBuffer<FLightingConstants>();
+
+	ConstantBufferModelForLight = FRenderResourceFactory::CreateConstantBuffer<FModelForLight>();
 }
 
 void URenderer::ReleaseConstantBuffers()
@@ -492,6 +494,8 @@ void URenderer::ReleaseConstantBuffers()
 	SafeRelease(ConstantBufferViewProj);
 	SafeRelease(ConstantBufferColor);
 	SafeRelease(ConstantBufferLighting);
+
+	SafeRelease(ConstantBufferModelForLight);
 }
 
 void URenderer::ReleaseDefaultShader()

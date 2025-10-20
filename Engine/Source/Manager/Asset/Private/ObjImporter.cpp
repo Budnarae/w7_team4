@@ -96,7 +96,15 @@ bool FObjImporter::LoadObj(const std::filesystem::path& FilePath, FObjInfo* OutO
 				return false;
 			}
 
-			OutObjInfo->NormalList.emplace_back(Normal);
+			// Normal도 Position과 동일한 좌표계 변환 적용
+			if (Config.bPositionToUEBasis)
+			{
+				OutObjInfo->NormalList.emplace_back(PositionToUEBasis(Normal));
+			}
+			else
+			{
+				OutObjInfo->NormalList.emplace_back(Normal);
+			}
 		}
 		/** Texture Coordinate */
 		else if (Prefix == "vt")
