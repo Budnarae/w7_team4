@@ -35,13 +35,4 @@ void APointLightActor::InitializeComponents()
 		PointLightComponent->SetAttenuationRadius(10.0f);
 		PointLightComponent->SetLightFalloffExponent(2.0f);
 	}
-
-	// 에디터 아이콘 생성
-	IconComponent = CreateDefaultSubobject<UBillBoardComponent>(FName("IconComponent"));
-	if (IconComponent)
-	{
-		UTexture* Icon = UAssetManager::GetInstance().CreateTexture("Asset/Icon/PointLight_64x.png");
-		IconComponent->SetSprite(Icon);
-		IconComponent->SetParentAttachment(GetRootComponent());
-	}
 }

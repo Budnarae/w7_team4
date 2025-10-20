@@ -166,20 +166,25 @@ float3 CalculateSpotLight(FSpotLightInfo Light, float3 WorldPosition, float3 Nor
         return float3(0, 0, 0);
     }
 
-    float3 LightDirection = LightVector / Distance;
+    float3 LightDirection = normalize(LightVector);
 
     // Spot Cone Attenuation
-    float CosAngle = dot(Light.Direction, -LightDirection);
+    // Light.Direction: SpotLight가 향하는 방향
+    // -LightDirection: 픽셀에서 Light로 향하는 방향 (LightDirection과 반대)
+    // Cone 각도 체크를 위해 두 방향 벡터의 내적 계산
+    float CosAngle = dot(normalize(Light.Direction), -LightDirection);
     float CosInner = cos(Light.InnerConeAngle);
     float CosOuter = cos(Light.OuterConeAngle);
 
-    float SpotAttenuation = saturate((CosAngle - CosOuter) / max(CosInner - CosOuter, 0.0001));
-    SpotAttenuation *= SpotAttenuation;
-
-    if (SpotAttenuation <= 0.0)
+    // Cone 범위 밖이면 조명 없음
+    if (CosAngle < CosOuter)
     {
         return float3(0, 0, 0);
     }
+
+    // Inner/Outer Cone 사이에서 부드러운 감쇠 처리
+    float SpotAttenuation = saturate((CosAngle - CosOuter) / max(CosInner - CosOuter, 0.0001));
+    SpotAttenuation *= SpotAttenuation;
 
     float DistAttenuation = CalculateAttenuation(Distance, Light.Radius, Light.Falloff);
 
@@ -228,6 +233,18 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
 #elif LIGHTING_MODEL_LAMBERT
     // Lambert Shading: PS에서 Diffuse 라이팅 계산
     float3 TotalLight = CalculateAmbientLight(Ambient);
+
+    // Point Lights
+    for (uint i = 0; i < NumActivePointLights; ++i)
+    {
+        TotalLight += CalculatePointLight(PointLights[i], Input.WorldPos, Input.Normal);
+    }
+
+    // Spot Lights
+    for (uint j = 0; j < NumActiveSpotLights; ++j)
+    {
+        TotalLight += CalculateSpotLight(SpotLights[j], Input.WorldPos, Input.Normal);
+    }
 
     return float4(BaseColor.rgb * TotalLight, BaseColor.a);
 

@@ -135,13 +135,14 @@ void URenderer::Init(HWND InWindowHandle)
 		                  DecalDepthStencilState, FireBallBlendState);
 	RenderPasses.push_back(FireBallPass);
 
-	FLightPass* LightPass =
-		new FLightPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-		               SceneDepthSRV, SceneColorRTV, LightVertexShader, LightInputLayout,
-		               LightPointLightPS, LightSpotLightPS,
-		               LightSamplerState, LightDepthLessEqualNoWrite,
-		               LightAdditiveBlend);
-	RenderPasses.push_back(LightPass);
+	// Forward Rendering 사용으로 LightPass 비활성화 (Light는 StaticMeshPass에서 직접 처리)
+	// FLightPass* LightPass =
+	// 	new FLightPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
+	// 	               SceneDepthSRV, SceneColorRTV, LightVertexShader, LightInputLayout,
+	// 	               LightPointLightPS, LightSpotLightPS,
+	// 	               LightSamplerState, LightDepthLessEqualNoWrite,
+	// 	               LightAdditiveBlend);
+	// RenderPasses.push_back(LightPass);
 
 	FDebugPass* DebugPass =
 		new FDebugPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels);
@@ -702,9 +703,11 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 			// PIE가 아닐 때에만 아이콘 렌더링
 			if (!(GEditor->GetPIEState() == EPIEState::Playing))
 				RenderingContext.Icons.push_back(Icon);
+			// IconComponent는 BillBoardComponent 상속이므로 여기서 continue
 		}
 		else if (auto BillBoard = Cast<UBillBoardComponent>(Prim))
 		{
+			// IconComponent가 아닌 순수 BillBoardComponent만 렌더링
 			RenderingContext.BillBoards.push_back(BillBoard);
 		}
 		else if (auto FireBall = Cast<UFireBallComponent>(Prim))
@@ -769,29 +772,78 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 	// Lighting 정보 수집 및 cbuffer 업데이트
 	FLightingConstants LightingData = {};
 
-	// Light 수집
-	// TODO(KHJ): Level에 Register 하는 값을 사용할 것
-	for (AActor* Actor : CurrentLevel->GetActors())
+	// Ambient Light 수집
+	const TArray<UAmbientLightComponent*>& AmbientLights = CurrentLevel->GetAllAmbientLights();
+	if (!AmbientLights.empty())
 	{
-		if (!Actor)
+		// 첫 번째 활성화된 Ambient Light 사용
+		for (auto* AmbientLight : AmbientLights)
 		{
-			continue;
-		}
-		for (UActorComponent* Component : Actor->GetOwnedComponents())
-		{
-			if (auto AmbientLight = Cast<UAmbientLightComponent>(Component))
+			if (AmbientLight && AmbientLight->IsVisible())
 			{
-				if (AmbientLight->IsVisible())
-				{
-					LightingData.Ambient.Color = AmbientLight->GetLightColor();
-					LightingData.Ambient.Intensity = AmbientLight->GetIntensity();
-					break;
-				}
+				LightingData.Ambient.Color = AmbientLight->GetLightColor();
+				LightingData.Ambient.Intensity = AmbientLight->GetIntensity();
+				break;
 			}
 		}
 	}
-	LightingData.NumActivePointLights = 0;
-	LightingData.NumActiveSpotLights = 0;
+
+	// Point Light 데이터 채우기
+	const TArray<UPointLightComponent*>& PointLights = CurrentLevel->GetAllPointLights();
+	uint32 PointLightIndex = 0;
+	for (auto* PointLight : PointLights)
+	{
+		if (PointLightIndex >= MAX_POINT_LIGHTS)
+		{
+			break;
+		}
+
+		if (PointLight && PointLight->IsVisible())
+		{
+			FPointLightInfo& LightInfo = LightingData.PointLights[PointLightIndex];
+			LightInfo.Position = PointLight->GetWorldLocation();
+			LightInfo.Color = PointLight->GetLightColor();
+			LightInfo.Intensity = PointLight->GetIntensity();
+			LightInfo.Radius = PointLight->GetAttenuationRadius();
+			LightInfo.Falloff = PointLight->GetLightFalloffExponent();
+			++PointLightIndex;
+		}
+	}
+	LightingData.NumActivePointLights = PointLightIndex;
+
+	// Spot Light 데이터 채우기
+	const TArray<USpotLightComponent*>& SpotLights = CurrentLevel->GetAllSpotLights();
+	uint32 SpotLightIndex = 0;
+	for (auto* SpotLight : SpotLights)
+	{
+		if (SpotLightIndex >= MAX_SPOT_LIGHTS)
+		{
+			break;
+		}
+
+		if (SpotLight && SpotLight->IsVisible())
+		{
+			FSpotLightInfo& LightInfo = LightingData.SpotLights[SpotLightIndex];
+			LightInfo.Position = SpotLight->GetWorldLocation();
+			LightInfo.Color = SpotLight->GetLightColor();
+			LightInfo.Intensity = SpotLight->GetIntensity();
+			LightInfo.Radius = SpotLight->GetAttenuationRadius();
+			LightInfo.Falloff = SpotLight->GetLightFalloffExponent();
+
+			// SpotLight 방향 계산 (Rotation → Forward Vector)
+			const FVector Rotation = SpotLight->GetWorldRotation();
+			const FMatrix RotationMatrix = FMatrix::RotationMatrix(FVector::GetDegreeToRadian(Rotation));
+			const FVector4 Forward4 = FVector4::ForwardVector() * RotationMatrix;
+			LightInfo.Direction = FVector(Forward4.X, Forward4.Y, Forward4.Z);
+			LightInfo.Direction.Normalize();
+
+			// Cone 각도를 Radian으로 변환하여 전달 (HLSL cos() 함수는 Radian 요구)
+			LightInfo.InnerConeAngle = FVector::GetDegreeToRadian(SpotLight->GetInnerConeAngle());
+			LightInfo.OuterConeAngle = FVector::GetDegreeToRadian(SpotLight->GetOuterConeAngle());
+			++SpotLightIndex;
+		}
+	}
+	LightingData.NumActiveSpotLights = SpotLightIndex;
 
 	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferLighting, LightingData);
 

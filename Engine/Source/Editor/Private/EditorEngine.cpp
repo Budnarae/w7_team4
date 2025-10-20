@@ -108,9 +108,7 @@ void UEditorEngine::StartPIE()
         EditorModule->SelectComponent(nullptr);
         EditorModule->SelectActor(nullptr);
 
-        // PIE 시작 전 현재 ViewMode 저장하고 Lit으로 변경
         SavedViewMode = EditorModule->GetViewMode();
-        EditorModule->SetViewMode(EViewModeIndex::VMI_Unlit);
     }
     UWorld* PIEWorld = Cast<UWorld>(EditorWorld->Duplicate());
 

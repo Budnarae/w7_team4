@@ -14,6 +14,7 @@
 #include "Global/SceneBVH.h"
 #include <json.hpp>
 
+#include "Component/Light/Public/AmbientLightComponent.h"
 #include "Component/Light/Public/PointLightComponent.h"
 #include "Component/Light/Public/SpotLightComponent.h"
 #include "Component/Public/UUIDTextComponent.h"
@@ -160,7 +161,7 @@ AActor* ULevel::SpawnActorToLevel(UClass* InActorClass, const FName& InName, JSO
 
 		// TODO: DecalActor 특수처리한거임, 나중에는 삭제요망
 		RegisterDecalComponent(Cast<UDecalComponent>(NewActor->GetRootComponent()));
-		
+
 		return NewActor;
 	}
 
@@ -700,4 +701,47 @@ void ULevel::UnregisterSpotLight(USpotLightComponent* InSpotLight)
 	}
 
 	UE_LOG("Level: SpotLight '%s' unregistered", InSpotLight->GetName().ToString().data());
+}
+
+void ULevel::RegisterAmbientLight(UAmbientLightComponent* InAmbientLight)
+{
+	if (!InAmbientLight)
+	{
+		UE_LOG("Level: RegisterAmbientLight called with nullptr");
+		return;
+	}
+
+	// 중복 등록 방지
+	if (find(AllAmbientLights.begin(), AllAmbientLights.end(), InAmbientLight) != AllAmbientLights.end())
+	{
+		UE_LOG("Level: AmbientLight '%s' already registered", InAmbientLight->GetName().ToString().data());
+		return;
+	}
+
+	AllAmbientLights.push_back(InAmbientLight);
+
+	UE_LOG("Level: AmbientLight '%s' registered (Intensity: %.1f, Color: (%.2f, %.2f, %.2f))",
+		InAmbientLight->GetName().ToString().data(),
+		InAmbientLight->GetIntensity(),
+		InAmbientLight->GetLightColor().X,
+		InAmbientLight->GetLightColor().Y,
+		InAmbientLight->GetLightColor().Z);
+}
+
+void ULevel::UnregisterAmbientLight(UAmbientLightComponent* InAmbientLight)
+{
+	if (!InAmbientLight)
+	{
+		return;
+	}
+
+	// AllAmbientLights에서 제거
+	if (auto Iter = std::find(AllAmbientLights.begin(), AllAmbientLights.end(), InAmbientLight);
+		Iter != AllAmbientLights.end())
+	{
+		*Iter = std::move(AllAmbientLights.back());
+		AllAmbientLights.pop_back();
+	}
+
+	UE_LOG("Level: AmbientLight '%s' unregistered", InAmbientLight->GetName().ToString().data());
 }

@@ -3,6 +3,7 @@
 #include "Editor/Public/Camera.h"
 #include "Global/Enum.h"
 
+class UAmbientLightComponent;
 class UPointLightComponent;
 class USpotLightComponent;
 
@@ -80,7 +81,7 @@ public:
 	 * @return 레벨에 속한 모든 Decal 배열 (const 참조)
 	 */
 	const TArray<UDecalComponent*>& GetAllDecals() const { return AllDecals; }
-	
+
 	/**
 	 * Renderer가 사용할 가시 Decal 목록
 	 * @return 렌더링 가능한 Decal 배열 (const 참조)
@@ -203,6 +204,28 @@ public:
 	 */
 	const TArray<USpotLightComponent*>& GetAllSpotLights() const { return AllSpotLights; }
 
+	// ========================================
+	// AmbientLight Management API
+	// ========================================
+
+	/**
+	 * AmbientLight 컴포넌트 등록
+	 * AmbientLightComponent::BeginPlay()에서 자동 호출됨
+	 */
+	void RegisterAmbientLight(UAmbientLightComponent* InAmbientLight);
+
+	/**
+	 * AmbientLight 컴포넌트 등록 해제
+	 * AmbientLightComponent::~AmbientLightComponent()에서 자동 호출됨
+	 */
+	void UnregisterAmbientLight(UAmbientLightComponent* InAmbientLight);
+
+	/**
+	 * 전체 AmbientLight 목록
+	 * @return 레벨에 속한 모든 AmbientLight 배열 (const 참조)
+	 */
+	const TArray<UAmbientLightComponent*>& GetAllAmbientLights() const { return AllAmbientLights; }
+
 	friend class UWorld;
 public:
 	virtual UObject* Duplicate() override;
@@ -256,4 +279,9 @@ private:
 	// SpotLight Cache
 	// ========================================
 	TArray<USpotLightComponent*> AllSpotLights;  // 모든 SpotLight
+
+	// ========================================
+	// AmbientLight Cache
+	// ========================================
+	TArray<UAmbientLightComponent*> AllAmbientLights;  // 모든 AmbientLight
 };

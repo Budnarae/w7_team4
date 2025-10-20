@@ -11,7 +11,9 @@ class UAmbientLightComponent : public ULightComponent
 public:
 	UAmbientLightComponent() = default;
 	UAmbientLightComponent(float InIntensity, const FVector& InLightColor, bool InbVisible);
-	~UAmbientLightComponent() override = default;
+	~UAmbientLightComponent() override;
+
+	void BeginPlay() override;
 
 	UClass* GetSpecificWidgetClass() const override;
 

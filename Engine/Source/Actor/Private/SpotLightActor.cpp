@@ -34,13 +34,4 @@ void ASpotLightActor::InitializeComponents()
 		SpotLightComponent->SetInnerConeAngle(20.0f);
 		SpotLightComponent->SetOuterConeAngle(45.0f);
 	}
-
-	// 에디터 아이콘 생성
-	IconComponent = CreateDefaultSubobject<UBillBoardComponent>(FName("IconComponent"));
-	if (IconComponent)
-	{
-		UTexture* Icon = UAssetManager::GetInstance().CreateTexture("Asset/Icon/SpotLight_64x.png");
-		IconComponent->	SetSprite(Icon);
-		IconComponent->SetParentAttachment(GetRootComponent());
-	}
 }
