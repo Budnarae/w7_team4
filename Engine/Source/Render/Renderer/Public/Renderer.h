@@ -18,6 +18,7 @@ class FViewport;
 class UCamera;
 class UPipeline;
 class FSceneDepthPass;
+class FNormalPass;
 
 /**
  * @brief Rendering Pipeline 전반을 처리하는 클래스
@@ -49,6 +50,7 @@ public:
 	void CreateConstantBuffers();
 	void CreateSceneRenderTargets();
 	void CreateSceneDepthResources();
+	void CreateNormalResources();
 
 	// Release
 	void ReleaseConstantBuffers();
@@ -65,6 +67,7 @@ public:
 	void ReleaseFullscreenQuad();
 	void ReleaseSceneRenderTargets();
 	void ReleaseSceneDepthResources();
+	void ReleaseNormalResources();
 
 	// Render
 	void Update();
@@ -184,6 +187,10 @@ private:
 	ID3D11PixelShader* SceneDepthPixelShader = nullptr;
 	ID3D11Buffer* ConstantBufferSceneDepthProperties = nullptr;
 
+	// Normal View Mode
+	ID3D11VertexShader* SceneNormalVertexShader = nullptr;
+	ID3D11PixelShader* SceneNormalPixelShader = nullptr;
+
 	// FXAA Shaders
 	ID3D11VertexShader* FXAAVertexShader = nullptr;
 	ID3D11PixelShader* FXAAPixelShader = nullptr;
@@ -198,11 +205,15 @@ private:
 	ID3D11RenderTargetView* SceneColorRTV = nullptr;
 	ID3D11ShaderResourceView* SceneColorSRV = nullptr;
 
-
 	ID3D11Texture2D* SceneDepthTexture = nullptr;
 	ID3D11DepthStencilView* SceneDepthDSV = nullptr;
 	ID3D11ShaderResourceView* SceneDepthSRV = nullptr;
 	ID3D11DepthStencilView* SceneDepthDSV_ReadOnly = nullptr;
+
+	// GBuffer for normal view mode
+	ID3D11Texture2D* SceneNormalTexture = nullptr;
+	ID3D11RenderTargetView* SceneNormalRTV = nullptr;
+	ID3D11ShaderResourceView* SceneNormalSRV = nullptr;
 
 	uint32 Stride = 0;
 
@@ -222,5 +233,6 @@ private:
 
 	TArray<class FRenderPass*> RenderPasses;
 	FSceneDepthPass* SceneDepthPass = nullptr;
+	FNormalPass* NormalPass = nullptr;
 	FFXAAPass* FXAAPass = nullptr;
 };

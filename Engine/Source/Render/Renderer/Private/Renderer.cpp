@@ -28,12 +28,12 @@
 #include "Render/RenderPass/Public/TextPass.h"
 #include "Render/RenderPass/Public/DecalPass.h"
 #include "Render/RenderPass/Public/FireBallPass.h"
-#include "Render/RenderPass/Public/FireBallForwardPass.h"
 #include "Render/RenderPass/Public/LightPass.h"
 #include "Render/RenderPass/Public/IconPass.h"
 #include "Render/RenderPass/Public/DebugPass.h"
 #include "Render/RenderPass/Public/FogPass.h"
 #include "Render/RenderPass/Public/SceneDepthPass.h"
+#include "Render/RenderPass/Public/NormalPass.h"
 
 IMPLEMENT_SINGLETON_CLASS_BASE(URenderer)
 
@@ -69,6 +69,7 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateFogResources();
 	CreateFXAAResources();
 	CreateSceneDepthResources();
+	CreateNormalResources();
 
 	// FontRenderer 초기화
 	FontRenderer = new UFontRenderer;
@@ -84,15 +85,33 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateSceneRenderTargets();
 
 	FStaticMeshPass* StaticMeshPass =
-		new FStaticMeshPass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-		                    TextureVertexShader, TexturePixelShader, TextureInputLayout,
-		                    DefaultDepthStencilState);
+		new FStaticMeshPass(
+			Pipeline,
+			SceneColorRTV,
+			SceneNormalRTV,
+			SceneDepthDSV,
+			ConstantBufferViewProj,
+			ConstantBufferModels,
+			TextureVertexShader,
+			TexturePixelShader,
+			TextureInputLayout,
+			DefaultDepthStencilState
+			);
 	RenderPasses.push_back(StaticMeshPass);
 
 	FPrimitivePass* PrimitivePass =
-		new FPrimitivePass(Pipeline, ConstantBufferViewProj, ConstantBufferModels,
-		                   DefaultVertexShader, DefaultPixelShader, DefaultInputLayout,
-		                   DefaultDepthStencilState);
+		new FPrimitivePass(
+			Pipeline,
+			SceneColorRTV,
+			SceneNormalRTV,
+			SceneDepthDSV,
+			ConstantBufferViewProj,
+			ConstantBufferModels,
+			DefaultVertexShader,
+			DefaultPixelShader,
+			TextureInputLayout,
+			DefaultDepthStencilState
+			);
 	RenderPasses.push_back(PrimitivePass);
 
 	// 알파 블렌딩을 사용하는 일반 데칼 패스
@@ -165,10 +184,21 @@ void URenderer::Init(HWND InWindowHandle)
 		PostProcessSamplerState,
 		SceneDepthVertexShader,
 		SceneDepthPixelShader,
-		NoTestButWriteDepthState,
+		DepthTestAlwaysNoWriteState,
 		ConstantBufferSceneDepthProperties
 		);
 	SceneDepthPass = InSceneDepthPass;
+
+	FNormalPass* InNormalPass = new FNormalPass(
+		Pipeline,
+		SceneColorRTV,
+		SceneNormalSRV,
+		PostProcessSamplerState,
+		SceneNormalVertexShader,
+		SceneNormalPixelShader,
+		DepthTestAlwaysNoWriteState
+		);
+	NormalPass = InNormalPass;
 
 	// FXAAPass 생성
 	FFXAAPass* InFXAAPass = new FFXAAPass(
@@ -205,6 +235,8 @@ void URenderer::Release()
 	ReleaseFogResources();
 	ReleaseFXAAResources();
 	ReleaseSceneDepthResources();
+	ReleaseNormalResources();
+
 	FRenderResourceFactory::ReleaseRasterizerState();
 	for (auto& RenderPass : RenderPasses)
 	{
@@ -327,7 +359,9 @@ void URenderer::CreateDefaultShader()
 		}
 	};
 	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
-		L"Asset/Shader/SampleShader.hlsl", DefaultLayout, &DefaultVertexShader,
+		L"Asset/Shader/SampleShader.hlsl",
+		DefaultLayout,
+		&DefaultVertexShader,
 		&DefaultInputLayout);
 	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/SampleShader.hlsl",
 	                                          &DefaultPixelShader);
@@ -900,6 +934,7 @@ void URenderer::CreateSceneRenderTargets()
 	ColorDescription.MiscFlags = 0;
 
 	GetDevice()->CreateTexture2D(&ColorDescription, nullptr, &SceneColorTexture);
+	GetDevice()->CreateTexture2D(&ColorDescription, nullptr, &SceneNormalTexture);
 
 	// RTV 생성 (씬 렌더링용)
 	D3D11_RENDER_TARGET_VIEW_DESC RTVDescription = {};
@@ -907,6 +942,7 @@ void URenderer::CreateSceneRenderTargets()
 	RTVDescription.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 	RTVDescription.Texture2D.MipSlice = 0;
 	GetDevice()->CreateRenderTargetView(SceneColorTexture, &RTVDescription, &SceneColorRTV);
+	GetDevice()->CreateRenderTargetView(SceneNormalTexture, &RTVDescription, &SceneNormalRTV);
 
 	// SRV 생성 (포스트프로세스에서 읽기용)
 	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDescription = {};
@@ -915,6 +951,7 @@ void URenderer::CreateSceneRenderTargets()
 	SRVDescription.Texture2D.MostDetailedMip = 0;
 	SRVDescription.Texture2D.MipLevels = 1;
 	GetDevice()->CreateShaderResourceView(SceneColorTexture, &SRVDescription, &SceneColorSRV);
+	GetDevice()->CreateShaderResourceView(SceneNormalTexture, &SRVDescription, &SceneNormalSRV);
 
 	// Scene Depth Texture (SRV 지원)
 	D3D11_TEXTURE2D_DESC DepthDescription = {};
@@ -958,13 +995,15 @@ void URenderer::CreateSceneRenderTargets()
 	UE_LOG("Scene Render Targets Created: %ux%u", Width, Height);
 }
 
-
-
 void URenderer::ReleaseSceneRenderTargets()
 {
 	SafeRelease(SceneColorSRV);
 	SafeRelease(SceneColorRTV);
 	SafeRelease(SceneColorTexture);
+
+	SafeRelease(SceneNormalSRV);
+	SafeRelease(SceneNormalRTV);
+	SafeRelease(SceneNormalTexture);
 
 	SafeRelease(SceneDepthSRV);
 	SafeRelease(SceneDepthDSV);
@@ -994,6 +1033,27 @@ void URenderer::ReleaseSceneDepthResources()
 	SafeRelease(SceneDepthVertexShader);
 	SafeRelease(SceneDepthPixelShader);
 	SafeRelease(ConstantBufferSceneDepthProperties);
+}
+
+void URenderer::CreateNormalResources()
+{
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/NormalShader.hlsl",
+		TArray<D3D11_INPUT_ELEMENT_DESC>{},
+		&SceneNormalVertexShader,
+		nullptr
+	);
+
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/NormalShader.hlsl",
+		&SceneNormalPixelShader
+	);
+}
+
+void URenderer::ReleaseNormalResources()
+{
+	SafeRelease(SceneNormalVertexShader);
+	SafeRelease(SceneNormalPixelShader);
 }
 
 void URenderer::CreateFireBallForwardShader()

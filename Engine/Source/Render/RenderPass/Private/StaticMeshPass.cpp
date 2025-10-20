@@ -8,6 +8,9 @@
 
 FStaticMeshPass::FStaticMeshPass(
 	UPipeline* InPipeline,
+    ID3D11RenderTargetView* InSceneColorRTV,
+    ID3D11RenderTargetView* InSceneNormalRTV,
+    ID3D11DepthStencilView* InSceneDepthDSV,
 	ID3D11Buffer* InConstantBufferViewProj,
 	ID3D11Buffer* InConstantBufferModel,
 	ID3D11VertexShader* InVS,
@@ -16,6 +19,9 @@ FStaticMeshPass::FStaticMeshPass(
 	ID3D11DepthStencilState* InDS
 	) :
 	FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel),
+	SceneColorRTV(InSceneColorRTV),
+	SceneNormalRTV(InSceneNormalRTV),
+	SceneDepthDSV(InSceneDepthDSV),
 	VS(InVS),
 	PS(InPS),
 	InputLayout(InLayout),
@@ -26,6 +32,10 @@ FStaticMeshPass::FStaticMeshPass(
 
 void FStaticMeshPass::Execute(FRenderingContext& Context)
 {
+	// 첫번째 Target에는 Color, 두번째 Target에는 Normal을 내보냄.
+	ID3D11RenderTargetView* RTVs[] = {SceneColorRTV, SceneNormalRTV};
+	Pipeline->GetContext()->OMSetRenderTargets(2, RTVs, SceneDepthDSV);
+
 	if (!(Context.ShowFlags & EEngineShowFlags::SF_StaticMesh)) {	return; }
 	TArray<UStaticMeshComponent*>& MeshComponents = Context.StaticMeshes;
 	sort(MeshComponents.begin(), MeshComponents.end(),
@@ -132,6 +142,10 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 		}
 	}
 	Pipeline->SetConstantBuffer(2, false, nullptr);
+
+	// OMSet RollBack - slot 1의 SceneNormalRTV를 명시적으로 언바인딩
+	ID3D11RenderTargetView* SingleRTV[] = {SceneColorRTV, nullptr};
+	Pipeline->GetContext()->OMSetRenderTargets(2, SingleRTV, SceneDepthDSV);
 }
 
 void FStaticMeshPass::Release()

@@ -1,9 +1,14 @@
 ﻿#include "pch.h"
 #include "Render/RenderPass/Public/PrimitivePass.h"
+
+#include "Editor/Public/Camera.h"
 #include "Render/Renderer/Public/RenderResourceFactory.h"
 
 FPrimitivePass::FPrimitivePass(
 	UPipeline* InPipeline,
+    ID3D11RenderTargetView* InSceneColorRTV,
+    ID3D11RenderTargetView* InSceneNormalRTV,
+    ID3D11DepthStencilView* InSceneDepthDSV,
 	ID3D11Buffer* InConstantBufferViewProj,
 	ID3D11Buffer* InConstantBufferModel,
 	ID3D11VertexShader* InVS,
@@ -12,16 +17,26 @@ FPrimitivePass::FPrimitivePass(
 	ID3D11DepthStencilState* InDS
 	) :
 	FRenderPass(InPipeline, InConstantBufferViewProj, InConstantBufferModel),
+	SceneColorRTV(InSceneColorRTV),
+	SceneNormalRTV(InSceneNormalRTV),
+	SceneDepthDSV(InSceneDepthDSV),
 	VS(InVS),
 	PS(InPS),
 	InputLayout(InLayout),
 	DS(InDS)
 {
     ConstantBufferColor = FRenderResourceFactory::CreateConstantBuffer<FVector4>();
+    // 초기값으로 초기화 (쓰레기 값 방지)
+    FVector4 InitialColor = FVector4{0.0f, 0.0f, 0.0f, 0.0f};
+    FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferColor, InitialColor);
 }
 
 void FPrimitivePass::Execute(FRenderingContext& Context)
 {
+	// 첫번째 Target에는 Color, 두번째 Target에는 Normal을 내보냄.
+	ID3D11RenderTargetView* RTVs[] = {SceneColorRTV, SceneNormalRTV};
+	Pipeline->GetContext()->OMSetRenderTargets(2, RTVs, SceneDepthDSV);
+
     FRenderState DefaultState;
     if (Context.ViewMode == EViewModeIndex::VMI_Wireframe)
     {
@@ -36,10 +51,12 @@ void FPrimitivePass::Execute(FRenderingContext& Context)
 
     FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, nullptr, DS, SelectedPS, nullptr };
     Pipeline->UpdatePipeline(PipelineInfo);
-    Pipeline->SetConstantBuffer(0, true, ConstantBufferModel);
-    Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
-    Pipeline->SetConstantBuffer(2, false, ConstantBufferColor);
     if (!(Context.ShowFlags & EEngineShowFlags::SF_Primitives)) return;
+
+	Pipeline->SetConstantBuffer(0, true, ConstantBufferModel);
+	//FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferViewProj, Context.CurrentCamera->GetFViewProjConstants());
+	Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
+	Pipeline->SetConstantBuffer(2, false, ConstantBufferColor);
 
     for (UPrimitiveComponent* PrimitiveComponent : Context.DefaultPrimitives)
     {
@@ -68,6 +85,10 @@ void FPrimitivePass::Execute(FRenderingContext& Context)
            Pipeline->Draw(PrimitiveComponent->GetNumVertices(), 0);
         }
     }
+
+	// OMSet RollBack - slot 1의 SceneNormalRTV를 명시적으로 언바인딩
+	ID3D11RenderTargetView* SingleRTV[] = {SceneColorRTV, nullptr};
+	Pipeline->GetContext()->OMSetRenderTargets(2, SingleRTV, SceneDepthDSV);
 }
 
 void FPrimitivePass::Release()

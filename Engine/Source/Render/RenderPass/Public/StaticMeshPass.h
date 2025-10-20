@@ -6,6 +6,9 @@ class FStaticMeshPass : public FRenderPass
 public:
     FStaticMeshPass(
     	UPipeline* InPipeline,
+    	ID3D11RenderTargetView* InSceneColorRTV,
+    	ID3D11RenderTargetView* InSceneNormalRTV,
+    	ID3D11DepthStencilView* InSceneDepthDSV,
     	ID3D11Buffer* InConstantBufferViewProj,
     	ID3D11Buffer* InConstantBufferModel,
         ID3D11VertexShader* InVS,
@@ -17,6 +20,10 @@ public:
     void Release() override;
 
 private:
+	ID3D11RenderTargetView* SceneColorRTV = nullptr;
+	ID3D11RenderTargetView* SceneNormalRTV = nullptr;
+	ID3D11DepthStencilView* SceneDepthDSV = nullptr;
+
     ID3D11VertexShader* VS = nullptr;
     ID3D11PixelShader* PS = nullptr;
     ID3D11InputLayout* InputLayout = nullptr;
