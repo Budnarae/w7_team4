@@ -66,6 +66,8 @@ cbuffer PerFrame : register(b1)
 {
     row_major float4x4 View;
     row_major float4x4 Projection;
+    float3 CameraPosition;
+    float _PerFramePadding;
 };
 
 cbuffer Material : register(b2)
@@ -141,12 +143,39 @@ float3 CalculateLambertDiffuse(float3 Normal, float3 LightDirection, float3 Ligh
     return LightColor * Intensity * NdotL;
 }
 
+float3 CalculateBlinnPhongSpecular(float3 Normal, float3 LightDirection, float3 ViewDirection, float3 LightColor, float Intensity, float Shininess)
+{
+    // Blinn-Phong: Halfway vector 사용
+    float3 HalfVector = normalize(LightDirection + ViewDirection);
+    float NdotH = max(dot(Normal, HalfVector), 0.0);
+    float SpecularFactor = pow(NdotH, Shininess);
+    return LightColor * Intensity * SpecularFactor;
+}
+
 float3 CalculateDirectionalLight(FDirectionalLightInfo Light, float3 Normal)
 {
     // Directional Light는 방향만 가지고 위치는 없음 (무한히 먼 광원)
     // Light.Direction은 빛이 향하는 방향이므로 음수를 취해 픽셀에서 빛으로 향하는 방향을 구함
     float3 LightDir = -normalize(Light.Direction);
     return CalculateLambertDiffuse(Normal, LightDir, Light.Color, Light.Intensity);
+}
+
+// Diffuse와 Specular를 분리하여 반환하는 버전
+void CalculateDirectionalLightBlinnPhong(FDirectionalLightInfo Light, float3 Normal, float3 ViewDirection, float Shininess, out float3 OutDiffuse, out float3 OutSpecular)
+{
+    float3 LightDirection = -normalize(Light.Direction);
+    float NdotL = max(dot(Normal, LightDirection), 0.0);
+
+    // 뒷면이면 Diffuse와 Specular 모두 0
+    if (NdotL <= 0.0)
+    {
+        OutDiffuse = float3(0, 0, 0);
+        OutSpecular = float3(0, 0, 0);
+        return;
+    }
+
+    OutDiffuse = Light.Color * Light.Intensity * NdotL;
+    OutSpecular = CalculateBlinnPhongSpecular(Normal, LightDirection, ViewDirection, Light.Color, Light.Intensity, Shininess);
 }
 
 float3 CalculatePointLight(FPointLightInfo Light, float3 WorldPosition, float3 Normal)
@@ -163,6 +192,35 @@ float3 CalculatePointLight(FPointLightInfo Light, float3 WorldPosition, float3 N
     float Attenuation = CalculateAttenuation(Distance, Light.Radius, Light.Falloff);
 
     return CalculateLambertDiffuse(Normal, LightDir, Light.Color, Light.Intensity) * Attenuation;
+}
+
+void CalculatePointLightBlinnPhong(FPointLightInfo Light, float3 WorldPosition, float3 Normal, float3 ViewDirection, float Shininess, out float3 OutDiffuse, out float3 OutSpecular)
+{
+    float3 LightVector = Light.Position - WorldPosition;
+    float Distance = length(LightVector);
+
+    if (Distance > Light.Radius)
+    {
+        OutDiffuse = float3(0, 0, 0);
+        OutSpecular = float3(0, 0, 0);
+        return;
+    }
+
+    float3 LightDirection = LightVector / Distance;
+    float NdotL = max(dot(Normal, LightDirection), 0.0);
+
+    // 뒷면이면 Diffuse와 Specular 모두 0
+    if (NdotL <= 0.0)
+    {
+        OutDiffuse = float3(0, 0, 0);
+        OutSpecular = float3(0, 0, 0);
+        return;
+    }
+
+    float Attenuation = CalculateAttenuation(Distance, Light.Radius, Light.Falloff);
+
+    OutDiffuse = Light.Color * Light.Intensity * NdotL * Attenuation;
+    OutSpecular = CalculateBlinnPhongSpecular(Normal, LightDirection, ViewDirection, Light.Color, Light.Intensity, Shininess) * Attenuation;
 }
 
 float3 CalculateSpotLight(FSpotLightInfo Light, float3 WorldPosition, float3 Normal)
@@ -200,6 +258,51 @@ float3 CalculateSpotLight(FSpotLightInfo Light, float3 WorldPosition, float3 Nor
     return CalculateLambertDiffuse(Normal, LightDirection, Light.Color, Light.Intensity) * DistAttenuation * SpotAttenuation;
 }
 
+void CalculateSpotLightBlinnPhong(FSpotLightInfo Light, float3 WorldPosition, float3 Normal, float3 ViewDirection, float Shininess, out float3 OutDiffuse, out float3 OutSpecular)
+{
+    float3 LightVector = Light.Position - WorldPosition;
+    float Distance = length(LightVector);
+
+    if (Distance > Light.Radius)
+    {
+        OutDiffuse = float3(0, 0, 0);
+        OutSpecular = float3(0, 0, 0);
+        return;
+    }
+
+    float3 LightDirection = normalize(LightVector);
+    float NdotL = max(dot(Normal, LightDirection), 0.0);
+
+    // 뒷면이면 Diffuse와 Specular 모두 0
+    if (NdotL <= 0.0)
+    {
+        OutDiffuse = float3(0, 0, 0);
+        OutSpecular = float3(0, 0, 0);
+        return;
+    }
+
+    // Spot Cone Attenuation
+    float CosAngle = dot(normalize(Light.Direction), -LightDirection);
+    float CosInner = cos(Light.InnerConeAngle);
+    float CosOuter = cos(Light.OuterConeAngle);
+
+    if (CosAngle < CosOuter)
+    {
+        OutDiffuse = float3(0, 0, 0);
+        OutSpecular = float3(0, 0, 0);
+        return;
+    }
+
+    float SpotAttenuation = saturate((CosAngle - CosOuter) / max(CosInner - CosOuter, 0.0001));
+    SpotAttenuation *= SpotAttenuation;
+
+    float DistAttenuation = CalculateAttenuation(Distance, Light.Radius, Light.Falloff);
+    float TotalAttenuation = DistAttenuation * SpotAttenuation;
+
+    OutDiffuse = Light.Color * Light.Intensity * NdotL * TotalAttenuation;
+    OutSpecular = CalculateBlinnPhongSpecular(Normal, LightDirection, ViewDirection, Light.Color, Light.Intensity, Shininess) * TotalAttenuation;
+}
+
 // Vertex Shader
 PS_INPUT mainVS(VS_INPUT input)
 {
@@ -216,10 +319,7 @@ PS_INPUT mainVS(VS_INPUT input)
 
 #if LIGHTING_MODEL_GOURAUD
     // Gouraud Shading: Vertex Shader에서 라이팅 계산
-    float3 TotalLight = float3(0, 0, 0);
-
-    // Ambient
-    TotalLight += CalculateAmbientLight(Ambient);
+    float3 TotalLight = CalculateAmbientLight(Ambient);
 
     // Directional Light
     TotalLight += CalculateDirectionalLight(Directional, Output.Normal);
@@ -249,12 +349,14 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     float4 BaseColor = DiffuseTexture.Sample(TextureSampler, Input.TexCoord);
 
 #if LIGHTING_MODEL_GOURAUD
-    // Gouraud Shading: VS에서 계산한 색상 사용
-    return BaseColor * Input.VertexColor;
+    // Gouraud Shading: VS에서 계산한 라이팅 사용
+    // VertexColor.rgb = Ambient + Diffuse Light
+    float3 VertexLighting = Input.VertexColor.rgb;
+    float3 FinalColor = BaseColor.rgb * VertexLighting;
+    return float4(FinalColor, BaseColor.a);
 
 #elif LIGHTING_MODEL_LAMBERT
     // Lambert Shading: PS에서 Diffuse 라이팅 계산
-    // 보간된 Normal을 normalize (보간 과정에서 길이가 변하기 때문)
     float3 Normal = normalize(Input.Normal);
 
     float3 TotalLight = CalculateAmbientLight(Ambient);
@@ -274,12 +376,57 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
         TotalLight += CalculateSpotLight(SpotLights[j], Input.WorldPos, Normal);
     }
 
-    return float4(BaseColor.rgb * TotalLight, BaseColor.a);
+    float3 FinalColor = BaseColor.rgb * TotalLight;
+    return float4(FinalColor, BaseColor.a);
 
 #elif LIGHTING_MODEL_PHONG
-    // Phong Shading: PS에서 Diffuse + Specular 라이팅 계산
-    // TODO: Ambient + Diffuse + Specular
-    return float4(0, 0, 0, 1);
+    // Blinn-Phong Shading: PS에서 Diffuse + Specular 라이팅 계산
+    float3 Normal = normalize(Input.Normal);
+    float3 ViewDirection = normalize(CameraPosition - Input.WorldPos);
+
+    // Ambient + Diffuse 라이팅 누적
+    float3 DiffuseLight = CalculateAmbientLight(Ambient);
+
+    // Specular 라이팅 누적
+    float3 SpecularLight = float3(0, 0, 0);
+
+    // Directional Light (Diffuse + Specular)
+    float3 DirDiffuse, DirSpecular;
+    CalculateDirectionalLightBlinnPhong(Directional, Normal, ViewDirection, Ns, DirDiffuse, DirSpecular);
+    DiffuseLight += DirDiffuse;
+    SpecularLight += DirSpecular;
+
+    // Point Lights (Diffuse + Specular)
+    for (uint i = 0; i < NumActivePointLights; ++i)
+    {
+        float3 PointDiffuse, PointSpecular;
+        CalculatePointLightBlinnPhong(PointLights[i], Input.WorldPos, Normal, ViewDirection, Ns, PointDiffuse, PointSpecular);
+        DiffuseLight += PointDiffuse;
+        SpecularLight += PointSpecular;
+    }
+
+    // Spot Lights (Diffuse + Specular)
+    for (uint j = 0; j < NumActiveSpotLights; ++j)
+    {
+        float3 SpotDiffuse, SpotSpecular;
+        CalculateSpotLightBlinnPhong(SpotLights[j], Input.WorldPos, Normal, ViewDirection, Ns, SpotDiffuse, SpotSpecular);
+        DiffuseLight += SpotDiffuse;
+        SpecularLight += SpotSpecular;
+    }
+
+    // Diffuse: BaseColor * DiffuseLight
+    float3 DiffuseContribution = BaseColor.rgb * DiffuseLight;
+
+    // Specular: Ks가 거의 0이면 Specular 없음
+    float3 SpecularContribution = float3(0, 0, 0);
+    if (Ks.r + Ks.g + Ks.b > 0.01)
+    {
+        SpecularContribution = Ks.rgb * SpecularLight;
+    }
+
+    // Final = Diffuse + Specular
+    float3 FinalColor = DiffuseContribution + SpecularContribution;
+    return float4(FinalColor, BaseColor.a);
 
 #else
     // No Lighting Model: Unlit (텍스처만 출력)
