@@ -71,6 +71,16 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 		SelectedPS = Renderer.GetTextureLitPixelShader();
 		SelectedLayout = Renderer.GetUberLitInputLayout();
 		break;
+	case EViewModeIndex::VMI_Lit_Gouraud:
+		SelectedVS = Renderer.GetUberLitGouraudVertexShader();
+		SelectedPS = Renderer.GetTextureGouraudPixelShader();
+		SelectedLayout = Renderer.GetUberLitGouraudInputLayout();
+		break;
+	case EViewModeIndex::VMI_Lit_Blinn_Phong:
+		SelectedVS = Renderer.GetUberLitVertexShader();
+		SelectedPS = Renderer.GetTexturePhongPixelShader();
+		SelectedLayout = Renderer.GetUberLitInputLayout();
+		break;
 	case EViewModeIndex::VMI_Unlit:
 		SelectedVS = Renderer.GetUberLitVertexShader();
 		SelectedPS = Renderer.GetTextureUnlitPixelShader();
@@ -90,8 +100,10 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, RS, DS, SelectedPS, nullptr };
 	Pipeline->UpdatePipeline(PipelineInfo);
 
-	// ViewProj cbuffer 바인딩
+	// ViewProj cbuffer 업데이트 및 바인딩
+	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferViewProj, *Context.ViewProjConstants);
 	Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
+	Pipeline->SetConstantBuffer(1, false, ConstantBufferViewProj);
 
 	// Lighting cbuffer 바인딩
 	if (ConstantBufferLighting)

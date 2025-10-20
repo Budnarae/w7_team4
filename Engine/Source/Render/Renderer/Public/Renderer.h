@@ -112,9 +112,13 @@ public:
 	ID3D11InputLayout* GetTextureInputLayout() const { return TextureInputLayout; }
 
 	ID3D11VertexShader* GetUberLitVertexShader() const { return UberLitVertexShader; }
+	ID3D11VertexShader* GetUberLitGouraudVertexShader() const { return UberLitGouraudVertexShader; }
 	ID3D11PixelShader* GetTextureLitPixelShader() const { return TextureLitPixelShader; }
+	ID3D11PixelShader* GetTextureGouraudPixelShader() const { return TextureGouraudPixelShader; }
+	ID3D11PixelShader* GetTexturePhongPixelShader() const { return TexturePhongPixelShader; }
 	ID3D11PixelShader* GetTextureUnlitPixelShader() const { return TextureUnlitPixelShader; }
 	ID3D11InputLayout* GetUberLitInputLayout() const { return UberLitInputLayout; }
+	ID3D11InputLayout* GetUberLitGouraudInputLayout() const { return UberLitGouraudInputLayout; }
 
 	void SetIsResizing(bool isResizing) { bIsResizing = isResizing; }
 private:
@@ -160,9 +164,13 @@ private:
 	ID3D11InputLayout* TextureInputLayout = nullptr;
 
 	// UberLit Shaders
-	ID3D11VertexShader* UberLitVertexShader = nullptr;    // UberLit VS
-	ID3D11InputLayout* UberLitInputLayout = nullptr;      // UberLit Input Layout
+	ID3D11VertexShader* UberLitVertexShader = nullptr;    // Lambert/Phong VS (PS에서 라이팅)
+	ID3D11InputLayout* UberLitInputLayout = nullptr;      // Lambert/Phong Input Layout
+	ID3D11VertexShader* UberLitGouraudVertexShader = nullptr;  // Gouraud VS (VS에서 라이팅)
+	ID3D11InputLayout* UberLitGouraudInputLayout = nullptr;    // Gouraud Input Layout
 	ID3D11PixelShader* TextureLitPixelShader = nullptr;   // Lambert shading
+	ID3D11PixelShader* TextureGouraudPixelShader = nullptr; // Gouraud shading
+	ID3D11PixelShader* TexturePhongPixelShader = nullptr;  // Blinn-Phong shading
 	ID3D11PixelShader* TextureUnlitPixelShader = nullptr; // Unlit
 
 	ID3D11VertexShader* DecalVertexShader = nullptr;

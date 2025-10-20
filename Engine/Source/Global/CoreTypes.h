@@ -19,10 +19,14 @@ struct FViewProjConstants
 	{
 		View = FMatrix::Identity();
 		Projection = FMatrix::Identity();
+		CameraPosition = FVector::ZeroVector();
+		_Padding = 0.0f;
 	}
 
 	FMatrix View;
 	FMatrix Projection;
+	FVector CameraPosition;
+	float _Padding;
 };
 
 struct FMaterialConstants

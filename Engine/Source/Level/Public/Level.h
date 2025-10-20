@@ -3,6 +3,7 @@
 #include "Editor/Public/Camera.h"
 #include "Global/Enum.h"
 
+class UDirectionalLightComponent;
 class UAmbientLightComponent;
 class UPointLightComponent;
 class USpotLightComponent;
@@ -226,6 +227,28 @@ public:
 	 */
 	const TArray<UAmbientLightComponent*>& GetAllAmbientLights() const { return AllAmbientLights; }
 
+	// ========================================
+	// DirectionalLight Management API
+	// ========================================
+
+	/**
+	 * DirectionalLight 컴포넌트 등록
+	 * DirectionalLightComponent::BeginPlay()에서 자동 호출됨
+	 */
+	void RegisterDirectionalLight(UDirectionalLightComponent* InDirectionalLight);
+
+	/**
+	 * DirectionalLight 컴포넌트 등록 해제
+	 * DirectionalLightComponent::~DirectionalLightComponent()에서 자동 호출됨
+	 */
+	void UnregisterDirectionalLight(UDirectionalLightComponent* InDirectionalLight);
+
+	/**
+	 * 전체 DirectionalLight 목록
+	 * @return 레벨에 속한 모든 DirectionalLight 배열 (const 참조)
+	 */
+	const TArray<UDirectionalLightComponent*>& GetAllDirectionalLights() const { return AllDirectionalLights; }
+
 	friend class UWorld;
 public:
 	virtual UObject* Duplicate() override;
@@ -284,4 +307,9 @@ private:
 	// AmbientLight Cache
 	// ========================================
 	TArray<UAmbientLightComponent*> AllAmbientLights;  // 모든 AmbientLight
+
+	// ========================================
+	// DirectionalLight Cache
+	// ========================================
+	TArray<UDirectionalLightComponent*> AllDirectionalLights;  // 모든 DirectionalLight
 };

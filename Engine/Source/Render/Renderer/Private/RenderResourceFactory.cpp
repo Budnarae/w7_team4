@@ -41,6 +41,50 @@ void FRenderResourceFactory::CreateVertexShaderAndInputLayout(const wstring& InF
 	SafeRelease(VertexShaderBlob);
 }
 
+void FRenderResourceFactory::CreateVertexShaderAndInputLayout(const wstring& InFilePath,
+                                                              const TArray<D3D11_INPUT_ELEMENT_DESC>& InInputLayoutDescs,
+                                                              const D3D_SHADER_MACRO* InDefines,
+                                                              ID3D11VertexShader** OutVertexShader, ID3D11InputLayout** OutInputLayout)
+{
+	ID3DBlob* VertexShaderBlob = nullptr;
+	ID3DBlob* ErrorBlob = nullptr;
+
+	HRESULT Result = D3DCompileFromFile(InFilePath.data(), InDefines, D3D_COMPILE_STANDARD_FILE_INCLUDE, "mainVS", "vs_5_0", 0, 0, &VertexShaderBlob, &ErrorBlob);
+	if (FAILED(Result))
+	{
+		if (ErrorBlob)
+		{
+			OutputDebugStringA(static_cast<char*>(ErrorBlob->GetBufferPointer())); SafeRelease(ErrorBlob);
+		}
+		SafeRelease(VertexShaderBlob);
+		return;
+	}
+
+	if (OutVertexShader)
+	{
+		URenderer::GetInstance().GetDevice()->CreateVertexShader
+		(
+			VertexShaderBlob->GetBufferPointer(),
+			VertexShaderBlob->GetBufferSize(),
+			nullptr,
+			OutVertexShader
+		);
+	}
+	if (OutInputLayout)
+	{
+		URenderer::GetInstance().GetDevice()->CreateInputLayout
+		(
+			InInputLayoutDescs.data(),
+			static_cast<uint32>(InInputLayoutDescs.size()),
+			VertexShaderBlob->GetBufferPointer(),
+			VertexShaderBlob->GetBufferSize(),
+			OutInputLayout
+		);
+	}
+
+	SafeRelease(VertexShaderBlob);
+}
+
 ID3D11Buffer* FRenderResourceFactory::CreateVertexBuffer(FNormalVertex* InVertices, uint32 InByteWidth)
 {
 	D3D11_BUFFER_DESC Desc = { InByteWidth, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0, 0, 0 };

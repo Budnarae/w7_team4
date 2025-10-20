@@ -9,6 +9,7 @@
 #include "Component/Public/SemiLightComponent.h"
 #include "Component/Public/FireBallComponent.h"
 #include "Component/Light/Public/AmbientLightComponent.h"
+#include "Component/Light/Public/DirectionalLightComponent.h"
 #include "Component/Light/Public/PointLightComponent.h"
 #include "Component/Light/Public/SpotLightComponent.h"
 #include "Editor/Public/Editor.h"
@@ -426,7 +427,7 @@ void URenderer::CreateTextureShader()
 	                                          &TexturePixelShader);
 
 	// Lit Shaders
-	// Vertex Shader (모든 UberLit 모드에서 공통 사용)
+	// Vertex Shader Layout (모든 UberLit 모드에서 공통 사용)
 	TArray<D3D11_INPUT_ELEMENT_DESC> UberLitLayout =
 	{
 		{
@@ -437,6 +438,17 @@ void URenderer::CreateTextureShader()
 		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0},
 		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0}
 	};
+
+	// Gouraud Vertex Shader (VS에서 라이팅 계산)
+	D3D_SHADER_MACRO DefinesGouraudVS[] = {
+		{"LIGHTING_MODEL_GOURAUD", "1"},
+		{nullptr, nullptr}
+	};
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/UberLit.hlsl", UberLitLayout, DefinesGouraudVS,
+		&UberLitGouraudVertexShader, &UberLitGouraudInputLayout);
+
+	// Lambert/Phong Vertex Shader (PS에서 라이팅 계산, VS는 변환만)
 	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
 		L"Asset/Shader/UberLit.hlsl", UberLitLayout, &UberLitVertexShader, &UberLitInputLayout);
 
@@ -450,6 +462,22 @@ void URenderer::CreateTextureShader()
 	};
 	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLit.hlsl", DefinesLambert,
 	                                          &TextureLitPixelShader);
+
+	// Gouraud Shading Pixel Shader
+	D3D_SHADER_MACRO DefinesGouraud[] = {
+		{"LIGHTING_MODEL_GOURAUD", "1"},
+		{nullptr, nullptr}
+	};
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLit.hlsl", DefinesGouraud,
+	                                          &TextureGouraudPixelShader);
+
+	// Blinn-Phong Shading Pixel Shader
+	D3D_SHADER_MACRO DefinesPhong[] = {
+		{"LIGHTING_MODEL_PHONG", "1"},
+		{nullptr, nullptr}
+	};
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLit.hlsl", DefinesPhong,
+	                                          &TexturePhongPixelShader);
 }
 
 void URenderer::CreateDepthShader()
@@ -509,7 +537,11 @@ void URenderer::ReleaseDefaultShader()
 
 	SafeRelease(UberLitInputLayout);
 	SafeRelease(UberLitVertexShader);
+	SafeRelease(UberLitGouraudInputLayout);
+	SafeRelease(UberLitGouraudVertexShader);
 	SafeRelease(TextureLitPixelShader);
+	SafeRelease(TextureGouraudPixelShader);
+	SafeRelease(TexturePhongPixelShader);
 	SafeRelease(TextureUnlitPixelShader);
 	SafeRelease(DecalVertexShader);
 	SafeRelease(DecalPixelShader);
@@ -787,6 +819,29 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 			{
 				LightingData.Ambient.Color = AmbientLight->GetLightColor();
 				LightingData.Ambient.Intensity = AmbientLight->GetIntensity();
+				break;
+			}
+		}
+	}
+
+	// Directional Light 수집
+	const TArray<UDirectionalLightComponent*>& DirectionalLights = CurrentLevel->GetAllDirectionalLights();
+	if (!DirectionalLights.empty())
+	{
+		// 첫 번째 활성화된 Directional Light 사용
+		for (auto* DirectionalLight : DirectionalLights)
+		{
+			if (DirectionalLight && DirectionalLight->IsVisible())
+			{
+				// Directional Light 방향 계산 (Rotation → Forward Vector)
+				const FVector Rotation = DirectionalLight->GetWorldRotation();
+				const FMatrix RotationMatrix = FMatrix::RotationMatrix(FVector::GetDegreeToRadian(Rotation));
+				const FVector4 Forward4 = FVector4::ForwardVector() * RotationMatrix;
+				LightingData.Directional.Direction = FVector(Forward4.X, Forward4.Y, Forward4.Z);
+				LightingData.Directional.Direction.Normalize();
+
+				LightingData.Directional.Color = DirectionalLight->GetLightColor();
+				LightingData.Directional.Intensity = DirectionalLight->GetIntensity();
 				break;
 			}
 		}

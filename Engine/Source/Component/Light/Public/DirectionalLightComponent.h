@@ -11,7 +11,9 @@ class UDirectionalLightComponent : public ULightComponent
 public:
 	UDirectionalLightComponent() = default;
 	UDirectionalLightComponent(float InIntensity, const FVector& InLightColor, bool InbVisible);
-	~UDirectionalLightComponent() override = default;
+	~UDirectionalLightComponent() override;
+
+	void BeginPlay() override;
 
 	UClass* GetSpecificWidgetClass() const override;
 

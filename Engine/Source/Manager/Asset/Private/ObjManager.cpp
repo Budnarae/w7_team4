@@ -224,6 +224,9 @@ void FObjManager::CreateMaterialsFromMTL(UStaticMesh* StaticMesh, FStaticMesh* S
 			Material = new UMaterial();
 			Material->SetName(MaterialName);
 
+			// MaterialData 설정 (Ka, Kd, Ks, Ns 등)
+			Material->SetMaterialData(MaterialInfo);
+
 			// Diffuse 텍스처 로드 (map_Kd)
 			if (!MaterialInfo.KdMap.empty())
 			{

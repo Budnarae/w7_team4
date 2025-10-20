@@ -14,6 +14,7 @@
 #include "Actor/Public/SemiLightActor.h"
 #include "Actor/Public/PointLightActor.h"
 #include "Actor/Public/SpotLightActor.h"
+#include "Actor/Public/DirectionalLightActor.h"
 #include "Actor/Public/TextActor.h"
 #include "Actor/Public/HeightFogActor.h"
 
@@ -54,6 +55,7 @@ void UPrimitiveSpawnWidget::RenderWidget()
 		"SemiLight",
 		"PointLight",
 		"SpotLight",
+		"DirectionalLight",
 		"HeightFog",
 	};
 
@@ -167,6 +169,10 @@ void UPrimitiveSpawnWidget::SpawnActors() const
 		else if (SelectedPrimitiveType == EPrimitiveType::SpotLight)
 		{
 			NewActor = GWorld->SpawnActor(ASpotLightActor::StaticClass());
+		}
+		else if (SelectedPrimitiveType == EPrimitiveType::DirectionalLight)
+		{
+			NewActor = GWorld->SpawnActor(ADirectionalLightActor::StaticClass());
 		}
 		else if (SelectedPrimitiveType == EPrimitiveType::HeightFog)
 		{
