@@ -1,13 +1,12 @@
 # Blender 4.5.3 LTS MTL File: 'None'
 # www.blender.org
 
-newmtl Material_Planet_Sun
+newmtl Material_Planet_Sun.006
 Ns 159.999985
 Ka 1.000000 1.000000 1.000000
-Kd 1.000000 1.000000 0.000000
 Ks 0.500000 0.500000 0.500000
 Ke 1.000000 0.158766 0.000000
 Ni 1.500000
 d 1.000000
 illum 2
-map_Kd ../Asset/Texture/SolarSystem_Texture/Planet_Sun.png
+map_Kd C:/Users/Jungle/Documents/Projects/w7_team4/Engine/Asset/Texture/SolarSystem_Texture/Planet_Sun.png
