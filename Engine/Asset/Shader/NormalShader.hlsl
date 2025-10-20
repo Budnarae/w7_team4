@@ -1,10 +1,18 @@
-struct PS_INPUT
+cbuffer NormalBuffer : register(b0)
 {
-	float4 position : SV_POSITION; // Transformed position to pass to the pixel shader
-	float2 texCoord : TEXCOORD0; // 추가!
+	float2 ViewportTopLeft;
+	float2 ViewportSize;
+	float2 SceneRTSize;
+	float2 Padding;
 };
 
-Texture2D SceneDepthTexture : register(t0);
+struct PS_INPUT
+{
+	float4 position : SV_POSITION;
+	float2 texCoord : TEXCOORD0;
+};
+
+Texture2D SceneNormalTexture : register(t0);
 SamplerState DefaultSampler : register(s0);
 
 PS_INPUT mainVS(uint VertexID : SV_VertexID)
@@ -25,8 +33,8 @@ PS_INPUT mainVS(uint VertexID : SV_VertexID)
 
 float4 mainPS(PS_INPUT In) : SV_TARGET
 {
-	//float2 depthUV = (ViewportTopLeft + In.texCoord * ViewportSize) / SceneRTSize;
-	float2 NormalUV = In.texCoord;
+	// Viewport 화면비를 반영한 UV 계산
+	float2 NormalUV = (ViewportTopLeft + In.texCoord * ViewportSize) / SceneRTSize;
 
-	return SceneDepthTexture.Sample(DefaultSampler, NormalUV);
+	return SceneNormalTexture.Sample(DefaultSampler, NormalUV);
 }

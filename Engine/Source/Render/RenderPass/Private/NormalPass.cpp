@@ -11,8 +11,8 @@ FNormalPass::FNormalPass
     ID3D11SamplerState* InLinearSamplerState,
     ID3D11VertexShader* InVS,
     ID3D11PixelShader* InPS,
-    ID3D11DepthStencilState* InDepthTestNoWriteState//,
-    //ID3D11Buffer* InConstantBufferNormalProperties
+    ID3D11DepthStencilState* InDepthTestNoWriteState,
+    ID3D11Buffer* InConstantBufferNormalProperties
 )
     :
     FRenderPass(InPipeline, nullptr, nullptr),
@@ -21,8 +21,8 @@ FNormalPass::FNormalPass
 	LinearSamplerState(InLinearSamplerState),
     VS(InVS),
     PS(InPS),
-	DepthTestNoWriteState(InDepthTestNoWriteState)//,
-	//ConstantBufferNormalProperties(InConstantBufferNormalProperties)
+	DepthTestNoWriteState(InDepthTestNoWriteState),
+	ConstantBufferNormalProperties(InConstantBufferNormalProperties)
 {
 }
 
@@ -44,25 +44,23 @@ void FNormalPass::Execute(FRenderingContext& Context)
 
     Pipeline->UpdatePipeline(PipelineInfo);
 
- //    FNormalParameters NormalParameters;
- //    NormalParameters.Near = Context.CurrentCamera->GetNearZ();
- //    NormalParameters.Far = Context.CurrentCamera->GetFarZ();
-	// // Viewport 정보 설정
-	// NormalParameters.ViewportTopLeft = FVector2(Context.Viewport.TopLeftX, Context.Viewport.TopLeftY);
-	// NormalParameters.ViewportSize = FVector2(Context.Viewport.Width, Context.Viewport.Height);
-	// NormalParameters.SceneRTSize = Context.SceneRTSize;
- //
- //    FRenderResourceFactory::UpdateConstantBufferData
- //    (
-	//     ConstantBufferNormalProperties,
-	//     NormalParameters
- //    );
- //
- //    Pipeline->SetConstantBuffer(0, false, ConstantBufferNormalProperties);
-    Pipeline->SetSamplerState(0, false, LinearSamplerState);
+    FNormalParameters NormalParameters;
+	// Viewport 정보 설정
+	NormalParameters.ViewportTopLeft = FVector2(Context.Viewport.TopLeftX, Context.Viewport.TopLeftY);
+	NormalParameters.ViewportSize = FVector2(Context.Viewport.Width, Context.Viewport.Height);
+	NormalParameters.SceneRTSize = Context.SceneRTSize;
 
-    // Depth 텍스처만 바인딩 (SceneColorRTV에 쓰고 있으므로 SRV로 읽을 수 없음)
+    FRenderResourceFactory::UpdateConstantBufferData
+    (
+	    ConstantBufferNormalProperties,
+	    NormalParameters
+    );
+
+    Pipeline->SetConstantBuffer(0, false, ConstantBufferNormalProperties);
+
+    // Normal 텍스처 바인딩
 	Pipeline->GetContext()->PSSetShaderResources(0, 1, &NormalSRV);
+	Pipeline->GetContext()->PSSetSamplers(0, 1, &LinearSamplerState);
 
 	// Fullscreen Quad 그리기 (SV_VertexID 사용)
 	Pipeline->GetContext()->Draw(3, 0);

@@ -34,8 +34,7 @@ PS_INPUT mainVS(uint VertexID : SV_VertexID)
 
 float4 mainPS(PS_INPUT In) : SV_TARGET
 {
-	//float2 depthUV = (ViewportTopLeft + In.texCoord * ViewportSize) / SceneRTSize;
-	float2 depthUV = In.texCoord;
+	float2 depthUV = (ViewportTopLeft + In.texCoord * ViewportSize) / SceneRTSize;
 
 	float NdcZ = SceneDepthTexture.Sample(DefaultSampler, depthUV).r;
 

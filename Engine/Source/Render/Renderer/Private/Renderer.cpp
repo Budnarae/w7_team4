@@ -109,7 +109,7 @@ void URenderer::Init(HWND InWindowHandle)
 			ConstantBufferModels,
 			DefaultVertexShader,
 			DefaultPixelShader,
-			TextureInputLayout,
+			DefaultInputLayout,
 			DefaultDepthStencilState
 			);
 	RenderPasses.push_back(PrimitivePass);
@@ -196,7 +196,8 @@ void URenderer::Init(HWND InWindowHandle)
 		PostProcessSamplerState,
 		SceneNormalVertexShader,
 		SceneNormalPixelShader,
-		DepthTestAlwaysNoWriteState
+		DepthTestAlwaysNoWriteState,
+		ConstantBufferNormalProperties
 		);
 	NormalPass = InNormalPass;
 
@@ -573,7 +574,15 @@ void URenderer::Update()
 		//FogPass->Execute(RenderingContext);
 
 		if (RenderingContext.ViewMode == EViewModeIndex::VMI_SceneDepth)
+		{
 			SceneDepthPass->Execute(RenderingContext);
+		}
+		else if (RenderingContext.ViewMode == EViewModeIndex::VMI_Normal)
+		{
+			NormalPass->Execute(RenderingContext);
+			float ClearColor[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+			GetDeviceContext()->ClearRenderTargetView(SceneNormalRTV, ClearColor);
+		}
 
 		// LightPass가 DSV를 nullptr로 설정했을 수 있으므로 Scene RT 재바인딩
 		//GetDeviceContext()->OMSetRenderTargets(1, , );
@@ -1048,12 +1057,16 @@ void URenderer::CreateNormalResources()
 		L"Asset/Shader/NormalShader.hlsl",
 		&SceneNormalPixelShader
 	);
+
+	ConstantBufferNormalProperties =
+		FRenderResourceFactory::CreateConstantBuffer<FNormalParameters>();
 }
 
 void URenderer::ReleaseNormalResources()
 {
 	SafeRelease(SceneNormalVertexShader);
 	SafeRelease(SceneNormalPixelShader);
+	SafeRelease(ConstantBufferNormalProperties);
 }
 
 void URenderer::CreateFireBallForwardShader()

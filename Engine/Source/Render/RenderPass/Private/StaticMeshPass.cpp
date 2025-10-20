@@ -103,13 +103,12 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 				MaterialConstants.MaterialFlags = 0;
 				MaterialConstants.Time = MeshComp->GetElapsedTime();
 
-				FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferMaterial, MaterialConstants);
-				Pipeline->SetConstantBuffer(2, false, ConstantBufferMaterial);
-
+				// MaterialFlags 설정: 텍스처 바인딩 여부 표시
 				if (UTexture* DiffuseTexture = Material->GetDiffuseTexture())
 				{
 					if(auto* Proxy = DiffuseTexture->GetRenderProxy())
 					{
+						MaterialConstants.MaterialFlags |= (1 << 0); // HAS_DIFFUSE_MAP
 						Pipeline->SetTexture(0, false, Proxy->GetSRV());
 						Pipeline->SetSamplerState(0, false, Proxy->GetSampler());
 					}
@@ -118,6 +117,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 				{
 					if(auto* Proxy = AmbientTexture->GetRenderProxy())
 					{
+						MaterialConstants.MaterialFlags |= (1 << 1); // HAS_AMBIENT_MAP
 						Pipeline->SetTexture(1, false, Proxy->GetSRV());
 					}
 				}
@@ -125,16 +125,29 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 				{
 					if(auto* Proxy = SpecularTexture->GetRenderProxy())
 					{
+						MaterialConstants.MaterialFlags |= (1 << 2); // HAS_SPECULAR_MAP
 						Pipeline->SetTexture(2, false, Proxy->GetSRV());
+					}
+				}
+				if (UTexture* NormalTexture = Material->GetNormalTexture())
+				{
+					if(auto* Proxy = NormalTexture->GetRenderProxy())
+					{
+						MaterialConstants.MaterialFlags |= (1 << 3); // HAS_NORMAL_MAP
+						Pipeline->SetTexture(3, false, Proxy->GetSRV());
 					}
 				}
 				if (UTexture* AlphaTexture = Material->GetAlphaTexture())
 				{
 					if(auto* Proxy = AlphaTexture->GetRenderProxy())
 					{
+						MaterialConstants.MaterialFlags |= (1 << 4); // HAS_ALPHA_MAP
 						Pipeline->SetTexture(4, false, Proxy->GetSRV());
 					}
 				}
+
+				FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferMaterial, MaterialConstants);
+				Pipeline->SetConstantBuffer(2, false, ConstantBufferMaterial);
 
 				CurrentMaterial = Material;
 			}

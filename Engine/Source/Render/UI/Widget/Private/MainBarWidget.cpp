@@ -219,6 +219,8 @@ void UMainBarWidget::RenderViewMenu()
 		bool bIsLit = (CurrentMode == EViewModeIndex::VMI_Lit);
 		bool bIsUnlit = (CurrentMode == EViewModeIndex::VMI_Unlit);
 		bool bIsWireframe = (CurrentMode == EViewModeIndex::VMI_Wireframe);
+		bool bIsSceneDepth = (CurrentMode == EViewModeIndex::VMI_SceneDepth);
+		bool bIsNormal = (CurrentMode == EViewModeIndex::VMI_Normal);
 
 		if (ImGui::MenuItem("조명 적용(Lit)", nullptr, bIsLit) && !bIsLit)
 		{
@@ -238,11 +240,16 @@ void UMainBarWidget::RenderViewMenu()
 			UE_LOG("MainBarWidget: ViewMode를 Wireframe으로 변경");
 		}
 
-		bool bIsSceneDepth = (CurrentMode == EViewModeIndex::VMI_SceneDepth);
 		if (ImGui::MenuItem("씬 뎁스(Scene Depth)", nullptr, bIsSceneDepth) && !bIsSceneDepth)
 		{
 			EditorInstance->SetViewMode(EViewModeIndex::VMI_SceneDepth);
 			UE_LOG("MainBarWidget: ViewMode를 SceneDepth으로 변경");
+		}
+
+		if (ImGui::MenuItem("노멀(Normal)", nullptr, bIsNormal) && !bIsNormal)
+		{
+			EditorInstance->SetViewMode(EViewModeIndex::VMI_Normal);
+			UE_LOG("MainBarWidget: ViewMode를 Normal으로 변경");
 		}
 
 		ImGui::EndMenu();
@@ -442,15 +449,15 @@ void UMainBarWidget::RenderHelpMenu()
 }
 
 void UMainBarWidget::RenderPlayControls()
-{  
+{
 	EPIEState CurrentState = GEditor->GetPIEState();
 
 	// 위치 조정
 	float CurrentMenuEndPos = ImGui::GetCursorPosX();
 	float MainBarWidth = ImGui::GetWindowWidth();
 
-	ImVec2 ButtonPadding(8.0f, 4.0f); 
-	float ButtonFramePaddingX = ButtonPadding.x * 2.0f; 
+	ImVec2 ButtonPadding(8.0f, 4.0f);
+	float ButtonFramePaddingX = ButtonPadding.x * 2.0f;
 
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ButtonPadding);
@@ -465,24 +472,24 @@ void UMainBarWidget::RenderPlayControls()
 	float TrueCenterStart = (MainBarWidth / 2.0f) - (TotalButtonGroupWidth / 2.0f);
 	float StartPos = TrueCenterStart;
 	StartPos = std::max(CurrentMenuEndPos, StartPos);
-	ImGui::SameLine(StartPos); 
+	ImGui::SameLine(StartPos);
 
     // 상태 플래그 정의
-    bool bCanStart = CurrentState == EPIEState::Stopped; 
+    bool bCanStart = CurrentState == EPIEState::Stopped;
     bool bCanPauseOrResume = CurrentState == EPIEState::Playing || CurrentState == EPIEState::Paused;
-    bool bCanStop = CurrentState != EPIEState::Stopped; 
+    bool bCanStop = CurrentState != EPIEState::Stopped;
 
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ButtonPadding);
 
     // =========================================================================
-    if (bCanStart) 
+    if (bCanStart)
     {
        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.6f, 0.0f, 1.0f));
        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.0f, 0.8f, 0.0f, 1.0f));
        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.4f, 0.0f, 1.0f));
     }
-    else 
+    else
     {
        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.3f, 0.1f, 0.6f));
        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1f, 0.3f, 0.1f, 0.6f));
@@ -491,9 +498,9 @@ void UMainBarWidget::RenderPlayControls()
 
     if (ImGui::Button("▶"))
     {
-       if (bCanStart) 
+       if (bCanStart)
        {
-          GEditor->StartPIE(); 
+          GEditor->StartPIE();
           UE_LOG("MainBarWidget: PIE 세션 시작 요청");
        }
     }
@@ -524,7 +531,7 @@ void UMainBarWidget::RenderPlayControls()
        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.0f, 0.6f));
        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.0f, 0.6f));
     }
-   
+
     if (ImGui::Button("||"))
     {
        if (CurrentState == EPIEState::Playing)
@@ -555,7 +562,7 @@ void UMainBarWidget::RenderPlayControls()
        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.0f, 0.0f, 0.6f));
        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.0f, 0.0f, 0.6f));
     }
-   
+
     if (ImGui::Button("■"))
     {
        if (bCanStop)

@@ -190,6 +190,7 @@ private:
 	// Normal View Mode
 	ID3D11VertexShader* SceneNormalVertexShader = nullptr;
 	ID3D11PixelShader* SceneNormalPixelShader = nullptr;
+	ID3D11Buffer* ConstantBufferNormalProperties = nullptr;
 
 	// FXAA Shaders
 	ID3D11VertexShader* FXAAVertexShader = nullptr;

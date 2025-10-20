@@ -88,33 +88,6 @@ PS_INPUT mainVS(VS_INPUT input)
 
 PS_OUTPUT mainPS(PS_INPUT input)
 {
-	//float4 finalColor = float4(0.f, 0.f, 0.f, 1.f);
-
-	//// Base diffuse color
-	//float4 diffuseColor = Kd;
-	//if (MaterialFlags & HAS_DIFFUSE_MAP)
-	//{
-	//	diffuseColor *= DiffuseTexture.Sample(SamplerWrap, input.tex);
-	//}
-
-	//// Ambient contribution
-	//float4 ambientColor = Ka;
-	//if (MaterialFlags & HAS_AMBIENT_MAP)
-	//{
-	//	ambientColor *= AmbientTexture.Sample(SamplerWrap, input.tex);
-	//}
-
-	//finalColor.rgb = diffuseColor.rgb + ambientColor.rgb;
-
-	//// Alpha handling
-	//finalColor.a = D;
-	//if (MaterialFlags & HAS_ALPHA_MAP)
-	//{
-	//	float alpha = AlphaTexture.Sample(SamplerWrap, input.tex).r;
-	//	finalColor.a *= alpha;
-	//}
-
-	//return finalColor;
 	PS_OUTPUT output;
 
 	float2 ScrollSpeed = float2(0.0f, 0.1f);
@@ -124,21 +97,15 @@ PS_OUTPUT mainPS(PS_INPUT input)
 	// 빌보드 투명하게 보이게
     clip(output.color.a - 0.1f);
 
-	// 텍스처 크기 가져오기
-	uint width, height;
-	NormalTexture.GetDimensions(width, height);
-
-	// 크기가 0이면 Normal Texture 바인딩 안 됨
-	if (width > 0 && height > 0)
+	// MaterialFlags로 Normal Texture 바인딩 여부 확인
+	if (MaterialFlags & HAS_NORMAL_MAP)
 	{
-		// [0, 1] 범위로 변환하여 저장
-		output.normal = float4(\
-			NormalTexture.Sample(SamplerWrap, UV) * 0.5f + 0.5f, \
-			1.0f\
-			);
+		// Normal Map이 있으면 샘플링하여 [0, 1] 범위로 변환
+		output.normal = float4(NormalTexture.Sample(SamplerWrap, UV).xyz * 0.5f + 0.5f, 1.0f);
 	}
 	else
 	{
+		// Normal Map이 없으면 Vertex Normal 사용 (World Space)
 		output.normal = float4(input.normal * 0.5f + 0.5f, 1.0f);
 	}
 
