@@ -15,6 +15,7 @@
 #include <json.hpp>
 
 #include "Component/Light/Public/AmbientLightComponent.h"
+#include "Component/Light/Public/DirectionalLightComponent.h"
 #include "Component/Light/Public/PointLightComponent.h"
 #include "Component/Light/Public/SpotLightComponent.h"
 #include "Component/Public/UUIDTextComponent.h"
@@ -744,4 +745,47 @@ void ULevel::UnregisterAmbientLight(UAmbientLightComponent* InAmbientLight)
 	}
 
 	UE_LOG("Level: AmbientLight '%s' unregistered", InAmbientLight->GetName().ToString().data());
+}
+
+void ULevel::RegisterDirectionalLight(UDirectionalLightComponent* InDirectionalLight)
+{
+	if (!InDirectionalLight)
+	{
+		UE_LOG("Level: RegisterDirectionalLight called with nullptr");
+		return;
+	}
+
+	// 중복 등록 방지
+	if (find(AllDirectionalLights.begin(), AllDirectionalLights.end(), InDirectionalLight) != AllDirectionalLights.end())
+	{
+		UE_LOG("Level: DirectionalLight '%s' already registered", InDirectionalLight->GetName().ToString().data());
+		return;
+	}
+
+	AllDirectionalLights.push_back(InDirectionalLight);
+
+	UE_LOG("Level: DirectionalLight '%s' registered (Intensity: %.1f, Color: (%.2f, %.2f, %.2f))",
+		InDirectionalLight->GetName().ToString().data(),
+		InDirectionalLight->GetIntensity(),
+		InDirectionalLight->GetLightColor().X,
+		InDirectionalLight->GetLightColor().Y,
+		InDirectionalLight->GetLightColor().Z);
+}
+
+void ULevel::UnregisterDirectionalLight(UDirectionalLightComponent* InDirectionalLight)
+{
+	if (!InDirectionalLight)
+	{
+		return;
+	}
+
+	// AllDirectionalLights에서 제거
+	if (auto Iter = std::find(AllDirectionalLights.begin(), AllDirectionalLights.end(), InDirectionalLight);
+		Iter != AllDirectionalLights.end())
+	{
+		*Iter = std::move(AllDirectionalLights.back());
+		AllDirectionalLights.pop_back();
+	}
+
+	UE_LOG("Level: DirectionalLight '%s' unregistered", InDirectionalLight->GetName().ToString().data());
 }

@@ -141,6 +141,14 @@ float3 CalculateLambertDiffuse(float3 Normal, float3 LightDirection, float3 Ligh
     return LightColor * Intensity * NdotL;
 }
 
+float3 CalculateDirectionalLight(FDirectionalLightInfo Light, float3 Normal)
+{
+    // Directional Light는 방향만 가지고 위치는 없음 (무한히 먼 광원)
+    // Light.Direction은 빛이 향하는 방향이므로 음수를 취해 픽셀에서 빛으로 향하는 방향을 구함
+    float3 LightDir = -normalize(Light.Direction);
+    return CalculateLambertDiffuse(Normal, LightDir, Light.Color, Light.Intensity);
+}
+
 float3 CalculatePointLight(FPointLightInfo Light, float3 WorldPosition, float3 Normal)
 {
     float3 LightVector = Light.Position - WorldPosition;
@@ -234,6 +242,9 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
 #elif LIGHTING_MODEL_LAMBERT
     // Lambert Shading: PS에서 Diffuse 라이팅 계산
     float3 TotalLight = CalculateAmbientLight(Ambient);
+
+    // Directional Light
+    TotalLight += CalculateDirectionalLight(Directional, Input.Normal);
 
     // Point Lights
     for (uint i = 0; i < NumActivePointLights; ++i)

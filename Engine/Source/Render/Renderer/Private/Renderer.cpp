@@ -9,6 +9,7 @@
 #include "Component/Public/SemiLightComponent.h"
 #include "Component/Public/FireBallComponent.h"
 #include "Component/Light/Public/AmbientLightComponent.h"
+#include "Component/Light/Public/DirectionalLightComponent.h"
 #include "Component/Light/Public/PointLightComponent.h"
 #include "Component/Light/Public/SpotLightComponent.h"
 #include "Editor/Public/Editor.h"
@@ -787,6 +788,23 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 			{
 				LightingData.Ambient.Color = AmbientLight->GetLightColor();
 				LightingData.Ambient.Intensity = AmbientLight->GetIntensity();
+				break;
+			}
+		}
+	}
+
+	// Directional Light 수집
+	const TArray<UDirectionalLightComponent*>& DirectionalLights = CurrentLevel->GetAllDirectionalLights();
+	if (!DirectionalLights.empty())
+	{
+		// 첫 번째 활성화된 Directional Light 사용
+		for (auto* DirectionalLight : DirectionalLights)
+		{
+			if (DirectionalLight && DirectionalLight->IsVisible())
+			{
+				LightingData.Directional.Direction = DirectionalLight->GetWorldRotation();
+				LightingData.Directional.Color = DirectionalLight->GetLightColor();
+				LightingData.Directional.Intensity = DirectionalLight->GetIntensity();
 				break;
 			}
 		}

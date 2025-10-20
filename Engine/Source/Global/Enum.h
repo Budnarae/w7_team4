@@ -139,6 +139,7 @@ enum class EPrimitiveType : uint8
 	SemiLight, // TODO(KHJ): 임시
 	PointLight,
 	SpotLight,
+	DirectionalLight,
 	HeightFog,
 	Torus,
 	Arrow,
