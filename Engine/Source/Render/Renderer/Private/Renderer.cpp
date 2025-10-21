@@ -484,16 +484,15 @@ void URenderer::CreateTextureShader()
 	};
 
 	// Vertex Shader Layout (Normal Mapping 사용 UberLit 모드에서 공통 사용)
-	// TODO: FNormalMappingVertex 구조체로 변경 예정
 	TArray<D3D11_INPUT_ELEMENT_DESC> UberLitNormalMappingLayout =
 	{
 		{
-			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Position),
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalMapping, NormalVertex.Position),
 			D3D11_INPUT_PER_VERTEX_DATA, 0
 		},
-		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalVertex, Normal), D3D11_INPUT_PER_VERTEX_DATA, 0},
-		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0},
-		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalMapping, NormalVertex.Normal), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalMapping, NormalVertex.Color), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalMapping, NormalVertex.TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0},
 		// TBN 행렬의 세 행 (각각 float3)
 		{"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalMapping, Tangent), D3D11_INPUT_PER_VERTEX_DATA, 0},  // Tangent
 		{"TANGENT", 1, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalMapping, BiTangent), D3D11_INPUT_PER_VERTEX_DATA, 0},  // Bitangent
@@ -720,8 +719,8 @@ void URenderer::Update()
 
 		// IMPORTANT: 각 viewport마다 Scene RT를 다시 바인딩
 		// (이전 viewport의 post-processing이 BackBuffer로 바인딩을 변경했으므로)
-		ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV};
-		GetDeviceContext()->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
+		ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV, SceneNormalRTV};
+		GetDeviceContext()->OMSetRenderTargets(2, SceneRtvs, SceneDepthDSV);
 		GetDeviceContext()->RSSetViewports(1, &ClientViewport);
 
 		{
@@ -747,6 +746,11 @@ void URenderer::Update()
 		{
 			// SceneDepth 모드: Depth 시각화로 덮어씀
 			SceneDepthPass->Execute(RenderingContext);
+		}
+		else if (RenderingContext.ViewMode == EViewModeIndex::VMI_Normal)
+		{
+			// Normal 모드: Normal 시각화
+			NormalPass->Execute(RenderingContext);
 		}
 		// else if (RenderingContext.ViewMode == EViewModeIndex::VMI_LightComplexity)
 		// {
@@ -792,13 +796,14 @@ void URenderer::RenderBegin() const
 	GetDeviceContext()->ClearRenderTargetView(BackBufferRTV, ClearColor);
 	GetDeviceContext()->ClearDepthStencilView(BackBufferDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-	// Scene RT 정리 및 바인딩 (Scene Color + Scene Depth)
+	// Scene RT 정리 및 바인딩 (Scene Color + Scene Normal + Scene Depth)
 	// 이후 각 ViewportClient가 Scene RT의 해당 영역에 렌더링함
 	GetDeviceContext()->ClearRenderTargetView(SceneColorRTV, ClearColor);
+	GetDeviceContext()->ClearRenderTargetView(SceneNormalRTV, ClearColor);
 	GetDeviceContext()->ClearDepthStencilView(SceneDepthDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-	ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV};
-	GetDeviceContext()->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
+	ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV, SceneNormalRTV};
+	GetDeviceContext()->OMSetRenderTargets(2, SceneRtvs, SceneDepthDSV);
 
 	DeviceResources->UpdateViewport();
 }

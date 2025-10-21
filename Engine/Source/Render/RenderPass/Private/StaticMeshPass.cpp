@@ -158,7 +158,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 						Pipeline->SetTexture(2, false, Proxy->GetSRV());
 					}
 				}
-				if (UTexture* NormalTexture = Material->GetNormalTexture())
+				if (UTexture* NormalTexture = Material->GetBumpTexture())
 				{
 					if(auto* Proxy = NormalTexture->GetRenderProxy())
 					{
@@ -182,6 +182,13 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
 						bUseNormalMapping = true;
 					}
+					else if (Context.ViewMode == EViewModeIndex::VMI_Normal)
+					{
+						SelectedVS = Renderer.GetUberLitNormalMappingVertexShader();
+						SelectedPS = Renderer.GetUberPhongNormalMappingPixelShader();
+						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
+						bUseNormalMapping = true;
+					}
 					else if (Context.ViewMode == EViewModeIndex::VMI_Lit_Gouraud)
 					{
 						SelectedVS = Renderer.GetUberLitGouraudVertexShader();
@@ -196,7 +203,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 					}
 
 					// Normal Mapping 사용 시 TBN을 포함한 확장 버텍스 버퍼 생성
-					if (bUseNormalMapping && CurrentMeshAsset != MeshAsset)
+					if (bUseNormalMapping)
 					{
 						// FNormalVertex 데이터 읽기
 						const TArray<FNormalVertex>& OriginalVertices = MeshAsset->Vertices;
@@ -247,8 +254,10 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 								// Degenerate UV case: fallback to arbitrary tangent
 								FVector N = v0.Normal;
 								N.Normalize();
-								Tangent = (fabs(N.X) < 0.9f) ? FVector(1, 0, 0).Cross(N) : FVector(0, 1, 0).Cross(N);
-								Bitangent = N.Cross(Tangent);
+								// 오른손 좌표계 유지
+								Tangent = (fabs(N.X) < 0.9f) ? N.Cross(FVector(0, 0, 1)) : N.Cross(FVector(1, 0, 0));
+								Tangent.Normalize();
+								Bitangent = Tangent.Cross(N);
 							}
 
 							// 세 버텍스에 누적 (평균을 위해)
@@ -278,8 +287,8 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 							Tangent = Tangent - Normal * Normal.Dot(Tangent);
 							Tangent.Normalize();
 
-							// Bitangent 재계산 (일관성 보장)
-							FVector Bitangent = Normal.Cross(Tangent);
+							// Bitangent 재계산 (일관성 보장) - 오른손 좌표계
+							FVector Bitangent = Tangent.Cross(Normal);
 							Bitangent.Normalize();
 
 							NMVertex.Tangent = Tangent;
@@ -323,6 +332,12 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 						SelectedLayout = Renderer.GetUberLitGouraudInputLayout();
 						break;
 					case EViewModeIndex::VMI_Lit_Blinn_Phong:
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTexturePhongPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
+						break;
+					case EViewModeIndex::VMI_Normal:
+						// Normal Map이 없으면 Vertex Normal을 사용하는 일반 쉐이더
 						SelectedVS = Renderer.GetUberLitVertexShader();
 						SelectedPS = Renderer.GetTexturePhongPixelShader();
 						SelectedLayout = Renderer.GetUberLitInputLayout();

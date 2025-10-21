@@ -283,6 +283,20 @@ void FObjManager::CreateMaterialsFromMTL(UStaticMesh* StaticMesh, FStaticMesh* S
 				}
 			}
 
+			// Bump 텍스처 로드 (map_Bump)
+			if (!MaterialInfo.BumpMap.empty())
+			{
+				FString TexturePathStr = (ObjDirectory / MaterialInfo.BumpMap).generic_string();
+				if (std::filesystem::exists(TexturePathStr))
+				{
+					UTexture* BumpTexture = AssetManager.CreateTexture(TexturePathStr);
+					if (BumpTexture)
+					{
+						Material->SetBumpTexture(BumpTexture);
+					}
+				}
+			}
+
 			// AssetManager 캐시에 등록
 			AssetManager.AddMaterialToCache(Material);
 		}
