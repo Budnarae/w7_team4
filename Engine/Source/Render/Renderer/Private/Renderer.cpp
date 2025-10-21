@@ -1571,13 +1571,13 @@ void URenderer::ApplyUberLitShaders(
     ID3D11PixelShader* InGouraudPS,
     ID3D11PixelShader* InPhongPS)
 {
-	// 이전꺼 릴리즈 
+	// 이전꺼 릴리즈
     SafeRelease(UberLitVertexShader);
     SafeRelease(UberLitInputLayout);
     SafeRelease(UberLitGouraudVertexShader);
     SafeRelease(UberLitGouraudInputLayout);
     SafeRelease(TextureUnlitPixelShader);
-    SafeRelease(TextureLitPixelShader);
+    SafeRelease(TextureLambertPixelShader);
     SafeRelease(TextureGouraudPixelShader);
     SafeRelease(TexturePhongPixelShader);
 
@@ -1587,7 +1587,7 @@ void URenderer::ApplyUberLitShaders(
     UberLitGouraudVertexShader = InGouraudVS;
     UberLitGouraudInputLayout = InGouraudLayout;
     TextureUnlitPixelShader = InUnlitPS;
-    TextureLitPixelShader = InLambertPS;
+    TextureLambertPixelShader = InLambertPS;
     TextureGouraudPixelShader = InGouraudPS;
     TexturePhongPixelShader = InPhongPS;
 }
