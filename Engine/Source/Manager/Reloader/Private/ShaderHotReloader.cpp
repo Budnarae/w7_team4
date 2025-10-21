@@ -3,3 +3,8 @@
 
 
 IMPLEMENT_SINGLETON_CLASS_BASE(UShaderHotReloader)
+
+UShaderHotReloader::UShaderHotReloader()
+{
+
+}

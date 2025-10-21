@@ -6,7 +6,8 @@ class UShaderHotReloader : public UObject
 {
 	GENERATED_BODY()
 	DECLARE_SINGLETON_CLASS(UShaderHotReloader, UObject)
-public:
 
+public:
+	UShaderHotReloader();
 };
 
