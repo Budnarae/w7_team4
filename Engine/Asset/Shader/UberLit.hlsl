@@ -105,6 +105,11 @@ cbuffer SceneInfo : register(b4)
 
 // Textures
 Texture2D DiffuseTexture : register(t0);
+
+#if NORMAL_MAPPING
+Texture2D NormalMap : register(t1);
+#endif
+
 SamplerState TextureSampler : register(s0);
 
 struct VS_INPUT
@@ -113,6 +118,13 @@ struct VS_INPUT
     float3 Normal : NORMAL;
     float4 Color : COLOR;
     float2 TexCoord : TEXCOORD;
+
+#if NORMAL_MAPPING
+	// Data for normal mapping
+	float3 Tangent : TANGENT0;
+	float3 BiTangent : TANGENT1;
+	float3 TangentNormal : TANGENT2;
+#endif
 };
 
 struct PS_INPUT
@@ -121,6 +133,12 @@ struct PS_INPUT
     float3 WorldPos : TEXCOORD0;
     float3 Normal : TEXCOORD1;
     float2 TexCoord : TEXCOORD2;
+
+#if NORMAL_MAPPING
+	// Data for normal mapping
+	row_major float3x3 TBNInUEBasis : TBN;
+#endif
+
 #if LIGHTING_MODEL_GOURAUD
     float4 VertexColor : COLOR;
 #endif
@@ -318,6 +336,14 @@ PS_INPUT mainVS(VS_INPUT input)
     Output.Normal = normalize(mul(float4(input.Normal, 0.0), WorldTransInv).xyz);
     Output.TexCoord = input.TexCoord;
 
+#if NORMAL_MAPPING
+	Output.TBNInUEBasis = float3x3(
+			input.Tangent.x, input.Tangent.y, input.Tangent.z,
+			input.BiTanget.x, input.BiTanget.y, input.BiTanget.z,
+			input.Normal.x, input.Normal.y, input.Normal.z
+		);
+#endif
+
 #if LIGHTING_MODEL_GOURAUD
     // Gouraud Shading: Vertex Shader에서 라이팅 계산
     float3 TotalLight = CalculateAmbientLight(Ambient);
@@ -343,11 +369,30 @@ PS_INPUT mainVS(VS_INPUT input)
     return Output;
 }
 
+float2 UVToYUpRightHand(float2 UV)
+{
+	return float2(UV.X, 1 - UV.Y);
+}
+
 // Pixel Shader
 float4 mainPS(PS_INPUT Input) : SV_TARGET
 {
     // Texture Color 샘플링
     float4 BaseColor = DiffuseTexture.Sample(TextureSampler, Input.TexCoord);
+
+#if NORMAL_MAPPING
+	// Normal Map 샘플링 (tangent space, [0,1] 범위)
+	float3 TangentNormal = NormalMap.Sample(TextureSampler, UVToYUpRightHand(Input.TexCoord)).xyz;
+
+	// [0,1] → [-1,1] 범위 변환
+	TangentNormal = TangentNormal * 2.0 - 1.0;
+
+	// TBN 행렬로 tangent space → world space 변환
+	// TBN이 row-major이므로 벡터를 왼쪽에 배치
+	float3 Normal = normalize(mul(TangentNormal, Input.TBNInUEBasis));
+#else
+	float3 Normal = normalize(Input.Normal);
+#endif
 
 #if LIGHTING_MODEL_GOURAUD
     // Gouraud Shading: VS에서 계산한 라이팅 사용
@@ -358,8 +403,6 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
 
 #elif LIGHTING_MODEL_LAMBERT
     // Lambert Shading: PS에서 Diffuse 라이팅 계산
-    float3 Normal = normalize(Input.Normal);
-
     float3 TotalLight = CalculateAmbientLight(Ambient);
 
     // Directional Light
@@ -388,7 +431,6 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
 
 #elif LIGHTING_MODEL_PHONG
     // Blinn-Phong Shading: PS에서 Diffuse + Specular 라이팅 계산
-    float3 Normal = normalize(Input.Normal);
     float3 ViewDirection = normalize(CameraPosition - Input.WorldPos);
 
     // Ambient + Diffuse 라이팅 누적

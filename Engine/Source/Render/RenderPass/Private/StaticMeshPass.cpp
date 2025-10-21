@@ -58,47 +58,6 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	}
 	ID3D11RasterizerState* RS = FRenderResourceFactory::GetRasterizerState(RenderState);
 
-	// Select shaders based on ViewMode
-	ID3D11VertexShader* SelectedVS = VS;
-	ID3D11PixelShader* SelectedPS = PS;
-	ID3D11InputLayout* SelectedLayout = InputLayout;
-
-	auto& Renderer = URenderer::GetInstance();
-	switch (Context.ViewMode)
-	{
-	case EViewModeIndex::VMI_Lit_Lambert:
-		SelectedVS = Renderer.GetUberLitVertexShader();
-		SelectedPS = Renderer.GetTextureLitPixelShader();
-		SelectedLayout = Renderer.GetUberLitInputLayout();
-		break;
-	case EViewModeIndex::VMI_Lit_Gouraud:
-		SelectedVS = Renderer.GetUberLitGouraudVertexShader();
-		SelectedPS = Renderer.GetTextureGouraudPixelShader();
-		SelectedLayout = Renderer.GetUberLitGouraudInputLayout();
-		break;
-	case EViewModeIndex::VMI_Lit_Blinn_Phong:
-		SelectedVS = Renderer.GetUberLitVertexShader();
-		SelectedPS = Renderer.GetTexturePhongPixelShader();
-		SelectedLayout = Renderer.GetUberLitInputLayout();
-		break;
-	case EViewModeIndex::VMI_Unlit:
-		SelectedVS = Renderer.GetUberLitVertexShader();
-		SelectedPS = Renderer.GetTextureUnlitPixelShader();
-		SelectedLayout = Renderer.GetUberLitInputLayout();
-		break;
-	case EViewModeIndex::VMI_SceneDepth:
-		// SceneDepthPass가 최종 시각화를 담당
-		// StaticMeshPass는 일반 렌더링으로 Depth 버퍼에만 기록
-		break;
-	case EViewModeIndex::VMI_Wireframe:
-		// Wireframe은 PS 필요 없음
-		break;
-	default:
-		break;
-	}
-
-	FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, RS, DS, SelectedPS, nullptr };
-	Pipeline->UpdatePipeline(PipelineInfo);
 
 	// ViewProj cbuffer 업데이트 및 바인딩
 	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferViewProj, *Context.ViewProjConstants);
@@ -111,6 +70,13 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 		Pipeline->SetConstantBuffer(3, true, ConstantBufferLighting);
 		Pipeline->SetConstantBuffer(3, false, ConstantBufferLighting);
 	}
+
+	// Select shaders based on ViewMode
+	ID3D11VertexShader* SelectedVS = VS;
+	ID3D11PixelShader* SelectedPS = PS;
+	ID3D11InputLayout* SelectedLayout = InputLayout;
+
+	auto& Renderer = URenderer::GetInstance();
 
 	for (UStaticMeshComponent* MeshComp : MeshComponents)
 	{
@@ -199,6 +165,66 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 						MaterialConstants.MaterialFlags |= (1 << 3); // HAS_NORMAL_MAP
 						Pipeline->SetTexture(3, false, Proxy->GetSRV());
 					}
+
+					if (Context.ViewMode == EViewModeIndex::VMI_Lit_Lambert)
+					{
+						SelectedVS = Renderer.GetUberLitNormalMappingVertexShader();
+						SelectedPS = Renderer.GetUberLambertNormalMappingPixelShader();
+						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
+					}
+					else if (Context.ViewMode == EViewModeIndex::VMI_Lit_Blinn_Phong)
+					{
+						SelectedVS = Renderer.GetUberLitNormalMappingVertexShader();
+						SelectedPS = Renderer.GetUberPhongNormalMappingPixelShader();
+						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
+					}
+					else if (Context.ViewMode == EViewModeIndex::VMI_Lit_Gouraud)
+					{
+						SelectedVS = Renderer.GetUberLitGouraudVertexShader();
+						SelectedPS = Renderer.GetTextureGouraudPixelShader();
+						SelectedLayout = Renderer.GetUberLitGouraudInputLayout();
+					}
+					else if (Context.ViewMode == EViewModeIndex::VMI_Unlit)
+					{
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTextureUnlitPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
+					}
+				}
+				else
+				{
+					switch (Context.ViewMode)
+					{
+					case EViewModeIndex::VMI_Lit_Lambert:
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTextureLambertPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
+						break;
+					case EViewModeIndex::VMI_Lit_Gouraud:
+						SelectedVS = Renderer.GetUberLitGouraudVertexShader();
+						SelectedPS = Renderer.GetTextureGouraudPixelShader();
+						SelectedLayout = Renderer.GetUberLitGouraudInputLayout();
+						break;
+					case EViewModeIndex::VMI_Lit_Blinn_Phong:
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTexturePhongPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
+						break;
+					case EViewModeIndex::VMI_Unlit:
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTextureUnlitPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
+						break;
+					case EViewModeIndex::VMI_SceneDepth:
+						// SceneDepthPass가 최종 시각화를 담당
+						// StaticMeshPass는 일반 렌더링으로 Depth 버퍼에만 기록
+						break;
+					case EViewModeIndex::VMI_Wireframe:
+						// Wireframe은 PS 필요 없음
+						break;
+					default:
+						break;
+					}
 				}
 				if (UTexture* AlphaTexture = Material->GetAlphaTexture())
 				{
@@ -214,6 +240,9 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 
 				CurrentMaterial = Material;
 			}
+			FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, RS, DS, SelectedPS, nullptr };
+			Pipeline->UpdatePipeline(PipelineInfo);
+
 			Pipeline->DrawIndexed(Section.IndexCount, Section.StartIndex, 0);
 		}
 	}
