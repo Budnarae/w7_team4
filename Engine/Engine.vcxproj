@@ -384,6 +384,7 @@
       <DeploymentContent>false</DeploymentContent>
     </ClInclude>
     <ClInclude Include="Source\Manager\PostProcess\Public\FXAAManager.h" />
+    <ClInclude Include="Source\Manager\Reloader\Public\ShaderHotReloader.h" />
     <ClInclude Include="Source\Optimization\Public\OcclusionCuller.h" />
     <ClInclude Include="Source\Optimization\Public\ViewVolumeCuller.h" />
     <ClInclude Include="Source\Physics\Public\AABB.h" />
@@ -595,6 +596,7 @@
       <DeploymentContent>false</DeploymentContent>
     </ClCompile>
     <ClCompile Include="Source\Manager\PostProcess\Private\FXAAManager.cpp" />
+    <ClCompile Include="Source\Manager\Reloader\Private\ShaderHotReloader.cpp" />
     <ClCompile Include="Source\Optimization\Private\OcclusionCuller.cpp" />
     <ClCompile Include="Source\Optimization\Private\ViewVolumeCuller.cpp" />
     <ClCompile Include="Source\Physics\Private\AABB.cpp" />

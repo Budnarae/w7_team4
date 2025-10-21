@@ -39,6 +39,7 @@
 #include "Render/RenderPass/Public/LightCullingPass.h"
 #include "Render/RenderPass/Public/DepthPrePass.h"
 #include "Render/RenderPass/Public/LightComplexityPass.h"
+#include "Manager/Reloader/Public/ShaderHotReloader.h"
 
 IMPLEMENT_SINGLETON_CLASS_BASE(URenderer)
 
@@ -87,8 +88,11 @@ void URenderer::Init(HWND InWindowHandle)
 
 	ViewportClient->InitializeLayout(DeviceResources->GetViewportInfo());
 
-	// Scene RT는 ViewportClient 초기화 후에 생성 (올바른 크기 사용)
-	CreateSceneRenderTargets();
+    // Scene RT는 ViewportClient 초기화 후에 생성 (올바른 크기 사용)
+    CreateSceneRenderTargets();
+
+    // Start shader hot reloader (watching Asset/Shader)
+    UShaderHotReloader::GetInstance().Initialize(L"Asset/Shader");
 
 	// Depth Pre-pass
 	// Depth만 렌더링 (Light Culling을 위한 Depth 정보), Default 셰이더 사용
@@ -645,7 +649,9 @@ void URenderer::ReleaseBlendState()
 
 void URenderer::Update()
 {
-	RenderBegin();
+    // Pump shader hot reload apply queue
+    UShaderHotReloader::GetInstance().Tick(*this);
+    RenderBegin();
 
 	for (FViewportClient& ViewportClient : ViewportClient->GetViewports())
 	{
@@ -1495,6 +1501,37 @@ void URenderer::CreateIconResources()
 	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/IconShader.hlsl", &IconPixelShader);
 
 	ConstantBufferIconProperties = FRenderResourceFactory::CreateConstantBuffer<FIconProperties>();
+}
+
+void URenderer::ApplyUberLitShaders(
+    ID3D11VertexShader* InUberVS,
+    ID3D11InputLayout* InUberLayout,
+    ID3D11VertexShader* InGouraudVS,
+    ID3D11InputLayout* InGouraudLayout,
+    ID3D11PixelShader* InUnlitPS,
+    ID3D11PixelShader* InLambertPS,
+    ID3D11PixelShader* InGouraudPS,
+    ID3D11PixelShader* InPhongPS)
+{
+	// 이전꺼 릴리즈 
+    SafeRelease(UberLitVertexShader);
+    SafeRelease(UberLitInputLayout);
+    SafeRelease(UberLitGouraudVertexShader);
+    SafeRelease(UberLitGouraudInputLayout);
+    SafeRelease(TextureUnlitPixelShader);
+    SafeRelease(TextureLitPixelShader);
+    SafeRelease(TextureGouraudPixelShader);
+    SafeRelease(TexturePhongPixelShader);
+
+	// 새로운 걸로 바인드 .
+    UberLitVertexShader = InUberVS;
+    UberLitInputLayout = InUberLayout;
+    UberLitGouraudVertexShader = InGouraudVS;
+    UberLitGouraudInputLayout = InGouraudLayout;
+    TextureUnlitPixelShader = InUnlitPS;
+    TextureLitPixelShader = InLambertPS;
+    TextureGouraudPixelShader = InGouraudPS;
+    TexturePhongPixelShader = InPhongPS;
 }
 
 

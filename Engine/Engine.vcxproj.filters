@@ -451,6 +451,7 @@
     <ClCompile Include="Source\Render\RenderPass\Private\IconPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\NormalPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\SceneDepthPass.cpp" />
+    <ClCompile Include="Source\Manager\Reloader\Private\ShaderHotReloader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -918,6 +919,7 @@
     <ClInclude Include="Source\Render\RenderPass\Public\IconPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\NormalPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\SceneDepthPass.h" />
+    <ClInclude Include="Source\Manager\Reloader\Public\ShaderHotReloader.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source">

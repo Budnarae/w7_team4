@@ -78,9 +78,20 @@ public:
 	void RenderBegin() const;
 	void RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InViewport);
 	void RenderEnd() const;
-	void RenderEditorPrimitive(const FEditorPrimitive& InPrimitive, const FRenderState& InRenderState, uint32 InStride = 0, uint32 InIndexBufferStride = 0);
+    void RenderEditorPrimitive(const FEditorPrimitive& InPrimitive, const FRenderState& InRenderState, uint32 InStride = 0, uint32 InIndexBufferStride = 0);
 
-	void OnResize(uint32 Inwidth = 0, uint32 InHeight = 0);
+    void OnResize(uint32 Inwidth = 0, uint32 InHeight = 0);
+
+    // Hot-reload integration: swap in newly built UberLit shaders
+    void ApplyUberLitShaders(
+        ID3D11VertexShader* InUberVS,
+        ID3D11InputLayout* InUberLayout,
+        ID3D11VertexShader* InGouraudVS,
+        ID3D11InputLayout* InGouraudLayout,
+        ID3D11PixelShader* InUnlitPS,
+        ID3D11PixelShader* InLambertPS,
+        ID3D11PixelShader* InGouraudPS,
+        ID3D11PixelShader* InPhongPS);
 
 	// Getter & Setter
 	ID3D11Device* GetDevice() const { return DeviceResources->GetDevice(); }

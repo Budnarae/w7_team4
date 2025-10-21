@@ -295,7 +295,7 @@ void CalculateSpotLightBlinnPhong(FSpotLightInfo Light, float3 WorldPosition, fl
     }
 
     float SpotAttenuation = saturate((CosAngle - CosOuter) / max(CosInner - CosOuter, 0.0001));
-    SpotAttenuation *= SpotAttenuation;
+    SpotAttenuation *=    SpotAttenuation;
 
     float DistAttenuation = CalculateAttenuation(Distance, Light.Radius, Light.Falloff);
     float TotalAttenuation = DistAttenuation * SpotAttenuation;
@@ -314,7 +314,7 @@ PS_INPUT mainVS(VS_INPUT input)
     float4 ViewPosition = mul(WorldPosition, View);
     Output.Position = mul(ViewPosition, Projection);
 
-    Output.WorldPos = WorldPosition.xyz;
+    Output.WorldPos =   WorldPosition.xyz;
     Output.Normal = normalize(mul(float4(input.Normal, 0.0), WorldTransInv).xyz);
     Output.TexCoord = input.TexCoord;
 
@@ -347,7 +347,7 @@ PS_INPUT mainVS(VS_INPUT input)
 float4 mainPS(PS_INPUT Input) : SV_TARGET
 {
     // Texture Color 샘플링
-    float4 BaseColor = DiffuseTexture.Sample(TextureSampler, Input.TexCoord);
+    float4 BaseColor   = DiffuseTexture.Sample(TextureSampler, Input.TexCoord);
 
 #if LIGHTING_MODEL_GOURAUD
     // Gouraud Shading: VS에서 계산한 라이팅 사용
