@@ -166,17 +166,21 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 						Pipeline->SetTexture(3, false, Proxy->GetSRV());
 					}
 
+					// Normal Mapping을 위한 셰이더 선택
+					bool bUseNormalMapping = false;
 					if (Context.ViewMode == EViewModeIndex::VMI_Lit_Lambert)
 					{
 						SelectedVS = Renderer.GetUberLitNormalMappingVertexShader();
 						SelectedPS = Renderer.GetUberLambertNormalMappingPixelShader();
 						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
+						bUseNormalMapping = true;
 					}
 					else if (Context.ViewMode == EViewModeIndex::VMI_Lit_Blinn_Phong)
 					{
 						SelectedVS = Renderer.GetUberLitNormalMappingVertexShader();
 						SelectedPS = Renderer.GetUberPhongNormalMappingPixelShader();
 						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
+						bUseNormalMapping = true;
 					}
 					else if (Context.ViewMode == EViewModeIndex::VMI_Lit_Gouraud)
 					{
@@ -189,6 +193,119 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 						SelectedVS = Renderer.GetUberLitVertexShader();
 						SelectedPS = Renderer.GetTextureUnlitPixelShader();
 						SelectedLayout = Renderer.GetUberLitInputLayout();
+					}
+
+					// Normal Mapping 사용 시 TBN을 포함한 확장 버텍스 버퍼 생성
+					if (bUseNormalMapping && CurrentMeshAsset != MeshAsset)
+					{
+						// FNormalVertex 데이터 읽기
+						const TArray<FNormalVertex>& OriginalVertices = MeshAsset->Vertices;
+						const TArray<uint32>& Indices = MeshAsset->Indices;
+						TArray<FNormalMapping> NormalMappingVertices;
+						NormalMappingVertices.resize(OriginalVertices.size());
+
+						// 각 버텍스의 TBN 초기화
+						TArray<FVector> Tangents(OriginalVertices.size(), FVector::ZeroVector());
+						TArray<FVector> Bitangents(OriginalVertices.size(), FVector::ZeroVector());
+
+						// 삼각형 단위로 Tangent와 Bitangent 계산 (UV gradient 기반)
+						for (size_t i = 0; i < Indices.size(); i += 3)
+						{
+							uint32 i0 = Indices[i];
+							uint32 i1 = Indices[i + 1];
+							uint32 i2 = Indices[i + 2];
+
+							const FNormalVertex& v0 = OriginalVertices[i0];
+							const FNormalVertex& v1 = OriginalVertices[i1];
+							const FNormalVertex& v2 = OriginalVertices[i2];
+
+							// Edge vectors
+							FVector Edge1 = v1.Position - v0.Position;
+							FVector Edge2 = v2.Position - v0.Position;
+
+							// UV deltas
+							FVector2 DeltaUV1 = v1.TexCoord - v0.TexCoord;
+							FVector2 DeltaUV2 = v2.TexCoord - v0.TexCoord;
+
+							// Tangent와 Bitangent 계산
+							float f = DeltaUV1.X * DeltaUV2.Y - DeltaUV2.X * DeltaUV1.Y;
+
+							FVector Tangent, Bitangent;
+							if (fabs(f) > 1e-6f)
+							{
+								f = 1.0f / f;
+								Tangent.X = f * (DeltaUV2.Y * Edge1.X - DeltaUV1.Y * Edge2.X);
+								Tangent.Y = f * (DeltaUV2.Y * Edge1.Y - DeltaUV1.Y * Edge2.Y);
+								Tangent.Z = f * (DeltaUV2.Y * Edge1.Z - DeltaUV1.Y * Edge2.Z);
+
+								Bitangent.X = f * (-DeltaUV2.X * Edge1.X + DeltaUV1.X * Edge2.X);
+								Bitangent.Y = f * (-DeltaUV2.X * Edge1.Y + DeltaUV1.X * Edge2.Y);
+								Bitangent.Z = f * (-DeltaUV2.X * Edge1.Z + DeltaUV1.X * Edge2.Z);
+							}
+							else
+							{
+								// Degenerate UV case: fallback to arbitrary tangent
+								FVector N = v0.Normal;
+								N.Normalize();
+								Tangent = (fabs(N.X) < 0.9f) ? FVector(1, 0, 0).Cross(N) : FVector(0, 1, 0).Cross(N);
+								Bitangent = N.Cross(Tangent);
+							}
+
+							// 세 버텍스에 누적 (평균을 위해)
+							Tangents[i0] = Tangents[i0] + Tangent;
+							Tangents[i1] = Tangents[i1] + Tangent;
+							Tangents[i2] = Tangents[i2] + Tangent;
+
+							Bitangents[i0] = Bitangents[i0] + Bitangent;
+							Bitangents[i1] = Bitangents[i1] + Bitangent;
+							Bitangents[i2] = Bitangents[i2] + Bitangent;
+						}
+
+						// 각 버텍스에 대해 정규화 및 Gram-Schmidt 직교화
+						for (size_t i = 0; i < OriginalVertices.size(); ++i)
+						{
+							const FNormalVertex& Vertex = OriginalVertices[i];
+							FNormalMapping& NMVertex = NormalMappingVertices[i];
+							NMVertex.NormalVertex = Vertex;
+
+							FVector Normal = Vertex.Normal;
+							Normal.Normalize();
+
+							FVector Tangent = Tangents[i];
+							Tangent.Normalize();
+
+							// Gram-Schmidt 직교화: T' = T - (N·T)N
+							Tangent = Tangent - Normal * Normal.Dot(Tangent);
+							Tangent.Normalize();
+
+							// Bitangent 재계산 (일관성 보장)
+							FVector Bitangent = Normal.Cross(Tangent);
+							Bitangent.Normalize();
+
+							NMVertex.Tangent = Tangent;
+							NMVertex.BiTangent = Bitangent;
+							NMVertex.TangentNormal = Normal;
+						}
+
+						// 동적 버텍스 버퍼 생성
+						ID3D11Buffer* TempNormalMappingVB = nullptr;
+						D3D11_BUFFER_DESC vbDesc = {};
+						vbDesc.Usage = D3D11_USAGE_DYNAMIC;
+						vbDesc.ByteWidth = static_cast<UINT>(sizeof(FNormalMapping) * NormalMappingVertices.size());
+						vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+						vbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+						D3D11_SUBRESOURCE_DATA initData = {};
+						initData.pSysMem = NormalMappingVertices.data();
+
+						ID3D11Device* Device = nullptr;
+						Pipeline->GetContext()->GetDevice(&Device);
+						if (Device && SUCCEEDED(Device->CreateBuffer(&vbDesc, &initData, &TempNormalMappingVB)))
+						{
+							Pipeline->SetVertexBuffer(TempNormalMappingVB, sizeof(FNormalMapping));
+							TempNormalMappingVB->Release(); // SetVertexBuffer가 참조 증가시키므로 즉시 Release
+						}
+						if (Device) Device->Release();
 					}
 				}
 				else

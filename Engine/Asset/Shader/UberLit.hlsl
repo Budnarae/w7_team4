@@ -10,6 +10,10 @@
 #define LIGHTING_MODEL_PHONG 0
 #endif
 
+#ifndef NORMAL_MAPPING
+#define NORMAL_MAPPING 0
+#endif
+
 #ifndef NUM_POINT_LIGHTS
 #define NUM_POINT_LIGHTS 16
 #endif
@@ -135,8 +139,8 @@ struct PS_INPUT
     float2 TexCoord : TEXCOORD2;
 
 #if NORMAL_MAPPING
-	// Data for normal mapping
-	row_major float3x3 TBNInUEBasis : TBN;
+	// TBN 행렬 (TEXCOORD3~5로 자동 분할됨)
+	row_major float3x3 TBN : TEXCOORD3;
 #endif
 
 #if LIGHTING_MODEL_GOURAUD
@@ -337,10 +341,18 @@ PS_INPUT mainVS(VS_INPUT input)
     Output.TexCoord = input.TexCoord;
 
 #if NORMAL_MAPPING
-	Output.TBNInUEBasis = float3x3(
-			input.Tangent.x, input.Tangent.y, input.Tangent.z,
-			input.BiTanget.x, input.BiTanget.y, input.BiTanget.z,
-			input.Normal.x, input.Normal.y, input.Normal.z
+	// TBN 행렬을 World Space로 변환
+	// Tangent와 Bitangent는 World 행렬로 변환 (방향 벡터)
+	float3 WorldTangent = normalize(mul(float4(input.Tangent, 0.0), World).xyz);
+	float3 WorldBitangent = normalize(mul(float4(input.BiTangent, 0.0), World).xyz);
+	// Normal은 WorldTransInv로 변환 (비균등 스케일 대응)
+	float3 WorldNormal = normalize(mul(float4(input.TangentNormal, 0.0), WorldTransInv).xyz);
+
+	// TBN 행렬 구성 (row-major: 각 행이 World Space의 Tangent, Bitangent, Normal)
+	Output.TBN = float3x3(
+			WorldTangent,
+			WorldBitangent,
+			WorldNormal
 		);
 #endif
 
@@ -371,7 +383,12 @@ PS_INPUT mainVS(VS_INPUT input)
 
 float2 UVToYUpRightHand(float2 UV)
 {
-	return float2(UV.X, 1 - UV.Y);
+	return float2(UV.x, 1 - UV.y);
+}
+
+float3 PositionToUEBasis(float3 Position)
+{
+	return float3(Position.x, -Position.y, Position.z);
 }
 
 // Pixel Shader
@@ -381,15 +398,20 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     float4 BaseColor = DiffuseTexture.Sample(TextureSampler, Input.TexCoord);
 
 #if NORMAL_MAPPING
-	// Normal Map 샘플링 (tangent space, [0,1] 범위)
+	// Normal Map 샘플링 (tangent space, [0,1] 범위, Y-up Right-Handed)
 	float3 TangentNormal = NormalMap.Sample(TextureSampler, UVToYUpRightHand(Input.TexCoord)).xyz;
 
 	// [0,1] → [-1,1] 범위 변환
 	TangentNormal = TangentNormal * 2.0 - 1.0;
 
+	// Tangent Space 좌표계 변환: Y-up Right-Handed → Z-up Left-Handed
+	TangentNormal = PositionToUEBasis(TangentNormal);
+
 	// TBN 행렬로 tangent space → world space 변환
+	// TBN이 이미 World Space로 변환되어 있으므로, 추가 WorldTransInv 곱셈 불필요
 	// TBN이 row-major이므로 벡터를 왼쪽에 배치
-	float3 Normal = normalize(mul(TangentNormal, Input.TBNInUEBasis));
+	float3 Normal = normalize(mul(TangentNormal, Input.TBN));
+
 #else
 	float3 Normal = normalize(Input.Normal);
 #endif
