@@ -24,6 +24,9 @@ struct FRenderingContext
     D3D11_VIEWPORT Viewport = {};
     FVector2 SceneRTSize = FVector2::Zero();
 
+    // LightCullingPass용 Lighting 데이터
+    const struct FLightingConstants* LightingData = nullptr;
+
     TArray<class UPrimitiveComponent*> AllPrimitives;
     TArray<class UStaticMeshComponent*> StaticMeshes;
     TArray<class UBillBoardComponent*> BillBoards;

@@ -83,6 +83,7 @@ void UStatOverlay::Render()
     if (IsStatEnabled(EStatType::Picking)) RenderPicking(D2DCtx);
     if (IsStatEnabled(EStatType::Time))    RenderTimeInfo(D2DCtx);
     if (IsStatEnabled(EStatType::Decal))  RenderDecal(D2DCtx);
+    if (IsStatEnabled(EStatType::Light))  RenderLight(D2DCtx);
 
     D2DCtx->EndDraw();
     D2DCtx->SetTarget(nullptr);
@@ -310,4 +311,43 @@ void UStatOverlay::RecordDecalMaterialStats(uint32 Seen, uint32 Binds)
 {
     DecalStats.MaterialSeen += Seen;
     DecalStats.MaterialBinds += Binds;
+}
+
+void UStatOverlay::RecordLightCullingStats(
+    uint32 InNumPointLights,
+    uint32 InNumSpotLights,
+    uint32 InActivePointLights,
+    uint32 InActiveSpotLights,
+    uint32 InPointLightMask,
+    uint32 InSpotLightMask
+)
+{
+    LightStats.NumPointLights = InNumPointLights;
+    LightStats.NumSpotLights = InNumSpotLights;
+    LightStats.ActivePointLights = InActivePointLights;
+    LightStats.ActiveSpotLights = InActiveSpotLights;
+    LightStats.PointLightMask = InPointLightMask;
+    LightStats.SpotLightMask = InSpotLightMask;
+}
+
+void UStatOverlay::RenderLight(ID2D1DeviceContext* D2DCtx)
+{
+    float OffsetY = 0.0f;
+    if (IsStatEnabled(EStatType::FPS))    OffsetY += 20.0f;
+    if (IsStatEnabled(EStatType::Memory)) OffsetY += 20.0f;
+    if (IsStatEnabled(EStatType::Picking)) OffsetY += 20.0f;
+    if (IsStatEnabled(EStatType::Decal))  OffsetY += 140.0f;
+
+    uint32 TotalLights = LightStats.NumPointLights + LightStats.NumSpotLights;
+    uint32 TotalActive = LightStats.ActivePointLights + LightStats.ActiveSpotLights;
+    uint32 CulledLights = TotalLights > TotalActive ? TotalLights - TotalActive : 0;
+
+    char Buf[256];
+    sprintf_s(Buf, sizeof(Buf), "Light Culling: %u / %u active (%u culled)",
+        TotalActive, TotalLights, CulledLights);
+
+    float TotalRatio = TotalLights > 0 ? static_cast<float>(TotalActive) / TotalLights : 0.0f;
+    float r = TotalRatio < 0.5f ? 0.5f : 1.0f;
+    float g = TotalRatio < 0.5f ? 1.0f : 0.5f;
+    RenderText(D2DCtx, Buf, OverlayX, OverlayY + OffsetY, r, g, 0.5f);
 }

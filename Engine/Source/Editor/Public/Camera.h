@@ -17,7 +17,7 @@ public:
 	static constexpr float MIN_SPEED = 10.0f;
 	static constexpr float MAX_SPEED = 70.0f;
 	static constexpr float DEFAULT_SPEED = 20.0f;
-	static constexpr float SPEED_ADJUST_STEP = 1.0f;
+	static constexpr float SPEED_ADJUST_STEP = 5.0f;
 
 	UCamera();
 	~UCamera() override;
