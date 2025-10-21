@@ -649,7 +649,6 @@ void URenderer::ReleaseBlendState()
 
 void URenderer::Update()
 {
-    // Pump shader hot reload apply queue
     UShaderHotReloader::GetInstance().Tick(*this);
     RenderBegin();
 

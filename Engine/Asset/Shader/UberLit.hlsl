@@ -338,6 +338,7 @@ PS_INPUT mainVS(VS_INPUT input)
     }
 
     Output.VertexColor = float4(TotalLight, 1.0);
+	//Output.VertexColor = float4(0, 0, 0, 1);
 #endif
 
     return Output;
