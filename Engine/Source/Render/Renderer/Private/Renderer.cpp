@@ -217,7 +217,7 @@ void URenderer::Init(HWND InWindowHandle)
 		);
 	RenderPasses.push_back(FogPass); // Forward 방식으로 RenderPasses에 추가
 
-	FSceneDepthPass* InSceneDepthPass = new FSceneDepthPass(
+	SceneDepthPass = new FSceneDepthPass(
 		Pipeline,
 		SceneColorRTV,
 		SceneDepthSRV,
@@ -227,9 +227,8 @@ void URenderer::Init(HWND InWindowHandle)
 		DepthTestAlwaysNoWriteState,
 		ConstantBufferSceneDepthProperties
 	);
-	SceneDepthPass = InSceneDepthPass;
 
-	FNormalPass* InNormalPass = new FNormalPass(
+	NormalPass = new FNormalPass(
 		Pipeline,
 		SceneColorRTV,
 		SceneNormalSRV,
@@ -239,7 +238,6 @@ void URenderer::Init(HWND InWindowHandle)
 		DepthTestAlwaysNoWriteState,
 		ConstantBufferNormalProperties
 		);
-	NormalPass = InNormalPass;
 
 	// // LightComplexityPass 생성
 	// FLightComplexityPass* InLightComplexityPass = new FLightComplexityPass(
@@ -477,7 +475,7 @@ void URenderer::CreateTextureShader()
 	                                          &TexturePixelShader);
 
 	// Lit Shaders
-	// Vertex Shader Layout (모든 UberLit 모드에서 공통 사용)
+	// Vertex Shader Layout (Normal Mapping 비사용 UberLit 모드에서 공통 사용)
 	TArray<D3D11_INPUT_ELEMENT_DESC> UberLitLayout =
 	{
 		{
@@ -488,6 +486,54 @@ void URenderer::CreateTextureShader()
 		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalVertex, Color), D3D11_INPUT_PER_VERTEX_DATA, 0},
 		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalVertex, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0}
 	};
+
+	// Vertex Shader Layout (Normal Mapping 사용 UberLit 모드에서 공통 사용)
+	TArray<D3D11_INPUT_ELEMENT_DESC> UberLitNormalMappingLayout =
+	{
+		{
+			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalMapping, NormalVertex.Position),
+			D3D11_INPUT_PER_VERTEX_DATA, 0
+		},
+		{"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalMapping, NormalVertex.Normal), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(FNormalMapping, NormalVertex.Color), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(FNormalMapping, NormalVertex.TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0},
+		// TBN 행렬의 세 행 (각각 float3)
+		{"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalMapping, Tangent), D3D11_INPUT_PER_VERTEX_DATA, 0},  // Tangent
+		{"TANGENT", 1, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalMapping, BiTangent), D3D11_INPUT_PER_VERTEX_DATA, 0},  // Bitangent
+		{"TANGENT", 2, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(FNormalMapping, TangentNormal), D3D11_INPUT_PER_VERTEX_DATA, 0}  // TBNNormal
+	};
+
+	/*ID3D11VertexShader* UberLitNormalMappingVertexShader = nullptr;
+	ID3D11InputLayout* UberLitNormalMappingInputLayout = nullptr;
+	ID3D11VertexShader* UberRambertNormalMappingPixelShader = nullptr;
+	ID3D11VertexShader* UberPhongNormalMappingPixelShader = nullptr;*/
+
+	// (VS에서 라이팅 계산. Normal_Mapping을 위해 TBN을 조합하여 PS로 넘겨줌)
+	D3D_SHADER_MACRO DefinesNormalMappingVS[] = {
+		{"NORMAL_MAPPING", "1"},
+		{nullptr, nullptr}
+	};
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+			L"Asset/Shader/UberLit.hlsl", UberLitNormalMappingLayout, DefinesNormalMappingVS,
+			&UberLitNormalMappingVertexShader, &UberLitNormalMappingInputLayout);
+
+	// Lambert Lit Normal Mapping Pixel Shader
+	D3D_SHADER_MACRO DefinesLambertNormalMappingPS[] = {
+		{"LIGHTING_MODEL_LAMBERT", "1"},
+		{"NORMAL_MAPPING", "1"},
+		{nullptr, nullptr}
+	};
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLit.hlsl", DefinesLambertNormalMappingPS,
+											  &UberLambertNormalMappingPixelShader);
+
+	// Blinn-Phong Lit Normal Mapping Pixel Shader
+	D3D_SHADER_MACRO DefinesPhongNormalMappingPS[] = {
+		{"LIGHTING_MODEL_PHONG", "1"},
+		{"NORMAL_MAPPING", "1"},
+		{nullptr, nullptr}
+	};
+	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLit.hlsl", DefinesPhongNormalMappingPS,
+											  &UberPhongNormalMappingPixelShader);
 
 	// Gouraud Vertex Shader (VS에서 라이팅 계산)
 	D3D_SHADER_MACRO DefinesGouraudVS[] = {
@@ -511,7 +557,7 @@ void URenderer::CreateTextureShader()
 		{nullptr, nullptr}
 	};
 	FRenderResourceFactory::CreatePixelShader(L"Asset/Shader/UberLit.hlsl", DefinesLambert,
-	                                          &TextureLitPixelShader);
+	                                          &TextureLambertPixelShader);
 
 	// Gouraud Shading Pixel Shader
 	D3D_SHADER_MACRO DefinesGouraud[] = {
@@ -589,10 +635,17 @@ void URenderer::ReleaseDefaultShader()
 	SafeRelease(UberLitVertexShader);
 	SafeRelease(UberLitGouraudInputLayout);
 	SafeRelease(UberLitGouraudVertexShader);
-	SafeRelease(TextureLitPixelShader);
+	SafeRelease(TextureLambertPixelShader);
 	SafeRelease(TextureGouraudPixelShader);
 	SafeRelease(TexturePhongPixelShader);
 	SafeRelease(TextureUnlitPixelShader);
+
+	// Normal Mapping Shaders
+	SafeRelease(UberLitNormalMappingVertexShader);
+	SafeRelease(UberLitNormalMappingInputLayout);
+	SafeRelease(UberLambertNormalMappingPixelShader);
+	SafeRelease(UberPhongNormalMappingPixelShader);
+
 	SafeRelease(DecalVertexShader);
 	SafeRelease(DecalPixelShader);
 }
@@ -671,8 +724,8 @@ void URenderer::Update()
 
 		// IMPORTANT: 각 viewport마다 Scene RT를 다시 바인딩
 		// (이전 viewport의 post-processing이 BackBuffer로 바인딩을 변경했으므로)
-		ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV};
-		GetDeviceContext()->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
+		ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV, SceneNormalRTV};
+		GetDeviceContext()->OMSetRenderTargets(2, SceneRtvs, SceneDepthDSV);
 		GetDeviceContext()->RSSetViewports(1, &ClientViewport);
 
 		{
@@ -698,6 +751,11 @@ void URenderer::Update()
 		{
 			// SceneDepth 모드: Depth 시각화로 덮어씀
 			SceneDepthPass->Execute(RenderingContext);
+		}
+		else if (RenderingContext.ViewMode == EViewModeIndex::VMI_Normal)
+		{
+			// Normal 모드: Normal 시각화
+			NormalPass->Execute(RenderingContext);
 		}
 		// else if (RenderingContext.ViewMode == EViewModeIndex::VMI_LightComplexity)
 		// {
@@ -743,13 +801,14 @@ void URenderer::RenderBegin() const
 	GetDeviceContext()->ClearRenderTargetView(BackBufferRTV, ClearColor);
 	GetDeviceContext()->ClearDepthStencilView(BackBufferDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-	// Scene RT 정리 및 바인딩 (Scene Color + Scene Depth)
+	// Scene RT 정리 및 바인딩 (Scene Color + Scene Normal + Scene Depth)
 	// 이후 각 ViewportClient가 Scene RT의 해당 영역에 렌더링함
 	GetDeviceContext()->ClearRenderTargetView(SceneColorRTV, ClearColor);
+	GetDeviceContext()->ClearRenderTargetView(SceneNormalRTV, ClearColor);
 	GetDeviceContext()->ClearDepthStencilView(SceneDepthDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-	ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV};
-	GetDeviceContext()->OMSetRenderTargets(1, SceneRtvs, SceneDepthDSV);
+	ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV, SceneNormalRTV};
+	GetDeviceContext()->OMSetRenderTargets(2, SceneRtvs, SceneDepthDSV);
 
 	DeviceResources->UpdateViewport();
 }

@@ -536,7 +536,7 @@ bool FObjImporter::LoadMaterial(const std::filesystem::path& FilePath, FObjInfo*
 				return false;
 			}
 		}
-		else if (Prefix == "map_bump" || Prefix == "bump")
+		else if (Prefix == "map_bump" || Prefix == "map_Bump" || Prefix == "bump")
 		{
 			if (!OptMaterialInfo)
 			{

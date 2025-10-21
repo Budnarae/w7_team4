@@ -58,47 +58,6 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	}
 	ID3D11RasterizerState* RS = FRenderResourceFactory::GetRasterizerState(RenderState);
 
-	// Select shaders based on ViewMode
-	ID3D11VertexShader* SelectedVS = VS;
-	ID3D11PixelShader* SelectedPS = PS;
-	ID3D11InputLayout* SelectedLayout = InputLayout;
-
-	auto& Renderer = URenderer::GetInstance();
-	switch (Context.ViewMode)
-	{
-	case EViewModeIndex::VMI_Lit_Lambert:
-		SelectedVS = Renderer.GetUberLitVertexShader();
-		SelectedPS = Renderer.GetTextureLitPixelShader();
-		SelectedLayout = Renderer.GetUberLitInputLayout();
-		break;
-	case EViewModeIndex::VMI_Lit_Gouraud:
-		SelectedVS = Renderer.GetUberLitGouraudVertexShader();
-		SelectedPS = Renderer.GetTextureGouraudPixelShader();
-		SelectedLayout = Renderer.GetUberLitGouraudInputLayout();
-		break;
-	case EViewModeIndex::VMI_Lit_Blinn_Phong:
-		SelectedVS = Renderer.GetUberLitVertexShader();
-		SelectedPS = Renderer.GetTexturePhongPixelShader();
-		SelectedLayout = Renderer.GetUberLitInputLayout();
-		break;
-	case EViewModeIndex::VMI_Unlit:
-		SelectedVS = Renderer.GetUberLitVertexShader();
-		SelectedPS = Renderer.GetTextureUnlitPixelShader();
-		SelectedLayout = Renderer.GetUberLitInputLayout();
-		break;
-	case EViewModeIndex::VMI_SceneDepth:
-		// SceneDepthPass가 최종 시각화를 담당
-		// StaticMeshPass는 일반 렌더링으로 Depth 버퍼에만 기록
-		break;
-	case EViewModeIndex::VMI_Wireframe:
-		// Wireframe은 PS 필요 없음
-		break;
-	default:
-		break;
-	}
-
-	FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, RS, DS, SelectedPS, nullptr };
-	Pipeline->UpdatePipeline(PipelineInfo);
 
 	// ViewProj cbuffer 업데이트 및 바인딩
 	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferViewProj, *Context.ViewProjConstants);
@@ -111,6 +70,13 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 		Pipeline->SetConstantBuffer(3, true, ConstantBufferLighting);
 		Pipeline->SetConstantBuffer(3, false, ConstantBufferLighting);
 	}
+
+	// Select shaders based on ViewMode
+	ID3D11VertexShader* SelectedVS = VS;
+	ID3D11PixelShader* SelectedPS = PS;
+	ID3D11InputLayout* SelectedLayout = InputLayout;
+
+	auto& Renderer = URenderer::GetInstance();
 
 	for (UStaticMeshComponent* MeshComp : MeshComponents)
 	{
@@ -192,12 +158,204 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 						Pipeline->SetTexture(2, false, Proxy->GetSRV());
 					}
 				}
-				if (UTexture* NormalTexture = Material->GetNormalTexture())
+				if (UTexture* NormalTexture = Material->GetBumpTexture())
 				{
 					if(auto* Proxy = NormalTexture->GetRenderProxy())
 					{
 						MaterialConstants.MaterialFlags |= (1 << 3); // HAS_NORMAL_MAP
 						Pipeline->SetTexture(3, false, Proxy->GetSRV());
+					}
+
+					// Normal Mapping을 위한 셰이더 선택
+					bool bUseNormalMapping = false;
+					if (Context.ViewMode == EViewModeIndex::VMI_Lit_Lambert)
+					{
+						SelectedVS = Renderer.GetUberLitNormalMappingVertexShader();
+						SelectedPS = Renderer.GetUberLambertNormalMappingPixelShader();
+						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
+						bUseNormalMapping = true;
+					}
+					else if (Context.ViewMode == EViewModeIndex::VMI_Lit_Blinn_Phong)
+					{
+						SelectedVS = Renderer.GetUberLitNormalMappingVertexShader();
+						SelectedPS = Renderer.GetUberPhongNormalMappingPixelShader();
+						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
+						bUseNormalMapping = true;
+					}
+					else if (Context.ViewMode == EViewModeIndex::VMI_Normal)
+					{
+						SelectedVS = Renderer.GetUberLitNormalMappingVertexShader();
+						SelectedPS = Renderer.GetUberPhongNormalMappingPixelShader();
+						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
+						bUseNormalMapping = true;
+					}
+					else if (Context.ViewMode == EViewModeIndex::VMI_Lit_Gouraud)
+					{
+						SelectedVS = Renderer.GetUberLitGouraudVertexShader();
+						SelectedPS = Renderer.GetTextureGouraudPixelShader();
+						SelectedLayout = Renderer.GetUberLitGouraudInputLayout();
+					}
+					else if (Context.ViewMode == EViewModeIndex::VMI_Unlit)
+					{
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTextureUnlitPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
+					}
+
+					// Normal Mapping 사용 시 TBN을 포함한 확장 버텍스 버퍼 생성
+					if (bUseNormalMapping)
+					{
+						// FNormalVertex 데이터 읽기
+						const TArray<FNormalVertex>& OriginalVertices = MeshAsset->Vertices;
+						const TArray<uint32>& Indices = MeshAsset->Indices;
+						TArray<FNormalMapping> NormalMappingVertices;
+						NormalMappingVertices.resize(OriginalVertices.size());
+
+						// 각 버텍스의 TBN 초기화
+						TArray<FVector> Tangents(OriginalVertices.size(), FVector::ZeroVector());
+						TArray<FVector> Bitangents(OriginalVertices.size(), FVector::ZeroVector());
+
+						// 삼각형 단위로 Tangent와 Bitangent 계산 (UV gradient 기반)
+						for (size_t i = 0; i < Indices.size(); i += 3)
+						{
+							uint32 i0 = Indices[i];
+							uint32 i1 = Indices[i + 1];
+							uint32 i2 = Indices[i + 2];
+
+							const FNormalVertex& v0 = OriginalVertices[i0];
+							const FNormalVertex& v1 = OriginalVertices[i1];
+							const FNormalVertex& v2 = OriginalVertices[i2];
+
+							// Edge vectors
+							FVector Edge1 = v1.Position - v0.Position;
+							FVector Edge2 = v2.Position - v0.Position;
+
+							// UV deltas
+							FVector2 DeltaUV1 = v1.TexCoord - v0.TexCoord;
+							FVector2 DeltaUV2 = v2.TexCoord - v0.TexCoord;
+
+							// Tangent와 Bitangent 계산
+							float f = DeltaUV1.X * DeltaUV2.Y - DeltaUV2.X * DeltaUV1.Y;
+
+							FVector Tangent, Bitangent;
+							if (fabs(f) > 1e-6f)
+							{
+								f = 1.0f / f;
+								Tangent.X = f * (DeltaUV2.Y * Edge1.X - DeltaUV1.Y * Edge2.X);
+								Tangent.Y = f * (DeltaUV2.Y * Edge1.Y - DeltaUV1.Y * Edge2.Y);
+								Tangent.Z = f * (DeltaUV2.Y * Edge1.Z - DeltaUV1.Y * Edge2.Z);
+
+								Bitangent.X = f * (-DeltaUV2.X * Edge1.X + DeltaUV1.X * Edge2.X);
+								Bitangent.Y = f * (-DeltaUV2.X * Edge1.Y + DeltaUV1.X * Edge2.Y);
+								Bitangent.Z = f * (-DeltaUV2.X * Edge1.Z + DeltaUV1.X * Edge2.Z);
+							}
+							else
+							{
+								// Degenerate UV case: fallback to arbitrary tangent
+								FVector N = v0.Normal;
+								N.Normalize();
+								// 오른손 좌표계 유지
+								Tangent = (fabs(N.X) < 0.9f) ? N.Cross(FVector(0, 0, 1)) : N.Cross(FVector(1, 0, 0));
+								Tangent.Normalize();
+								Bitangent = Tangent.Cross(N);
+							}
+
+							// 세 버텍스에 누적 (평균을 위해)
+							Tangents[i0] = Tangents[i0] + Tangent;
+							Tangents[i1] = Tangents[i1] + Tangent;
+							Tangents[i2] = Tangents[i2] + Tangent;
+
+							Bitangents[i0] = Bitangents[i0] + Bitangent;
+							Bitangents[i1] = Bitangents[i1] + Bitangent;
+							Bitangents[i2] = Bitangents[i2] + Bitangent;
+						}
+
+						// 각 버텍스에 대해 정규화 및 Gram-Schmidt 직교화
+						for (size_t i = 0; i < OriginalVertices.size(); ++i)
+						{
+							const FNormalVertex& Vertex = OriginalVertices[i];
+							FNormalMapping& NMVertex = NormalMappingVertices[i];
+							NMVertex.NormalVertex = Vertex;
+
+							FVector Normal = Vertex.Normal;
+							Normal.Normalize();
+
+							FVector Tangent = Tangents[i];
+							Tangent.Normalize();
+
+							// Gram-Schmidt 직교화: T' = T - (N·T)N
+							Tangent = Tangent - Normal * Normal.Dot(Tangent);
+							Tangent.Normalize();
+
+							// Bitangent 재계산 (일관성 보장) - 오른손 좌표계
+							FVector Bitangent = Tangent.Cross(Normal);
+							Bitangent.Normalize();
+
+							NMVertex.Tangent = Tangent;
+							NMVertex.BiTangent = Bitangent;
+							NMVertex.TangentNormal = Normal;
+						}
+
+						// 동적 버텍스 버퍼 생성
+						ID3D11Buffer* TempNormalMappingVB = nullptr;
+						D3D11_BUFFER_DESC vbDesc = {};
+						vbDesc.Usage = D3D11_USAGE_DYNAMIC;
+						vbDesc.ByteWidth = static_cast<UINT>(sizeof(FNormalMapping) * NormalMappingVertices.size());
+						vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+						vbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+						D3D11_SUBRESOURCE_DATA initData = {};
+						initData.pSysMem = NormalMappingVertices.data();
+
+						ID3D11Device* Device = nullptr;
+						Pipeline->GetContext()->GetDevice(&Device);
+						if (Device && SUCCEEDED(Device->CreateBuffer(&vbDesc, &initData, &TempNormalMappingVB)))
+						{
+							Pipeline->SetVertexBuffer(TempNormalMappingVB, sizeof(FNormalMapping));
+							TempNormalMappingVB->Release(); // SetVertexBuffer가 참조 증가시키므로 즉시 Release
+						}
+						if (Device) Device->Release();
+					}
+				}
+				else
+				{
+					switch (Context.ViewMode)
+					{
+					case EViewModeIndex::VMI_Lit_Lambert:
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTextureLambertPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
+						break;
+					case EViewModeIndex::VMI_Lit_Gouraud:
+						SelectedVS = Renderer.GetUberLitGouraudVertexShader();
+						SelectedPS = Renderer.GetTextureGouraudPixelShader();
+						SelectedLayout = Renderer.GetUberLitGouraudInputLayout();
+						break;
+					case EViewModeIndex::VMI_Lit_Blinn_Phong:
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTexturePhongPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
+						break;
+					case EViewModeIndex::VMI_Normal:
+						// Normal Map이 없으면 Vertex Normal을 사용하는 일반 쉐이더
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTexturePhongPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
+						break;
+					case EViewModeIndex::VMI_Unlit:
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTextureUnlitPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
+						break;
+					case EViewModeIndex::VMI_SceneDepth:
+						// SceneDepthPass가 최종 시각화를 담당
+						// StaticMeshPass는 일반 렌더링으로 Depth 버퍼에만 기록
+						break;
+					case EViewModeIndex::VMI_Wireframe:
+						// Wireframe은 PS 필요 없음
+						break;
+					default:
+						break;
 					}
 				}
 				if (UTexture* AlphaTexture = Material->GetAlphaTexture())
@@ -214,6 +372,9 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 
 				CurrentMaterial = Material;
 			}
+			FPipelineInfo PipelineInfo = { SelectedLayout, SelectedVS, RS, DS, SelectedPS, nullptr };
+			Pipeline->UpdatePipeline(PipelineInfo);
+
 			Pipeline->DrawIndexed(Section.IndexCount, Section.StartIndex, 0);
 		}
 	}

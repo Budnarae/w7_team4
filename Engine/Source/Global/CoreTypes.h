@@ -124,6 +124,14 @@ struct FNormalVertex
 	FVector2 TexCoord;
 };
 
+struct FNormalMapping
+{
+	FNormalVertex NormalVertex;
+	FVector Tangent;
+	FVector BiTangent;
+	FVector TangentNormal;
+};
+
 struct FRay
 {
 	FVector4 Origin;
