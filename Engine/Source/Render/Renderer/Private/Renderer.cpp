@@ -130,7 +130,7 @@ void URenderer::Init(HWND InWindowHandle)
 			TextureVertexShader,
 			TexturePixelShader,
 			TextureInputLayout,
-			DefaultDepthStencilState
+			DebugLineDepthState
 			);
 	RenderPasses.push_back(StaticMeshPass);
 
@@ -145,7 +145,7 @@ void URenderer::Init(HWND InWindowHandle)
 			DefaultVertexShader,
 			DefaultPixelShader,
 			DefaultInputLayout,
-			DefaultDepthStencilState
+			DebugLineDepthState
 			);
 	RenderPasses.push_back(PrimitivePass);
 

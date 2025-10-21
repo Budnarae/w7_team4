@@ -80,14 +80,10 @@ float3 ScreenToView(float2 ScreenPos, float Depth)
 // ViewSpaceCenter.z는 View Space Z (Left-handed: 카메라 앞이 양수)
 bool SphereIntersectsFrustum(float3 ViewSpaceCenter, float Radius, float MinDepthValue, float MaxDepthValue, float2 TileMin, float2 TileMax)
 {
-    // 1. 카메라 뒤 체크 (Left-handed: 카메라 뒤는 음수)
-    if (ViewSpaceCenter.z < 0.0)
-    {
-        return false;
-    }
+    // 카메라 뒤 체크 제거
+    // Light의 영향 범위(Radius)가 카메라 앞까지 닿을 수 있으므로
+    // 단순히 Light Center가 뒤에 있다고 Culling하면 안됨
 
-    // 2. Depth 범위 체크 (타일의 Min/Max Depth 사용)
-    // Left-handed view space: 카메라 앞(+Z)이 양수이므로 그대로 사용
     float LightViewZ = ViewSpaceCenter.z;
 
     // Perspective projection depth 값을 View Space Z로 정확히 역변환
@@ -95,19 +91,23 @@ bool SphereIntersectsFrustum(float3 ViewSpaceCenter, float Radius, float MinDept
     float TileMinZ = (NearPlane * FarPlane) / (FarPlane - MinDepthValue * (FarPlane - NearPlane));
     float TileMaxZ = (NearPlane * FarPlane) / (FarPlane - MaxDepthValue * (FarPlane - NearPlane));
 
-    // Light Sphere가 타일의 Depth 범위와 겹치는지 체크
+    // Light Sphere의 depth 범위 (Radius 고려)
     float LightNearZ = LightViewZ - Radius;
     float LightFarZ = LightViewZ + Radius;
 
-    // 범위가 겹치지 않으면 컬링
+    // Light Sphere가 카메라 앞 영역과 겹치는지 체크
+    // LightFarZ > 0 이면 Light가 카메라 앞까지 영향을 줌
+    if (LightFarZ < 0.0)
+    {
+        return false; // Light 전체가 카메라 뒤라면 컬링
+    }
+
+    // 타일의 Depth 범위와 겹치는지 체크
     if (LightFarZ < TileMinZ || LightNearZ > TileMaxZ)
     {
         return false;
     }
 
-    // 3. XY 평면 충돌 검사는 생략 (타일 단위로 매우 보수적 처리)
-    // Forward+의 정확한 구현을 위해서는 Screen Space에서 Light Sphere 투영 필요
-    // 현재는 Depth만으로 충분히 컬링되므로 추후 최적화
     return true;
 }
 
@@ -126,7 +126,7 @@ void CS_Main(
     uint GroupIndex : SV_GroupIndex
 )
 {
-    // 1단계: 각 스레드가 Depth 읽기 (Out-of-Bounds 안전)
+    // 각 스레드가 Depth 읽기 (Out-of-Bounds 안전)
     uint2 PixelPos = DispatchThreadID.xy;
     float Depth = 1.0; // 기본값: Far plane
 
@@ -140,7 +140,7 @@ void CS_Main(
 
     GroupMemoryBarrierWithGroupSync();
 
-    // 2단계: Parallel Reduction으로 Min/Max 계산 (첫 번째 스레드만)
+    // Parallel Reduction으로 Min/Max 계산 (첫 번째 스레드만)
     if (GroupIndex == 0)
     {
         float MinDepth = 1.0;
@@ -159,15 +159,13 @@ void CS_Main(
 
     GroupMemoryBarrierWithGroupSync();
 
-    // 3단계: 타일의 Frustum 계산 (코너 4개의 View Space 좌표)
+    // 타일의 Frustum 계산 (코너 4개의 View Space 좌표)
     float MinDepth = SharedMinDepth;
     float MaxDepth = SharedMaxDepth;
 
     // 타일의 화면 공간 경계
     float2 TileMin = float2(GroupID.xy) * TILE_SIZE;
     float2 TileMax = TileMin + TILE_SIZE;
-
-    // 4단계: Light Culling (각 스레드가 일부 Light를 담당)
 
     // Point Lights Culling
     for (uint i = GroupIndex; i < NumPointLights; i += TILE_THREAD_COUNT)

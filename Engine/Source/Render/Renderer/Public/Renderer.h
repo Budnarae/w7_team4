@@ -95,6 +95,7 @@ public:
 	ID3D11DepthStencilState* GetDefaultDepthStencilState() const { return DefaultDepthStencilState; }
 	ID3D11DepthStencilState* GetDisabledDepthStencilState() const { return DisabledDepthStencilState; }
 	ID3D11DepthStencilState* GetDepthTestAlwaysNoWriteState() const { return DepthTestAlwaysNoWriteState; }
+	ID3D11DepthStencilState* GetDebugLineDepthState() const { return DebugLineDepthState; }
 	ID3D11BlendState* GetAlphaBlendState() const { return AlphaBlendState; }
 	ID3D11BlendState* GetAdditiveBlendState() const { return AdditiveBlendState; }
 	ID3D11BlendState* GetFireBallBlendState() const { return FireBallBlendState; }

@@ -46,10 +46,16 @@ void FDepthPrePass::Execute(FRenderingContext& Context)
 	// Context.Viewport는 RenderLevel에서 설정됨
 	Pipeline->GetContext()->RSSetViewports(1, &Context.Viewport);
 
+	// DepthPrePass용 RenderState
+	FRenderState DepthRenderState;
+	DepthRenderState.CullMode = ECullMode::Back;
+	DepthRenderState.FillMode = EFillMode::Solid;
+	ID3D11RasterizerState* DepthRS = FRenderResourceFactory::GetRasterizerState(DepthRenderState);
+
 	FPipelineInfo PipelineInfo = {
 		DepthLayout,
 		DepthVS,
-		nullptr, // Rasterizer는 기본값 사용
+		DepthRS,  // Rasterizer 명시적 설정
 		DepthState,
 		DepthPS,
 		nullptr, // Blend State 불필요
