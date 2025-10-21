@@ -4,6 +4,7 @@
 #include "Editor/Public/Camera.h"
 #include "Render/Renderer/Public/Renderer.h"
 #include "Render/Renderer/Public/RenderResourceFactory.h"
+#include "Render/UI/Overlay/Public/StatOverlay.h"
 
 FLightCullingPass::FLightCullingPass(
 	UPipeline* InPipeline,
@@ -20,7 +21,7 @@ FLightCullingPass::FLightCullingPass(
 		L"Asset/Shader/LightCulling.hlsl",
 		nullptr,
 		D3D_COMPILE_STANDARD_FILE_INCLUDE,
-		"CS_Main",
+		"mainCS",
 		"cs_5_0",
 		0,
 		0,
@@ -61,32 +62,36 @@ void FLightCullingPass::CreateResources(uint32 InScreenWidth, uint32 InScreenHei
 
 	auto* Device = URenderer::GetInstance().GetDevice();
 
-	// Usage Mask Buffer 생성 (2개 uint: PointMask, SpotMask)
+	// Tile Light Mask Buffer 생성 (타일 개수 × 2: PointMask, SpotMask per tile)
+	uint32 TotalTiles = NumTilesX * NumTilesY;
+	uint32 MaskBufferSize = TotalTiles * 2;  // 각 타일당 2개 uint32
+
 	D3D11_BUFFER_DESC BufferDesc = {};
-	BufferDesc.ByteWidth = sizeof(uint32) * 2;
+	BufferDesc.ByteWidth = sizeof(uint32) * MaskBufferSize;
 	BufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	BufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	BufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;  // UAV + SRV
 	BufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 	BufferDesc.StructureByteStride = sizeof(uint32);
 
-	Device->CreateBuffer(&BufferDesc, nullptr, &UsageMaskBuffer);
+	Device->CreateBuffer(&BufferDesc, nullptr, &TileLightMaskBuffer);
 
-	// UAV 생성
+	// UAV 생성 (Compute Shader 출력용)
 	D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {};
 	UAVDesc.Format = DXGI_FORMAT_UNKNOWN;
 	UAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
 	UAVDesc.Buffer.FirstElement = 0;
-	UAVDesc.Buffer.NumElements = 2;
+	UAVDesc.Buffer.NumElements = MaskBufferSize;
 
-	Device->CreateUnorderedAccessView(UsageMaskBuffer, &UAVDesc, &UsageMaskUAV);
+	Device->CreateUnorderedAccessView(TileLightMaskBuffer, &UAVDesc, &TileLightMaskUAV);
 
-	// Staging Buffer 생성 (CPU Readback용)
-	D3D11_BUFFER_DESC StagingDesc = {};
-	StagingDesc.ByteWidth = sizeof(uint32) * 2;
-	StagingDesc.Usage = D3D11_USAGE_STAGING;
-	StagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	// SRV 생성 (Pixel Shader 입력용)
+	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+	SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	SRVDesc.Buffer.FirstElement = 0;
+	SRVDesc.Buffer.NumElements = MaskBufferSize;
 
-	Device->CreateBuffer(&StagingDesc, nullptr, &UsageMaskStagingBuffer);
+	Device->CreateShaderResourceView(TileLightMaskBuffer, &SRVDesc, &TileLightMaskSRV);
 
 	// Point Light StructuredBuffer 생성
 	// (매 프레임 업데이트되므로 DYNAMIC 사용)
@@ -129,7 +134,7 @@ void FLightCullingPass::CreateResources(uint32 InScreenWidth, uint32 InScreenHei
 void FLightCullingPass::Execute(FRenderingContext& Context)
 {
 	// 필수 리소스 유효성 검사
-	if (!ComputeShader || !UsageMaskUAV || !ConstantBufferLightCulling)
+	if (!ComputeShader || !TileLightMaskUAV || !ConstantBufferLightCulling)
 	{
 		return;
 	}
@@ -156,9 +161,9 @@ void FLightCullingPass::Execute(FRenderingContext& Context)
 	DeviceContext->PSSetShaderResources(0, 8, NullGraphicsSRVs);
 	DeviceContext->VSSetShaderResources(0, 8, NullGraphicsSRVs);
 
-	// Usage Mask를 0으로 클리어
+	// Tile Light Mask를 0으로 클리어
 	UINT ClearValues[4] = {0, 0, 0, 0};
-	DeviceContext->ClearUnorderedAccessViewUint(UsageMaskUAV, ClearValues);
+	DeviceContext->ClearUnorderedAccessViewUint(TileLightMaskUAV, ClearValues);
 
 	// Scene Depth SRV 가져오기 (이제 DSV가 언바인딩되어 안전하게 읽기 가능)
 	SceneDepthSRV = URenderer::GetInstance().GetSceneDepthSRV();
@@ -239,7 +244,7 @@ void FLightCullingPass::Execute(FRenderingContext& Context)
 
 	// 출력 리소스 바인딩
 	UINT InitialCounts[] = { 0 };
-	DeviceContext->CSSetUnorderedAccessViews(0, 1, &UsageMaskUAV, InitialCounts);
+	DeviceContext->CSSetUnorderedAccessViews(0, 1, &TileLightMaskUAV, InitialCounts);
 
 	// Dispatch
 	DeviceContext->Dispatch(NumTilesX, NumTilesY, 1);
@@ -253,40 +258,11 @@ void FLightCullingPass::Execute(FRenderingContext& Context)
 
 	DeviceContext->CSSetShader(nullptr, nullptr, 0);
 
-	// ============================================================================
-	// WARNING: 동기식 (Synchronous) CPU Readback - TDR 위험!
-	// ============================================================================
-	// Dispatch() 직후 Map(D3D11_MAP_READ)는 CPU 스톨을 유발하며,
-	// 컴퓨트 셰이더가 2초 안에 끝나지 않으면 TDR (Timeout Detection and Recovery) 발생 가능.
-	//
-	// ** 권장 개선 방법 (향후 적용): **
-	// 1. Staging Buffer를 2개(핑퐁)로 만들기
-	// 2. 프레임 N에서 Dispatch → CopyResource(StagingBuffer[N % 2])
-	// 3. 프레임 N에서 Map(StagingBuffer[(N+1) % 2]) → N-1 프레임 결과 읽기
-	// 4. 이렇게 하면 CPU는 GPU를 기다리지 않고 1프레임 전 데이터 사용 (스톨 제거)
-	//
-	// 현재는 단순 구현으로 유지하되, 라이트가 많거나 화면이 크면 TDR 주의!
-	// ============================================================================
-
-	// 결과를 Staging Buffer로 복사하고 CPU에서 읽기 (동기식)
-	DeviceContext->CopyResource(UsageMaskStagingBuffer, UsageMaskBuffer);
-
-	D3D11_MAPPED_SUBRESOURCE MappedResource = {};
-	if (SUCCEEDED(DeviceContext->Map(UsageMaskStagingBuffer, 0, D3D11_MAP_READ, 0, &MappedResource)))
-	{
-		uint32* Masks = static_cast<uint32*>(MappedResource.pData);
-		if (Context.LightingData)
-		{
-			// 비상수 포인터로 캐스팅하여 마스크 설정
-			FLightingConstants* LightingData = const_cast<FLightingConstants*>(Context.LightingData);
-			LightingData->PointLightUsageMask = Masks[0];
-			LightingData->SpotLightUsageMask = Masks[1];
-
-			// 마스크 업데이트 후 Constant Buffer 재업데이트 (다음 Pass들이 사용)
-			FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferLighting, *LightingData);
-		}
-		DeviceContext->Unmap(UsageMaskStagingBuffer, 0);
-	}
+	// Light Culling 통계 기록
+	UStatOverlay::GetInstance().RecordLightCullingStats(
+		Constants.NumPointLights,
+		Constants.NumSpotLights
+	);
 }
 
 void FLightCullingPass::Release()
@@ -299,20 +275,13 @@ void FLightCullingPass::Release()
 
 void FLightCullingPass::ReleaseResources()
 {
-	SafeRelease(UsageMaskBuffer);
-	SafeRelease(UsageMaskUAV);
-	SafeRelease(UsageMaskStagingBuffer);
+	SafeRelease(TileLightMaskBuffer);
+	SafeRelease(TileLightMaskUAV);
+	SafeRelease(TileLightMaskSRV);
 
 	SafeRelease(PointLightBuffer);
 	SafeRelease(PointLightSRV);
 
 	SafeRelease(SpotLightBuffer);
 	SafeRelease(SpotLightSRV);
-}
-
-void FLightCullingPass::ReadUsageMasks(uint32& OutPointMask, uint32& OutSpotMask)
-{
-	// Execute에서 이미 LightingData에 설정하므로 이 함수는 불필요
-	OutPointMask = 0;
-	OutSpotMask = 0;
 }

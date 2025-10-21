@@ -47,14 +47,8 @@ public:
 	void RecordDecalMaterialStats(uint32 Seen, uint32 Binds);
 
 	// API to update Light Culling stats
-	void RecordLightCullingStats(
-		uint32 InNumPointLights,
-		uint32 InNumSpotLights,
-		uint32 InActivePointLights,
-		uint32 InActiveSpotLights,
-		uint32 InPointLightMask,
-		uint32 InSpotLightMask
-	);
+	void RecordLightCullingStats(uint32 InNumPointLights, uint32 InNumSpotLights);
+
 private:
 	void RenderFPS(ID2D1DeviceContext* d2dCtx);
 	void RenderMemory(ID2D1DeviceContext* d2dCtx);
@@ -96,7 +90,6 @@ private:
 	bool IsStatEnabled(EStatType InStatType) const;
 
 	IDWriteTextFormat* TextFormat = nullptr;
-	
 	IDWriteFactory* DWriteFactory = nullptr;
 
 	struct FDecalStats {

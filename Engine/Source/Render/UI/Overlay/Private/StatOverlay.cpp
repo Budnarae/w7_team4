@@ -315,19 +315,15 @@ void UStatOverlay::RecordDecalMaterialStats(uint32 Seen, uint32 Binds)
 
 void UStatOverlay::RecordLightCullingStats(
     uint32 InNumPointLights,
-    uint32 InNumSpotLights,
-    uint32 InActivePointLights,
-    uint32 InActiveSpotLights,
-    uint32 InPointLightMask,
-    uint32 InSpotLightMask
+    uint32 InNumSpotLights
 )
 {
     LightStats.NumPointLights = InNumPointLights;
     LightStats.NumSpotLights = InNumSpotLights;
-    LightStats.ActivePointLights = InActivePointLights;
-    LightStats.ActiveSpotLights = InActiveSpotLights;
-    LightStats.PointLightMask = InPointLightMask;
-    LightStats.SpotLightMask = InSpotLightMask;
+    LightStats.ActivePointLights = InNumPointLights;
+    LightStats.ActiveSpotLights = InNumSpotLights;
+    LightStats.PointLightMask = 0;
+    LightStats.SpotLightMask = 0;
 }
 
 void UStatOverlay::RenderLight(ID2D1DeviceContext* D2DCtx)

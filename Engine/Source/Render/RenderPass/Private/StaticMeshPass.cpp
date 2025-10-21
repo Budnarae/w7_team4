@@ -5,6 +5,7 @@
 #include "Render/Renderer/Public/RenderResourceFactory.h"
 #include "Texture/Public/Texture.h"
 #include "Texture/Public/TextureRenderProxy.h"
+#include "Render/RenderPass/Public/LightCullingPass.h"
 
 FStaticMeshPass::FStaticMeshPass(
 	UPipeline* InPipeline,
@@ -29,10 +30,13 @@ FStaticMeshPass::FStaticMeshPass(
 	DS(InDS)
 {
 	ConstantBufferMaterial = FRenderResourceFactory::CreateConstantBuffer<FMaterialConstants>();
+	ConstantBufferSceneInfo = FRenderResourceFactory::CreateConstantBuffer<FSceneInfoConstants>();
 }
 
 void FStaticMeshPass::Execute(FRenderingContext& Context)
 {
+	auto& Renderer = URenderer::GetInstance();
+
 	// 첫번째 Target에는 Color, 두번째 Target에는 Normal을 내보냄.
 	ID3D11RenderTargetView* RTVs[] = {SceneColorRTV, SceneNormalRTV};
 	Pipeline->GetContext()->OMSetRenderTargets(2, RTVs, SceneDepthDSV);
@@ -58,7 +62,6 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 	}
 	ID3D11RasterizerState* RS = FRenderResourceFactory::GetRasterizerState(RenderState);
 
-
 	// ViewProj cbuffer 업데이트 및 바인딩
 	FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferViewProj, *Context.ViewProjConstants);
 	Pipeline->SetConstantBuffer(1, true, ConstantBufferViewProj);
@@ -71,12 +74,33 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 		Pipeline->SetConstantBuffer(3, false, ConstantBufferLighting);
 	}
 
+	// SceneInfo cbuffer 업데이트 및 바인딩
+	if (ConstantBufferSceneInfo)
+	{
+		FSceneInfoConstants SceneInfo = {};
+		SceneInfo.ViewportTopLeft = FVector2(Context.Viewport.TopLeftX, Context.Viewport.TopLeftY);
+		SceneInfo.ViewportSize = FVector2(Context.Viewport.Width, Context.Viewport.Height);
+		SceneInfo.SceneRTSize = Context.SceneRTSize;
+		SceneInfo._Padding = FVector2(0.0f, 0.0f);
+
+		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferSceneInfo, SceneInfo);
+		Pipeline->SetConstantBuffer(4, true, ConstantBufferSceneInfo);
+		Pipeline->SetConstantBuffer(4, false, ConstantBufferSceneInfo);
+	}
+
+	// Tile Light Mask SRV 바인딩
+	if (auto* LightCullingPass = Renderer.GetLightCullingPass())
+	{
+		if (auto* TileLightMaskSRV = LightCullingPass->GetTileLightMaskSRV())
+		{
+			Pipeline->SetTexture(5, false, TileLightMaskSRV);
+		}
+	}
+
 	// Select shaders based on ViewMode
 	ID3D11VertexShader* SelectedVS = VS;
 	ID3D11PixelShader* SelectedPS = PS;
 	ID3D11InputLayout* SelectedLayout = InputLayout;
-
-	auto& Renderer = URenderer::GetInstance();
 
 	for (UStaticMeshComponent* MeshComp : MeshComponents)
 	{
@@ -388,4 +412,5 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 void FStaticMeshPass::Release()
 {
 	SafeRelease(ConstantBufferMaterial);
+	SafeRelease(ConstantBufferSceneInfo);
 }

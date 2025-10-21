@@ -220,7 +220,7 @@ void UMainBarWidget::RenderViewMenu()
 		bool bIsWireframe = CurrentMode == EViewModeIndex::VMI_Wireframe;
 		bool bIsSceneDepth = CurrentMode == EViewModeIndex::VMI_SceneDepth;
 		bool bIsNormal = CurrentMode == EViewModeIndex::VMI_Normal;
-		// bool bIsLightComplexity = CurrentMode == EViewModeIndex::VMI_LightComplexity;
+		bool bIsLightComplexity = CurrentMode == EViewModeIndex::VMI_LightComplexity;
 
 		// "Lit"을 하위 메뉴로 변경
 		if (ImGui::BeginMenu("Lit"))
@@ -275,11 +275,11 @@ void UMainBarWidget::RenderViewMenu()
 			UE_LOG("MainBarWidget: ViewMode를 Normal으로 변경");
 		}
 
-		// if (ImGui::MenuItem("Light Complexity", nullptr, bIsLightComplexity) && !bIsLightComplexity)
-		// {
-		// 	EditorInstance->SetViewMode(EViewModeIndex::VMI_LightComplexity);
-		// 	UE_LOG("MainBarWidget: ViewMode를 Light Complexity로 변경");
-		// }
+		if (ImGui::MenuItem("Light Complexity", nullptr, bIsLightComplexity) && !bIsLightComplexity)
+		{
+			EditorInstance->SetViewMode(EViewModeIndex::VMI_LightComplexity);
+			UE_LOG("MainBarWidget: ViewMode를 Light Complexity로 변경");
+		}
 
 		ImGui::EndMenu();
 	}

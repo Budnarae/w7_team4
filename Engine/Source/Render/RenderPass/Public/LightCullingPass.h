@@ -22,8 +22,7 @@ public:
 	void CreateResources(uint32 InScreenWidth, uint32 InScreenHeight);
 	void ReleaseResources();
 
-	// Light Usage Mask 반환 (CPU에서 읽어서 Constant Buffer에 설정)
-	void ReadUsageMasks(uint32& OutPointMask, uint32& OutSpotMask);
+	ID3D11ShaderResourceView* GetTileLightMaskSRV() const { return TileLightMaskSRV; }
 
 private:
 	static constexpr uint32 TILE_SIZE = 32;
@@ -52,10 +51,10 @@ private:
 	ID3D11Buffer* SpotLightBuffer = nullptr;
 	ID3D11ShaderResourceView* SpotLightSRV = nullptr;
 
-	// 출력 버퍼 (Light Usage Mask)
-	ID3D11Buffer* UsageMaskBuffer = nullptr;
-	ID3D11UnorderedAccessView* UsageMaskUAV = nullptr;
-	ID3D11Buffer* UsageMaskStagingBuffer = nullptr;  // CPU Readback용
+	// 출력 버퍼 (타일별 Light Mask)
+	ID3D11Buffer* TileLightMaskBuffer = nullptr;
+	ID3D11UnorderedAccessView* TileLightMaskUAV = nullptr;
+	ID3D11ShaderResourceView* TileLightMaskSRV = nullptr;
 
 	// Scene Depth (입력)
 	ID3D11ShaderResourceView* SceneDepthSRV = nullptr;

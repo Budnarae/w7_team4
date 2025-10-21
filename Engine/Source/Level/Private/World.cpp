@@ -309,7 +309,10 @@ void UWorld::SetWorldType(EWorldType InWorldType)
  */
 void UWorld::FlushPendingDestroy()
 {
-	if (!Level) { return; }
+	if (!Level)
+	{
+		return;
+	}
 
 	// 1) 컴포넌트 삭제 먼저 처리
 	if (!PendingDestroyComponents.empty())
@@ -319,7 +322,10 @@ void UWorld::FlushPendingDestroy()
 
 		for (UActorComponent* Comp : ComponentsToProcess)
 		{
-			if (!Comp) { continue; }
+			if (!Comp)
+			{
+				continue;
+			}
 			// 안전망: 아직 Owner가 들고 있다면 제거
 			if (AActor* Owner = Comp->GetOwner())
 			{

@@ -47,10 +47,10 @@ Texture2D<float> SceneDepthTexture : register(t0);
 StructuredBuffer<FPointLightInfo> PointLights : register(t1);
 StructuredBuffer<FSpotLightInfo> SpotLights : register(t2);
 
-// Output: 전체 화면에서 사용된 Light 비트마스크
-// UsageMasks[0] = PointLightUsageMask
-// UsageMasks[1] = SpotLightUsageMask
-RWStructuredBuffer<uint> UsageMasks : register(u0);
+// Output: 타일별 Light 비트마스크
+// TileLightMasks[TileIndex * 2 + 0] = PointLight 비트마스크
+// TileLightMasks[TileIndex * 2 + 1] = SpotLight 비트마스크
+RWStructuredBuffer<uint> TileLightMasks : register(u0);
 
 // Shared Memory for min/max depth reduction
 // 각 타일(Thread Group) 내 1024개 스레드가 공유 (Reduction 필요)
@@ -119,7 +119,7 @@ float3 WorldToView(float3 WorldPos)
 }
 
 [numthreads(TILE_SIZE, TILE_SIZE, 1)]
-void CS_Main(
+void mainCS(
     uint3 GroupID : SV_GroupID,
     uint3 GroupThreadID : SV_GroupThreadID,
     uint3 DispatchThreadID : SV_DispatchThreadID,
@@ -167,6 +167,9 @@ void CS_Main(
     float2 TileMin = float2(GroupID.xy) * TILE_SIZE;
     float2 TileMax = TileMin + TILE_SIZE;
 
+    // 타일 인덱스 계산
+    uint TileIndex = GroupID.y * NumTiles.x + GroupID.x;
+
     // Point Lights Culling
     for (uint i = GroupIndex; i < NumPointLights; i += TILE_THREAD_COUNT)
     {
@@ -178,8 +181,8 @@ void CS_Main(
         // Frustum 충돌 검사
         if (SphereIntersectsFrustum(ViewSpaceLightPos, Light.Radius, MinDepth, MaxDepth, TileMin, TileMax))
         {
-            // 비트마스크에 해당 Light 비트 설정 (Atomic OR)
-            InterlockedOr(UsageMasks[0], 1u << i);
+            // 타일별 비트마스크에 해당 Light 비트 설정 (Atomic OR)
+            InterlockedOr(TileLightMasks[TileIndex * 2 + 0], 1u << i);
         }
     }
 
@@ -192,8 +195,8 @@ void CS_Main(
 
         if (SphereIntersectsFrustum(ViewSpaceLightPos, Light.Radius, MinDepth, MaxDepth, TileMin, TileMax))
         {
-            // 비트마스크에 해당 Light 비트 설정 (Atomic OR)
-            InterlockedOr(UsageMasks[1], 1u << j);
+            // 타일별 비트마스크에 해당 Light 비트 설정 (Atomic OR)
+            InterlockedOr(TileLightMasks[TileIndex * 2 + 1], 1u << j);
         }
     }
 }

@@ -2,6 +2,8 @@
 #include "Render/RenderPass/Public/LightComplexityPass.h"
 #include "Render/Renderer/Public/Pipeline.h"
 #include "Render/Renderer/Public/RenderResourceFactory.h"
+#include "Render/RenderPass/Public/LightCullingPass.h"
+#include "Render/Renderer/Public/Renderer.h"
 
 FLightComplexityPass::FLightComplexityPass(
 	UPipeline* InPipeline,
@@ -69,13 +71,11 @@ void FLightComplexityPass::Execute(FRenderingContext& Context)
 
 	// Constant Buffer 업데이트
 	FLightComplexityConstants Constants = {};
-	Constants.ScreenDimensions = FVector2(Context.Viewport.Width, Context.Viewport.Height);
-	Constants.NumTilesX = (static_cast<uint32>(Context.Viewport.Width) + 31) / 32;
-	Constants.NumTilesY = (static_cast<uint32>(Context.Viewport.Height) + 31) / 32;
+	Constants.ScreenDimensions = Context.SceneRTSize;
+	Constants.NumTilesX = (static_cast<uint32>(Context.SceneRTSize.X) + 31) / 32;
+	Constants.NumTilesY = (static_cast<uint32>(Context.SceneRTSize.Y) + 31) / 32;
 	Constants.NumPointLights = Context.LightingData->NumActivePointLights;
 	Constants.NumSpotLights = Context.LightingData->NumActiveSpotLights;
-	Constants.PointLightUsageMask = Context.LightingData->PointLightUsageMask;
-	Constants.SpotLightUsageMask = Context.LightingData->SpotLightUsageMask;
 
 	FRenderResourceFactory::UpdateConstantBufferData(ConstantBuffer, Constants);
 
@@ -84,7 +84,7 @@ void FLightComplexityPass::Execute(FRenderingContext& Context)
 		nullptr, // Input Layout 불필요
 		VS,
 		nullptr, // Rasterizer 기본값
-		nullptr, // Depth State nullptr
+		DepthState, // Depth Test는 Always, Write는 Off
 		PS,
 		BlendState, // Alpha Blend State
 		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
@@ -100,12 +100,25 @@ void FLightComplexityPass::Execute(FRenderingContext& Context)
 		Pipeline->SetSamplerState(0, false, SamplerState);
 	}
 
+	// Tile Light Mask SRV 바인딩
+	if (auto* LightCullingPass = URenderer::GetInstance().GetLightCullingPass())
+	{
+		if (auto* TileLightMaskSRV = LightCullingPass->GetTileLightMaskSRV())
+		{
+			Pipeline->SetTexture(0, false, TileLightMaskSRV);
+		}
+	}
+
 	// Input Assembler 언바인딩
 	DeviceContext->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
 	DeviceContext->IASetVertexBuffers(0, 0, nullptr, nullptr, nullptr);
 
 	// Fullscreen triangle 렌더링
 	Pipeline->Draw(3, 0);
+
+	// SRV 언바인딩
+	ID3D11ShaderResourceView* NullSRV = nullptr;
+	DeviceContext->PSSetShaderResources(0, 1, &NullSRV);
 }
 
 void FLightComplexityPass::Release()
