@@ -22,6 +22,10 @@
     <FxCompile Include="Asset\Shader\DepthShader.hlsl" />
     <FxCompile Include="Asset\Shader\DepthShaderFont.hlsl" />
     <FxCompile Include="Asset\Shader\PostProcess.hlsl" />
+    <FxCompile Include="Asset\Shader\IconShader.hlsl" />
+    <FxCompile Include="Asset\Shader\UberLit.hlsl">
+      <Filter>Asset\Shader</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -385,7 +389,6 @@
     <ClCompile Include="Source\Render\RenderPass\Private\FireBallPass.cpp" />
     <ClCompile Include="Source\Actor\Private\HeightFogActor.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\HeightFogComponentWidget.cpp" />
-    <ClCompile Include="Source\Render\RenderPass\Private\FireBallForwardPass.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\OrbitComponentWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\ProjectileMovementComponentWidget.cpp" />
     <ClCompile Include="Source\Render\UI\Widget\Private\RotatingMovementComponentWidget.cpp" />
@@ -436,6 +439,18 @@
     <ClCompile Include="Source\Component\Private\IconComponent.cpp">
       <Filter>Source\Component\Private</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Actor\Private\DirectionalLightActor.cpp" />
+    <ClCompile Include="Source\Manager\PostProcess\Private\FXAAManager.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\DebugPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\DepthPrePass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\FogPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\FXAAPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\LightComplexityPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\LightCullingPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\LightPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\IconPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\NormalPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\SceneDepthPass.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -841,7 +856,6 @@
     <ClInclude Include="Source\Render\RenderPass\Public\FireBallPass.h" />
     <ClInclude Include="Source\Actor\Public\HeightFogActor.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\HeightFogComponentWidget.h" />
-    <ClInclude Include="Source\Render\RenderPass\Public\FireBallForwardPass.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\OrbitComponentWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\ProjectileMovementComponentWidget.h" />
     <ClInclude Include="Source\Render\UI\Widget\Public\RotatingMovementComponentWidget.h" />
@@ -892,6 +906,18 @@
     <ClInclude Include="Source\Component\Public\IconComponent.h">
       <Filter>Source\Component\Public</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Actor\Public\DirectionalLightActor.h" />
+    <ClInclude Include="Source\Manager\PostProcess\Public\FXAAManager.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\DebugPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\DepthPrePass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\FogPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\FXAAPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\LightComplexityPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\LightCullingPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\LightPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\IconPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\NormalPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\SceneDepthPass.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source">

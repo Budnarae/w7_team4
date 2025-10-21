@@ -4,8 +4,7 @@
 using std::chrono::high_resolution_clock;
 
 UCLASS()
-class UTimeManager :
-	public UObject
+class UTimeManager : public UObject
 {
 	GENERATED_BODY()
 	DECLARE_SINGLETON_CLASS(UTimeManager, UObject)
