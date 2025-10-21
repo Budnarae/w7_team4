@@ -311,3 +311,71 @@ void UStatOverlay::RecordDecalMaterialStats(uint32 Seen, uint32 Binds)
     DecalStats.MaterialSeen += Seen;
     DecalStats.MaterialBinds += Binds;
 }
+
+void UStatOverlay::RecordLightCullingStats(
+    uint32 InNumPointLights,
+    uint32 InNumSpotLights,
+    uint32 InActivePointLights,
+    uint32 InActiveSpotLights,
+    uint32 InPointLightMask,
+    uint32 InSpotLightMask
+)
+{
+    LightStats.NumPointLights = InNumPointLights;
+    LightStats.NumSpotLights = InNumSpotLights;
+    LightStats.ActivePointLights = InActivePointLights;
+    LightStats.ActiveSpotLights = InActiveSpotLights;
+    LightStats.PointLightMask = InPointLightMask;
+    LightStats.SpotLightMask = InSpotLightMask;
+}
+
+void UStatOverlay::RenderLight(ID2D1DeviceContext* D2DCtx)
+{
+    float OffsetY = 0.0f;
+    if (IsStatEnabled(EStatType::FPS))    OffsetY += 20.0f;
+    if (IsStatEnabled(EStatType::Memory)) OffsetY += 20.0f;
+    if (IsStatEnabled(EStatType::Picking)) OffsetY += 20.0f;
+    if (IsStatEnabled(EStatType::Decal))  OffsetY += 140.0f;
+
+    char Buf[256];
+    sprintf_s(Buf, sizeof(Buf), "=== Light Culling Stats ===");
+    RenderText(D2DCtx, Buf, OverlayX, OverlayY + OffsetY, 0.5f, 1.0f, 1.0f);
+    OffsetY += 20.0f;
+
+    sprintf_s(Buf, sizeof(Buf), "Point Lights: %u total, %u active",
+        LightStats.NumPointLights, LightStats.ActivePointLights);
+    float PointRatio = LightStats.NumPointLights > 0 ?
+        static_cast<float>(LightStats.ActivePointLights) / LightStats.NumPointLights : 0.0f;
+    float r = PointRatio > 0.8f ? 1.0f : 0.5f;
+    float g = PointRatio > 0.8f ? 0.5f : 1.0f;
+    RenderText(D2DCtx, Buf, OverlayX, OverlayY + OffsetY, r, g, 0.5f);
+    OffsetY += 20.0f;
+
+    sprintf_s(Buf, sizeof(Buf), "  Mask: 0x%08X", LightStats.PointLightMask);
+    RenderText(D2DCtx, Buf, OverlayX, OverlayY + OffsetY, 0.7f, 0.7f, 0.7f);
+    OffsetY += 20.0f;
+
+    sprintf_s(Buf, sizeof(Buf), "Spot Lights: %u total, %u active",
+        LightStats.NumSpotLights, LightStats.ActiveSpotLights);
+    float SpotRatio = LightStats.NumSpotLights > 0 ?
+        static_cast<float>(LightStats.ActiveSpotLights) / LightStats.NumSpotLights : 0.0f;
+    r = SpotRatio > 0.8f ? 1.0f : 0.5f;
+    g = SpotRatio > 0.8f ? 0.5f : 1.0f;
+    RenderText(D2DCtx, Buf, OverlayX, OverlayY + OffsetY, r, g, 0.5f);
+    OffsetY += 20.0f;
+
+    sprintf_s(Buf, sizeof(Buf), "  Mask: 0x%08X", LightStats.SpotLightMask);
+    RenderText(D2DCtx, Buf, OverlayX, OverlayY + OffsetY, 0.7f, 0.7f, 0.7f);
+    OffsetY += 20.0f;
+
+    uint32 TotalLights = LightStats.NumPointLights + LightStats.NumSpotLights;
+    uint32 TotalActive = LightStats.ActivePointLights + LightStats.ActiveSpotLights;
+    uint32 CulledLights = TotalLights > TotalActive ? TotalLights - TotalActive : 0;
+
+    sprintf_s(Buf, sizeof(Buf), "Total: %u/%u active (%u culled)",
+        TotalActive, TotalLights, CulledLights);
+    float TotalRatio = TotalLights > 0 ? static_cast<float>(TotalActive) / TotalLights : 0.0f;
+    r = TotalRatio < 0.5f ? 0.5f : 1.0f;
+    g = TotalRatio < 0.5f ? 1.0f : 0.5f;
+    RenderText(D2DCtx, Buf, OverlayX, OverlayY + OffsetY, r, g, 0.5f);
+}

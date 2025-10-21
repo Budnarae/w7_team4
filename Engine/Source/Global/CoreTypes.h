@@ -88,8 +88,8 @@ struct FPerObjectConstants
 	FMatrix Projection;
 };
 
-#define MAX_POINT_LIGHTS 4
-#define MAX_SPOT_LIGHTS 4
+#define MAX_POINT_LIGHTS 16
+#define MAX_SPOT_LIGHTS 16
 
 struct FLightingConstants
 {
@@ -100,7 +100,8 @@ struct FLightingConstants
 
 	uint32 NumActivePointLights;
 	uint32 NumActiveSpotLights;
-	FVector2 _LightingPadding;
+	uint32 PointLightUsageMask;  // 화면에 실제 영향을 주는 Point Light
+	uint32 SpotLightUsageMask;   // 화면에 실제 영향을 주는 Spot Light
 };
 
 struct FModelForLight

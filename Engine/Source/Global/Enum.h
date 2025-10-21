@@ -180,7 +180,8 @@ enum class EViewModeIndex : uint32
 	VMI_Unlit,
 	VMI_Wireframe,
 	VMI_SceneDepth,
-	VMI_Normal
+	VMI_Normal,
+	// VMI_LightComplexity  // 타일별 라이트 개수 시각화 (0~32 -> 색상)
 };
 
 /**

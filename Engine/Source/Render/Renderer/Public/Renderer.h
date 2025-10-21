@@ -19,6 +19,8 @@ class UCamera;
 class UPipeline;
 class FSceneDepthPass;
 class FNormalPass;
+class FLightCullingPass;
+class FDepthPrePass;
 
 /**
  * @brief Rendering Pipeline 전반을 처리하는 클래스
@@ -51,6 +53,7 @@ public:
 	void CreateSceneRenderTargets();
 	void CreateSceneDepthResources();
 	void CreateNormalResources();
+	// void CreateLightComplexityResources();
 
 	// Release
 	void ReleaseConstantBuffers();
@@ -68,6 +71,7 @@ public:
 	void ReleaseSceneRenderTargets();
 	void ReleaseSceneDepthResources();
 	void ReleaseNormalResources();
+	// void ReleaseLightComplexityResources();
 
 	// Render
 	void Update();
@@ -259,7 +263,15 @@ private:
 	};
 
 	TArray<class FRenderPass*> RenderPasses;
+	FDepthPrePass* DepthPrePass = nullptr;
 	FSceneDepthPass* SceneDepthPass = nullptr;
 	FNormalPass* NormalPass = nullptr;
 	FFXAAPass* FXAAPass = nullptr;
+	FLightCullingPass* LightCullingPass = nullptr;
+	class FLightComplexityPass* LightComplexityPass = nullptr;
+
+	// Light Complexity Shader Resources
+	ID3D11VertexShader* LightComplexityVertexShader = nullptr;
+	ID3D11PixelShader* LightComplexityPixelShader = nullptr;
+	ID3D11Buffer* ConstantBufferLightComplexity = nullptr;
 };

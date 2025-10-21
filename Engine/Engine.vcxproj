@@ -439,9 +439,12 @@
     <ClInclude Include="Source\Render\RenderPass\Public\BillboardPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\DebugPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\DecalPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\DepthPrePass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\FireBallPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\FogPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\FXAAPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\LightComplexityPass.h" />
+    <ClInclude Include="Source\Render\RenderPass\Public\LightCullingPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\LightPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\IconPass.h" />
     <ClInclude Include="Source\Render\RenderPass\Public\NormalPass.h" />
@@ -634,9 +637,12 @@
     <ClCompile Include="Source\Render\RenderPass\Private\BillboardPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\DebugPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\DecalPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\DepthPrePass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\FireBallPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\FogPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\FXAAPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\LightComplexityPass.cpp" />
+    <ClCompile Include="Source\Render\RenderPass\Private\LightCullingPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\LightPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\IconPass.cpp" />
     <ClCompile Include="Source\Render\RenderPass\Private\NormalPass.cpp" />

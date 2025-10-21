@@ -11,11 +11,11 @@
 #endif
 
 #ifndef NUM_POINT_LIGHTS
-#define NUM_POINT_LIGHTS 4
+#define NUM_POINT_LIGHTS 16
 #endif
 
 #ifndef NUM_SPOT_LIGHTS
-#define NUM_SPOT_LIGHTS 4
+#define NUM_SPOT_LIGHTS 16
 #endif
 
 // Light Info Structures
@@ -90,7 +90,8 @@ cbuffer Lighting : register(b3)
     FSpotLightInfo SpotLights[NUM_SPOT_LIGHTS];
     uint NumActivePointLights;
     uint NumActiveSpotLights;
-    float2 _LightingPadding;
+    uint PointLightUsageMask;  // 비트마스크: 화면에 실제 영향을 주는 Point Light
+    uint SpotLightUsageMask;   // 비트마스크: 화면에 실제 영향을 주는 Spot Light
 };
 
 // 추가 정보
@@ -367,13 +368,19 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     // Point Lights
     for (uint i = 0; i < NumActivePointLights; ++i)
     {
-        TotalLight += CalculatePointLight(PointLights[i], Input.WorldPos, Normal);
+        if (PointLightUsageMask & (1u << i))
+        {
+            TotalLight += CalculatePointLight(PointLights[i], Input.WorldPos, Normal);
+        }
     }
 
     // Spot Lights
     for (uint j = 0; j < NumActiveSpotLights; ++j)
     {
-        TotalLight += CalculateSpotLight(SpotLights[j], Input.WorldPos, Normal);
+        if (SpotLightUsageMask & (1u << j))
+        {
+            TotalLight += CalculateSpotLight(SpotLights[j], Input.WorldPos, Normal);
+        }
     }
 
     float3 FinalColor = BaseColor.rgb * TotalLight;
@@ -396,22 +403,28 @@ float4 mainPS(PS_INPUT Input) : SV_TARGET
     DiffuseLight += DirDiffuse;
     SpecularLight += DirSpecular;
 
-    // Point Lights (Diffuse + Specular)
+    // Point Lights
     for (uint i = 0; i < NumActivePointLights; ++i)
     {
-        float3 PointDiffuse, PointSpecular;
-        CalculatePointLightBlinnPhong(PointLights[i], Input.WorldPos, Normal, ViewDirection, Ns, PointDiffuse, PointSpecular);
-        DiffuseLight += PointDiffuse;
-        SpecularLight += PointSpecular;
+        if (PointLightUsageMask & (1u << i))
+        {
+            float3 PointDiffuse, PointSpecular;
+            CalculatePointLightBlinnPhong(PointLights[i], Input.WorldPos, Normal, ViewDirection, Ns, PointDiffuse, PointSpecular);
+            DiffuseLight += PointDiffuse;
+            SpecularLight += PointSpecular;
+        }
     }
 
-    // Spot Lights (Diffuse + Specular)
+    // Spot Lights
     for (uint j = 0; j < NumActiveSpotLights; ++j)
     {
-        float3 SpotDiffuse, SpotSpecular;
-        CalculateSpotLightBlinnPhong(SpotLights[j], Input.WorldPos, Normal, ViewDirection, Ns, SpotDiffuse, SpotSpecular);
-        DiffuseLight += SpotDiffuse;
-        SpecularLight += SpotSpecular;
+        if (SpotLightUsageMask & (1u << j))
+        {
+            float3 SpotDiffuse, SpotSpecular;
+            CalculateSpotLightBlinnPhong(SpotLights[j], Input.WorldPos, Normal, ViewDirection, Ns, SpotDiffuse, SpotSpecular);
+            DiffuseLight += SpotDiffuse;
+            SpecularLight += SpotSpecular;
+        }
     }
 
     // Diffuse: BaseColor * DiffuseLight

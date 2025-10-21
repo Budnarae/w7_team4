@@ -10,8 +10,9 @@ enum class EStatType : uint8
 	Memory = 1 << 1,   // 2
 	Picking = 1 << 2,  // 4
 	Time = 1 << 3,  // 8
-	Decal = 1 << 4,
-	All = FPS | Memory | Picking | Time | Decal
+	Decal = 1 << 4,  // 16
+	Light = 1 << 5,  // 32
+	All = FPS | Memory | Picking | Time | Decal | Light
 };
 
 UCLASS()
@@ -31,6 +32,7 @@ public:
 	void ShowPicking(bool bShow) { bShow ? EnableStat(EStatType::Picking) : DisableStat(EStatType::Picking); }
 	void ShowTime(bool bShow) { bShow ? EnableStat(EStatType::Time) : DisableStat(EStatType::Time); }
 	void ShowDecal(bool bShow) { bShow ? EnableStat(EStatType::Decal) : DisableStat(EStatType::Decal); }
+	void ShowLight(bool bShow) { bShow ? EnableStat(EStatType::Light) : DisableStat(EStatType::Light); }
 	void ShowAll(bool bShow) { SetStatType(bShow ? EStatType::All : EStatType::None); }
 
 	// API to update stats
@@ -43,11 +45,23 @@ public:
 	void RecordDecalTextureStats(uint32 Binds, uint32 Fallbacks);
 	void RecordDecalPassMs(float Ms);
 	void RecordDecalMaterialStats(uint32 Seen, uint32 Binds);
+
+	// API to update Light Culling stats
+	void RecordLightCullingStats(
+		uint32 InNumPointLights,
+		uint32 InNumSpotLights,
+		uint32 InActivePointLights,
+		uint32 InActiveSpotLights,
+		uint32 InPointLightMask,
+		uint32 InSpotLightMask
+	);
 private:
 	void RenderFPS(ID2D1DeviceContext* d2dCtx);
 	void RenderMemory(ID2D1DeviceContext* d2dCtx);
 	void RenderPicking(ID2D1DeviceContext* d2dCtx);
 	void RenderTimeInfo(ID2D1DeviceContext* d2dCtx);
+	void RenderDecal(ID2D1DeviceContext* d2dCtx);
+	void RenderLight(ID2D1DeviceContext* d2dCtx);
 	void RenderText(ID2D1DeviceContext* d2dCtx, const FString& Text, float X, float Y, float R, float G, float B);
 	template <typename T>
 	inline void SafeRelease(T*& ptr)
@@ -85,8 +99,6 @@ private:
 	
 	IDWriteFactory* DWriteFactory = nullptr;
 
-	void RenderDecal(ID2D1DeviceContext* d2dCtx);
-
 	struct FDecalStats {
 		uint32 Collected = 0;     // 수집된 데칼 수
 		uint32 Visible = 0;       // 가시 데칼 수
@@ -106,4 +118,14 @@ private:
 	uint32 DecalMsCount = 0;   // 누적 개수(최대 10)
 	uint32 DecalMsIndex = 0;   // 덮어쓸 위치
 	float DecalAvgMs = 0.0f;   // 최근 10개 평균
+
+	// Light Culling Stats
+	struct FLightStats {
+		uint32 NumPointLights = 0;      // 전체 Point Light 수
+		uint32 NumSpotLights = 0;       // 전체 Spot Light 수
+		uint32 ActivePointLights = 0;   // Culling 후 활성화된 Point Light 수
+		uint32 ActiveSpotLights = 0;    // Culling 후 활성화된 Spot Light 수
+		uint32 PointLightMask = 0;      // Point Light Usage Mask (비트마스크)
+		uint32 SpotLightMask = 0;       // Spot Light Usage Mask (비트마스크)
+	} LightStats;
 };
