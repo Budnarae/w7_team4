@@ -107,7 +107,7 @@ cbuffer SceneInfo : register(b4)
     float2 ViewportTopLeft;
     float2 ViewportSize;
     float2 SceneRTSize;
-`    uint NumTilesX;
+    uint NumTilesX;
     uint NumTilesY;
 };
 

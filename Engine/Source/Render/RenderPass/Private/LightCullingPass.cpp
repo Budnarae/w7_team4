@@ -67,8 +67,11 @@ void FLightCullingPass::CreateResources(uint32 InScreenWidth, uint32 InScreenHei
 	uint32 MaxLightsTotal = MAX_LIGHTS_PER_TILE * TotalTiles;  // 최악의 경우: 모든 타일에 최대 라이트
 
 	// TileLightOffsets: 각 타일의 인덱스 리스트 시작 오프셋
+	// [0] = 글로벌 Atomic Counter (전체 인덱스 배열에서 다음 쓰기 위치)
+	// [1~TotalTiles] = 각 타일의 시작 오프셋
+	// 따라서 버퍼 크기는 (TotalTiles + 1)이어야 함
 	D3D11_BUFFER_DESC OffsetsDesc = {};
-	OffsetsDesc.ByteWidth = sizeof(uint32) * TotalTiles;
+	OffsetsDesc.ByteWidth = sizeof(uint32) * (TotalTiles + 1);
 	OffsetsDesc.Usage = D3D11_USAGE_DEFAULT;
 	OffsetsDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
 	OffsetsDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
@@ -78,13 +81,13 @@ void FLightCullingPass::CreateResources(uint32 InScreenWidth, uint32 InScreenHei
 	D3D11_UNORDERED_ACCESS_VIEW_DESC OffsetsUAVDesc = {};
 	OffsetsUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
 	OffsetsUAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-	OffsetsUAVDesc.Buffer.NumElements = TotalTiles;
+	OffsetsUAVDesc.Buffer.NumElements = TotalTiles + 1;
 	Device->CreateUnorderedAccessView(TileLightOffsetsBuffer, &OffsetsUAVDesc, &TileLightOffsetsUAV);
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC OffsetsSRVDesc = {};
 	OffsetsSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
 	OffsetsSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-	OffsetsSRVDesc.Buffer.NumElements = TotalTiles;
+	OffsetsSRVDesc.Buffer.NumElements = TotalTiles + 1;
 	Device->CreateShaderResourceView(TileLightOffsetsBuffer, &OffsetsSRVDesc, &TileLightOffsetsSRV);
 
 	// TileLightCounts: 각 타일의 라이트 개수
