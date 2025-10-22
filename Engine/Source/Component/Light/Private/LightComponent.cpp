@@ -19,6 +19,8 @@ ULightComponent::~ULightComponent()
 	if (IconComponent)
 	{
 		GetOwner()->RemoveComponent(IconComponent);
+		RemoveChild(IconComponent);
+
 		auto& PendingDestroyComp = GWorld->GetPendingDestroyCompoents();
 		PendingDestroyComp.erase(
 			remove(

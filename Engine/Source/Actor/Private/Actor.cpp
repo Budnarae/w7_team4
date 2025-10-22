@@ -22,9 +22,16 @@ AActor::AActor(UObject* InOuter)
 
 AActor::~AActor()
 {
-	for (UActorComponent* Component : OwnedComponents)
+	/*for (UActorComponent* Component : OwnedComponents)
 	{
 		SafeDelete(Component);
+	}*/
+
+	while (!OwnedComponents.empty())
+	{
+		UActorComponent* tmp = *OwnedComponents.begin();
+		OwnedComponents.erase(OwnedComponents.begin());
+		SafeDelete(tmp);
 	}
 	SetOuter(nullptr);
 	OwnedComponents.clear();
