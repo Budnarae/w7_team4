@@ -806,6 +806,12 @@ void URenderer::RenderBegin() const
 	GetDeviceContext()->ClearRenderTargetView(SceneNormalRTV, ClearColor);
 	GetDeviceContext()->ClearDepthStencilView(SceneDepthDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
+	// Light Culling Pass 프레임 플래그 리셋
+	if (LightCullingPass)
+	{
+		LightCullingPass->ResetFrameFlag();
+	}
+
 	ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV, SceneNormalRTV};
 	GetDeviceContext()->OMSetRenderTargets(2, SceneRtvs, SceneDepthDSV);
 

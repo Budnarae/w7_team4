@@ -109,7 +109,8 @@ struct FSceneInfoConstants
 	FVector2 ViewportTopLeft;   // 8 bytes
 	FVector2 ViewportSize;       // 8 bytes
 	FVector2 SceneRTSize;        // 8 bytes
-	FVector2 _Padding;           // 8 bytes
+	uint32 NumTilesX;            // 4 bytes
+	uint32 NumTilesY;            // 4 bytes
 };
 
 struct FModelForLight

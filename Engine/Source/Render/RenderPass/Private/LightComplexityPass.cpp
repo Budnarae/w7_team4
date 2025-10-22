@@ -100,12 +100,20 @@ void FLightComplexityPass::Execute(FRenderingContext& Context)
 		Pipeline->SetSamplerState(0, false, SamplerState);
 	}
 
-	// Tile Light Mask SRV 바인딩
+	// Tile Light 인덱스 리스트 SRV 바인딩
 	if (auto* LightCullingPass = URenderer::GetInstance().GetLightCullingPass())
 	{
-		if (auto* TileLightMaskSRV = LightCullingPass->GetTileLightMaskSRV())
+		if (auto* OffsetsSRV = LightCullingPass->GetTileLightOffsetsSRV())
 		{
-			Pipeline->SetTexture(0, false, TileLightMaskSRV);
+			Pipeline->SetTexture(0, false, OffsetsSRV);
+		}
+		if (auto* CountsSRV = LightCullingPass->GetTileLightCountsSRV())
+		{
+			Pipeline->SetTexture(1, false, CountsSRV);
+		}
+		if (auto* IndicesSRV = LightCullingPass->GetTileLightIndicesSRV())
+		{
+			Pipeline->SetTexture(2, false, IndicesSRV);
 		}
 	}
 
@@ -117,8 +125,8 @@ void FLightComplexityPass::Execute(FRenderingContext& Context)
 	Pipeline->Draw(3, 0);
 
 	// SRV 언바인딩
-	ID3D11ShaderResourceView* NullSRV = nullptr;
-	DeviceContext->PSSetShaderResources(0, 1, &NullSRV);
+	ID3D11ShaderResourceView* NullSRVs[3] = { nullptr, nullptr, nullptr };
+	DeviceContext->PSSetShaderResources(0, 3, NullSRVs);
 }
 
 void FLightComplexityPass::Release()

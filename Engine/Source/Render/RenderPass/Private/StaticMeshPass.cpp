@@ -81,19 +81,32 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 		SceneInfo.ViewportTopLeft = FVector2(Context.Viewport.TopLeftX, Context.Viewport.TopLeftY);
 		SceneInfo.ViewportSize = FVector2(Context.Viewport.Width, Context.Viewport.Height);
 		SceneInfo.SceneRTSize = Context.SceneRTSize;
-		SceneInfo._Padding = FVector2(0.0f, 0.0f);
+
+		// NumTiles 계산
+		uint32 ScreenWidth = static_cast<uint32>(Context.SceneRTSize.X);
+		uint32 ScreenHeight = static_cast<uint32>(Context.SceneRTSize.Y);
+		SceneInfo.NumTilesX = (ScreenWidth + 31) / 32;
+		SceneInfo.NumTilesY = (ScreenHeight + 31) / 32;
 
 		FRenderResourceFactory::UpdateConstantBufferData(ConstantBufferSceneInfo, SceneInfo);
 		Pipeline->SetConstantBuffer(4, true, ConstantBufferSceneInfo);
 		Pipeline->SetConstantBuffer(4, false, ConstantBufferSceneInfo);
 	}
 
-	// Tile Light Mask SRV 바인딩
+	// Tile Light 인덱스 리스트 SRV 바인딩
 	if (auto* LightCullingPass = Renderer.GetLightCullingPass())
 	{
-		if (auto* TileLightMaskSRV = LightCullingPass->GetTileLightMaskSRV())
+		if (auto* OffsetsSRV = LightCullingPass->GetTileLightOffsetsSRV())
 		{
-			Pipeline->SetTexture(5, false, TileLightMaskSRV);
+			Pipeline->SetTexture(4, false, OffsetsSRV);
+		}
+		if (auto* CountsSRV = LightCullingPass->GetTileLightCountsSRV())
+		{
+			Pipeline->SetTexture(5, false, CountsSRV);
+		}
+		if (auto* IndicesSRV = LightCullingPass->GetTileLightIndicesSRV())
+		{
+			Pipeline->SetTexture(6, false, IndicesSRV);
 		}
 	}
 
@@ -208,6 +221,14 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 					}
 					else if (Context.ViewMode == EViewModeIndex::VMI_Normal)
 					{
+						SelectedVS = Renderer.GetUberLitNormalMappingVertexShader();
+						SelectedPS = Renderer.GetUberPhongNormalMappingPixelShader();
+						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
+						bUseNormalMapping = true;
+					}
+					else if (Context.ViewMode == EViewModeIndex::VMI_LightComplexity)
+					{
+						// LightComplexity 모드: Normal Mapping 적용된 Phong 쉐이더 사용
 						SelectedVS = Renderer.GetUberLitNormalMappingVertexShader();
 						SelectedPS = Renderer.GetUberPhongNormalMappingPixelShader();
 						SelectedLayout = Renderer.GetUberLitNormalMappingInputLayout();
@@ -374,6 +395,12 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 					case EViewModeIndex::VMI_SceneDepth:
 						// SceneDepthPass가 최종 시각화를 담당
 						// StaticMeshPass는 일반 렌더링으로 Depth 버퍼에만 기록
+						break;
+					case EViewModeIndex::VMI_LightComplexity:
+						// LightComplexity 모드: Lit 쉐이더로 라이팅 적용 후 heat map 오버레이
+						SelectedVS = Renderer.GetUberLitVertexShader();
+						SelectedPS = Renderer.GetTexturePhongPixelShader();
+						SelectedLayout = Renderer.GetUberLitInputLayout();
 						break;
 					case EViewModeIndex::VMI_Wireframe:
 						// Wireframe은 PS 필요 없음

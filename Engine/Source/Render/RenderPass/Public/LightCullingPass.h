@@ -21,8 +21,11 @@ public:
 
 	void CreateResources(uint32 InScreenWidth, uint32 InScreenHeight);
 	void ReleaseResources();
+	void ResetFrameFlag();
 
-	ID3D11ShaderResourceView* GetTileLightMaskSRV() const { return TileLightMaskSRV; }
+	ID3D11ShaderResourceView* GetTileLightOffsetsSRV() const { return TileLightOffsetsSRV; }
+	ID3D11ShaderResourceView* GetTileLightCountsSRV() const { return TileLightCountsSRV; }
+	ID3D11ShaderResourceView* GetTileLightIndicesSRV() const { return TileLightIndicesSRV; }
 
 private:
 	static constexpr uint32 TILE_SIZE = 32;
@@ -33,8 +36,10 @@ private:
 		FMatrix ViewMatrix;
 		FMatrix ProjectionMatrix;
 		FMatrix InverseProjectionMatrix;
-		FVector2 ScreenDimensions;
-		uint32 NumTiles[2];  // NumTilesX, NumTilesY
+		FVector2 ScreenDimensions;       // 현재 Viewport 크기
+		uint32 NumTiles[2];              // 현재 Viewport 타일 개수 (NumTilesX, NumTilesY)
+		uint32 ViewportOffset[2];        // SceneDepth 텍스처 내 Viewport 시작 위치 (픽셀)
+		uint32 SceneRTSize[2];           // 전체 SceneDepth 텍스처 크기 (픽셀)
 		uint32 NumPointLights;
 		uint32 NumSpotLights;
 		float NearPlane;
@@ -51,10 +56,18 @@ private:
 	ID3D11Buffer* SpotLightBuffer = nullptr;
 	ID3D11ShaderResourceView* SpotLightSRV = nullptr;
 
-	// 출력 버퍼 (타일별 Light Mask)
-	ID3D11Buffer* TileLightMaskBuffer = nullptr;
-	ID3D11UnorderedAccessView* TileLightMaskUAV = nullptr;
-	ID3D11ShaderResourceView* TileLightMaskSRV = nullptr;
+	// 출력 버퍼 (타일별 Light 인덱스 리스트)
+	ID3D11Buffer* TileLightOffsetsBuffer = nullptr;      // 각 타일의 라이트 리스트 시작 오프셋
+	ID3D11UnorderedAccessView* TileLightOffsetsUAV = nullptr;
+	ID3D11ShaderResourceView* TileLightOffsetsSRV = nullptr;
+
+	ID3D11Buffer* TileLightCountsBuffer = nullptr;       // 각 타일의 라이트 개수
+	ID3D11UnorderedAccessView* TileLightCountsUAV = nullptr;
+	ID3D11ShaderResourceView* TileLightCountsSRV = nullptr;
+
+	ID3D11Buffer* TileLightIndicesBuffer = nullptr;      // 라이트 인덱스 리스트
+	ID3D11UnorderedAccessView* TileLightIndicesUAV = nullptr;
+	ID3D11ShaderResourceView* TileLightIndicesSRV = nullptr;
 
 	// Scene Depth (입력)
 	ID3D11ShaderResourceView* SceneDepthSRV = nullptr;
@@ -63,4 +76,6 @@ private:
 	uint32 ScreenHeight = 0;
 	uint32 NumTilesX = 0;
 	uint32 NumTilesY = 0;
+
+	bool bClearedThisFrame = false;
 };

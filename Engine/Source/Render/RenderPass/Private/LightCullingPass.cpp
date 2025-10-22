@@ -62,36 +62,72 @@ void FLightCullingPass::CreateResources(uint32 InScreenWidth, uint32 InScreenHei
 
 	auto* Device = URenderer::GetInstance().GetDevice();
 
-	// Tile Light Mask Buffer 생성 (타일 개수 × 2: PointMask, SpotMask per tile)
+	// 타일별 라이트 인덱스 리스트 버퍼 생성
 	uint32 TotalTiles = NumTilesX * NumTilesY;
-	uint32 MaskBufferSize = TotalTiles * 2;  // 각 타일당 2개 uint32
+	uint32 MaxLightsTotal = MAX_LIGHTS_PER_TILE * TotalTiles;  // 최악의 경우: 모든 타일에 최대 라이트
 
-	D3D11_BUFFER_DESC BufferDesc = {};
-	BufferDesc.ByteWidth = sizeof(uint32) * MaskBufferSize;
-	BufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	BufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;  // UAV + SRV
-	BufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-	BufferDesc.StructureByteStride = sizeof(uint32);
+	// TileLightOffsets: 각 타일의 인덱스 리스트 시작 오프셋
+	D3D11_BUFFER_DESC OffsetsDesc = {};
+	OffsetsDesc.ByteWidth = sizeof(uint32) * TotalTiles;
+	OffsetsDesc.Usage = D3D11_USAGE_DEFAULT;
+	OffsetsDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	OffsetsDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	OffsetsDesc.StructureByteStride = sizeof(uint32);
+	Device->CreateBuffer(&OffsetsDesc, nullptr, &TileLightOffsetsBuffer);
 
-	Device->CreateBuffer(&BufferDesc, nullptr, &TileLightMaskBuffer);
+	D3D11_UNORDERED_ACCESS_VIEW_DESC OffsetsUAVDesc = {};
+	OffsetsUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	OffsetsUAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	OffsetsUAVDesc.Buffer.NumElements = TotalTiles;
+	Device->CreateUnorderedAccessView(TileLightOffsetsBuffer, &OffsetsUAVDesc, &TileLightOffsetsUAV);
 
-	// UAV 생성 (Compute Shader 출력용)
-	D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {};
-	UAVDesc.Format = DXGI_FORMAT_UNKNOWN;
-	UAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-	UAVDesc.Buffer.FirstElement = 0;
-	UAVDesc.Buffer.NumElements = MaskBufferSize;
+	D3D11_SHADER_RESOURCE_VIEW_DESC OffsetsSRVDesc = {};
+	OffsetsSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	OffsetsSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	OffsetsSRVDesc.Buffer.NumElements = TotalTiles;
+	Device->CreateShaderResourceView(TileLightOffsetsBuffer, &OffsetsSRVDesc, &TileLightOffsetsSRV);
 
-	Device->CreateUnorderedAccessView(TileLightMaskBuffer, &UAVDesc, &TileLightMaskUAV);
+	// TileLightCounts: 각 타일의 라이트 개수
+	D3D11_BUFFER_DESC CountsDesc = {};
+	CountsDesc.ByteWidth = sizeof(uint32) * 2 * TotalTiles;  // uint2 per tile
+	CountsDesc.Usage = D3D11_USAGE_DEFAULT;
+	CountsDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	CountsDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	CountsDesc.StructureByteStride = sizeof(uint32) * 2;
+	Device->CreateBuffer(&CountsDesc, nullptr, &TileLightCountsBuffer);
 
-	// SRV 생성 (Pixel Shader 입력용)
-	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
-	SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
-	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-	SRVDesc.Buffer.FirstElement = 0;
-	SRVDesc.Buffer.NumElements = MaskBufferSize;
+	D3D11_UNORDERED_ACCESS_VIEW_DESC CountsUAVDesc = {};
+	CountsUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	CountsUAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	CountsUAVDesc.Buffer.NumElements = TotalTiles;
+	Device->CreateUnorderedAccessView(TileLightCountsBuffer, &CountsUAVDesc, &TileLightCountsUAV);
 
-	Device->CreateShaderResourceView(TileLightMaskBuffer, &SRVDesc, &TileLightMaskSRV);
+	D3D11_SHADER_RESOURCE_VIEW_DESC CountsSRVDesc = {};
+	CountsSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	CountsSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	CountsSRVDesc.Buffer.NumElements = TotalTiles;
+	Device->CreateShaderResourceView(TileLightCountsBuffer, &CountsSRVDesc, &TileLightCountsSRV);
+
+	// TileLightIndices: 라이트 인덱스 배열
+	D3D11_BUFFER_DESC IndicesDesc = {};
+	IndicesDesc.ByteWidth = sizeof(uint32) * MaxLightsTotal;
+	IndicesDesc.Usage = D3D11_USAGE_DEFAULT;
+	IndicesDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	IndicesDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	IndicesDesc.StructureByteStride = sizeof(uint32);
+	Device->CreateBuffer(&IndicesDesc, nullptr, &TileLightIndicesBuffer);
+
+	D3D11_UNORDERED_ACCESS_VIEW_DESC IndicesUAVDesc = {};
+	IndicesUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	IndicesUAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	IndicesUAVDesc.Buffer.NumElements = MaxLightsTotal;
+	Device->CreateUnorderedAccessView(TileLightIndicesBuffer, &IndicesUAVDesc, &TileLightIndicesUAV);
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC IndicesSRVDesc = {};
+	IndicesSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+	IndicesSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	IndicesSRVDesc.Buffer.NumElements = MaxLightsTotal;
+	Device->CreateShaderResourceView(TileLightIndicesBuffer, &IndicesSRVDesc, &TileLightIndicesSRV);
 
 	// Point Light StructuredBuffer 생성
 	// (매 프레임 업데이트되므로 DYNAMIC 사용)
@@ -134,7 +170,7 @@ void FLightCullingPass::CreateResources(uint32 InScreenWidth, uint32 InScreenHei
 void FLightCullingPass::Execute(FRenderingContext& Context)
 {
 	// 필수 리소스 유효성 검사
-	if (!ComputeShader || !TileLightMaskUAV || !ConstantBufferLightCulling)
+	if (!ComputeShader || !TileLightOffsetsUAV || !TileLightCountsUAV || !TileLightIndicesUAV || !ConstantBufferLightCulling)
 	{
 		return;
 	}
@@ -151,19 +187,21 @@ void FLightCullingPass::Execute(FRenderingContext& Context)
 		return;
 	}
 
-	// CRITICAL: Compute Shader는 렌더 타겟/DSV 불필요, 명시적으로 언바인딩
-	// DepthPrePass에서 이미 언바인딩했지만 안전을 위해 다시 확인
 	DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
 
-	// CRITICAL: RAW 해저드 방지 - 그래픽스 파이프라인에서 SceneDepthSRV 언바인딩
-	// DepthPrePass가 DSV로 썼던 리소스를 PS/VS SRV에서도 언바인딩하여 상태 전이 보장
 	ID3D11ShaderResourceView* NullGraphicsSRVs[8] = { nullptr };
 	DeviceContext->PSSetShaderResources(0, 8, NullGraphicsSRVs);
 	DeviceContext->VSSetShaderResources(0, 8, NullGraphicsSRVs);
 
-	// Tile Light Mask를 0으로 클리어
-	UINT ClearValues[4] = {0, 0, 0, 0};
-	DeviceContext->ClearUnorderedAccessViewUint(TileLightMaskUAV, ClearValues);
+	// 첫 번째 뷰포트에서만 전체 버퍼 클리어
+	if (!bClearedThisFrame)
+	{
+		UINT ClearValues[4] = {0, 0, 0, 0};
+		DeviceContext->ClearUnorderedAccessViewUint(TileLightOffsetsUAV, ClearValues);
+		DeviceContext->ClearUnorderedAccessViewUint(TileLightCountsUAV, ClearValues);
+		DeviceContext->ClearUnorderedAccessViewUint(TileLightIndicesUAV, ClearValues);
+		bClearedThisFrame = true;
+	}
 
 	// Scene Depth SRV 가져오기 (이제 DSV가 언바인딩되어 안전하게 읽기 가능)
 	SceneDepthSRV = URenderer::GetInstance().GetSceneDepthSRV();
@@ -173,14 +211,30 @@ void FLightCullingPass::Execute(FRenderingContext& Context)
 		return;
 	}
 
-	// Constant Buffer 업데이트
+	// 현재 Viewport의 크기 (각 뷰포트마다 독립 연산)
+	uint32 ViewportWidth = static_cast<uint32>(Context.Viewport.Width);
+	uint32 ViewportHeight = static_cast<uint32>(Context.Viewport.Height);
+	uint32 ViewportNumTilesX = (ViewportWidth + 31) / 32;
+	uint32 ViewportNumTilesY = (ViewportHeight + 31) / 32;
+
+	// Constant Buffer 업데이트 (뷰포트별 카메라 정보)
 	FLightCullingConstants Constants = {};
 	Constants.ViewMatrix = Context.ViewProjConstants->View;
 	Constants.ProjectionMatrix = Context.ViewProjConstants->Projection;
 	Constants.InverseProjectionMatrix = Constants.ProjectionMatrix.Inverse();
-	Constants.ScreenDimensions = FVector2(static_cast<float>(ScreenWidth), static_cast<float>(ScreenHeight));
-	Constants.NumTiles[0] = NumTilesX;
-	Constants.NumTiles[1] = NumTilesY;
+
+	// ScreenDimensions는 현재 뷰포트 크기
+	Constants.ScreenDimensions = FVector2(static_cast<float>(ViewportWidth), static_cast<float>(ViewportHeight));
+	Constants.NumTiles[0] = ViewportNumTilesX;
+	Constants.NumTiles[1] = ViewportNumTilesY;
+
+	// Viewport 오프셋 (SceneDepth 텍스처 내 뷰포트 시작 위치)
+	Constants.ViewportOffset[0] = static_cast<uint32>(Context.Viewport.TopLeftX);
+	Constants.ViewportOffset[1] = static_cast<uint32>(Context.Viewport.TopLeftY);
+
+	// 전체 SceneDepth 텍스처 크기
+	Constants.SceneRTSize[0] = static_cast<uint32>(Context.SceneRTSize.X);
+	Constants.SceneRTSize[1] = static_cast<uint32>(Context.SceneRTSize.Y);
 
 	// Camera Near/Far plane 설정
 	if (Context.CurrentCamera)
@@ -243,18 +297,23 @@ void FLightCullingPass::Execute(FRenderingContext& Context)
 	DeviceContext->CSSetShaderResources(0, 3, SRVs);
 
 	// 출력 리소스 바인딩
-	UINT InitialCounts[] = { 0 };
-	DeviceContext->CSSetUnorderedAccessViews(0, 1, &TileLightMaskUAV, InitialCounts);
+	ID3D11UnorderedAccessView* UAVs[] = {
+		TileLightOffsetsUAV,
+		TileLightCountsUAV,
+		TileLightIndicesUAV
+	};
+	UINT InitialCounts[] = { static_cast<UINT>(-1), static_cast<UINT>(-1), static_cast<UINT>(-1) };
+	DeviceContext->CSSetUnorderedAccessViews(0, 3, UAVs, InitialCounts);
 
-	// Dispatch
-	DeviceContext->Dispatch(NumTilesX, NumTilesY, 1);
+	// Dispatch (현재 뷰포트 크기만큼만)
+	DeviceContext->Dispatch(ViewportNumTilesX, ViewportNumTilesY, 1);
 
 	// 언바인딩
 	ID3D11ShaderResourceView* NullSRVs[] = { nullptr, nullptr, nullptr };
 	DeviceContext->CSSetShaderResources(0, 3, NullSRVs);
 
-	ID3D11UnorderedAccessView* NullUAVs[] = { nullptr };
-	DeviceContext->CSSetUnorderedAccessViews(0, 1, NullUAVs, InitialCounts);
+	ID3D11UnorderedAccessView* NullUAVs[] = { nullptr, nullptr, nullptr };
+	DeviceContext->CSSetUnorderedAccessViews(0, 3, NullUAVs, InitialCounts);
 
 	DeviceContext->CSSetShader(nullptr, nullptr, 0);
 
@@ -275,13 +334,26 @@ void FLightCullingPass::Release()
 
 void FLightCullingPass::ReleaseResources()
 {
-	SafeRelease(TileLightMaskBuffer);
-	SafeRelease(TileLightMaskUAV);
-	SafeRelease(TileLightMaskSRV);
+	SafeRelease(TileLightOffsetsBuffer);
+	SafeRelease(TileLightOffsetsUAV);
+	SafeRelease(TileLightOffsetsSRV);
+
+	SafeRelease(TileLightCountsBuffer);
+	SafeRelease(TileLightCountsUAV);
+	SafeRelease(TileLightCountsSRV);
+
+	SafeRelease(TileLightIndicesBuffer);
+	SafeRelease(TileLightIndicesUAV);
+	SafeRelease(TileLightIndicesSRV);
 
 	SafeRelease(PointLightBuffer);
 	SafeRelease(PointLightSRV);
 
 	SafeRelease(SpotLightBuffer);
 	SafeRelease(SpotLightSRV);
+}
+
+void FLightCullingPass::ResetFrameFlag()
+{
+	bClearedThisFrame = false;
 }

@@ -14,9 +14,10 @@ cbuffer PerFrame : register(b0)
     uint2 _Padding;
 };
 
-// Tile Light Masks (Tiled-Based Light Culling 결과)
-StructuredBuffer<uint> TileLightMasks : register(t0);
-
+// Tile Light 인덱스 리스트 (Tiled-Based Light Culling 결과)
+StructuredBuffer<uint> TileLightOffsets : register(t0);
+StructuredBuffer<uint2> TileLightCounts : register(t1);
+StructuredBuffer<uint> TileLightIndices : register(t2);
 // Light Info (CPU에서 전달받지 않고 간단한 시각화만)
 // 실제 Forward+ 구현을 위해서는 StructuredBuffer<LightInfo> 필요
 
@@ -101,20 +102,27 @@ float3 LightCountToColor(uint LightCount)
 // Pixel Shader
 float4 mainPS(VSOutput Input) : SV_TARGET
 {
-    // 현재 픽셀의 화면 좌표
-    uint2 PixelPos = uint2(Input.TexCoord * ScreenDimensions);
+    // SV_POSITION은 전체 화면 좌표 (SceneRT 내 절대 좌표)
+    uint2 GlobalPixelCoord = uint2(Input.Position.xy);
+    uint2 GlobalTileCoord = GlobalPixelCoord / TILE_SIZE;
 
-    // 타일 인덱스 계산
-    uint2 TileID = PixelPos / TILE_SIZE;
-    uint TileIndex = TileID.y * NumTilesX + TileID.x;
+    // 전체 SceneRT 기준 타일 개수 계산
+    uint SceneNumTilesX = (uint(ScreenDimensions.x) + TILE_SIZE - 1) / TILE_SIZE;
+    uint SceneNumTilesY = (uint(ScreenDimensions.y) + TILE_SIZE - 1) / TILE_SIZE;
 
-    // 타일별 라이트 마스크 읽기
-    uint PointLightMask = TileLightMasks[TileIndex * 2 + 0];
-    uint SpotLightMask = TileLightMasks[TileIndex * 2 + 1];
+    // 범위 체크 (전체 화면 기준)
+    if (GlobalTileCoord.x >= SceneNumTilesX || GlobalTileCoord.y >= SceneNumTilesY)
+    {
+        return float4(0, 0, 0, 0);  // 범위 밖은 투명
+    }
 
-    // 비트 카운트 (해당 타일에 영향을 주는 라이트 개수)
-    uint PointLightCount = countbits(PointLightMask);
-    uint SpotLightCount = countbits(SpotLightMask);
+    // 전체 화면 기준 타일 인덱스
+    uint TileIndex = GlobalTileCoord.y * SceneNumTilesX + GlobalTileCoord.x;
+
+    // 타일별 라이트 개수 읽기
+    uint2 Counts = TileLightCounts[TileIndex];
+    uint PointLightCount = Counts.x;
+    uint SpotLightCount = Counts.y;
     uint TotalLightCount = PointLightCount + SpotLightCount;
 
     // 라이트 개수를 색상으로 변환
