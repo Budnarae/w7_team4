@@ -12,7 +12,7 @@ class ULightComponent : public ULightComponentBase
 public:
 	ULightComponent() = default;
 	ULightComponent(float InIntensity, const FVector& InLightColor, bool InbVisible);
-	~ULightComponent() override = default;
+	~ULightComponent() override;
 
 
 	/*

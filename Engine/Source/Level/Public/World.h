@@ -65,6 +65,8 @@ public:
 	EWorldType GetWorldType() const;
 	void SetWorldType(EWorldType InWorldType);
 
+	TArray<UActorComponent*> &GetPendingDestroyCompoents() { return PendingDestroyComponents; }
+
 private:
 	EWorldType WorldType;
 	ULevel* Level = nullptr; // Persistance Level. Sublevels are not considered in GTL.

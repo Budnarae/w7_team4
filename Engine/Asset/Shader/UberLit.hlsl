@@ -394,18 +394,12 @@ PS_INPUT mainVS(VS_INPUT input)
     Output.TexCoord = input.TexCoord;
 
 #if NORMAL_MAPPING
-	// TBN 행렬을 좌표계 변환 후 World Space로 변환
-	// 1. 먼저 Local Space (오른손) → Local Space (왼손 Z-up) 좌표계 변환
-	float3 TransformedTangent = NormalToUEBasis(input.Tangent);
-	float3 TransformedBitangent = NormalToUEBasis(input.BiTangent);
-	float3 TransformedNormal = NormalToUEBasis(input.TangentNormal);
-
-	// 2. 그 다음 World Space로 변환
+	// World Space로 변환
 	// Tangent와 Bitangent는 World 행렬로 변환 (방향 벡터)
-	float3 WorldTangent = normalize(mul(float4(TransformedTangent, 0.0), World).xyz);
-	float3 WorldBitangent = normalize(mul(float4(TransformedBitangent, 0.0), World).xyz);
+	float3 WorldTangent = normalize(mul(float4(input.Tangent, 0.0), World).xyz);
+	float3 WorldBitangent = normalize(mul(float4(input.BiTangent, 0.0), World).xyz);
 	// Normal은 WorldTransInv로 변환 (비균등 스케일 대응)
-	float3 WorldNormal = normalize(mul(float4(TransformedNormal, 0.0), WorldTransInv).xyz);
+	float3 WorldNormal = normalize(mul(float4(input.TangentNormal, 0.0), WorldTransInv).xyz);
 
 	// TBN 행렬 구성 (row-major: 각 행이 World Space의 Tangent, Bitangent, Normal)
 	Output.TBN = float3x3(
@@ -413,7 +407,6 @@ PS_INPUT mainVS(VS_INPUT input)
 			WorldBitangent,
 			WorldNormal
 		);
-
 #endif
 
 #if LIGHTING_MODEL_GOURAUD

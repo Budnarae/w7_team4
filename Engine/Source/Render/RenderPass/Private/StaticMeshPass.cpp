@@ -302,7 +302,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 								// 오른손 좌표계 유지
 								Tangent = (fabs(N.X) < 0.9f) ? N.Cross(FVector(0, 0, 1)) : N.Cross(FVector(1, 0, 0));
 								Tangent.Normalize();
-								Bitangent = Tangent.Cross(N);
+								Bitangent = N.Cross(Tangent);
 							}
 
 							// 세 버텍스에 누적 (평균을 위해)
@@ -333,7 +333,7 @@ void FStaticMeshPass::Execute(FRenderingContext& Context)
 							Tangent.Normalize();
 
 							// Bitangent 재계산 (일관성 보장) - 오른손 좌표계
-							FVector Bitangent = Tangent.Cross(Normal);
+							FVector Bitangent = Normal.Cross(Tangent);
 							Bitangent.Normalize();
 
 							NMVertex.Tangent = Tangent;

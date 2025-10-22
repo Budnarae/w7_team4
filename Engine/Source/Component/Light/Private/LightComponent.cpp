@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "Component/Light/Public/LightComponent.h"
 #include "Actor/Public/Actor.h"
 
@@ -13,6 +13,22 @@ ULightComponent::ULightComponent
 	ULightComponentBase(InIntensity, InLightColor, InbVisible)
 {
 }
+
+ULightComponent::~ULightComponent()
+{
+	if (IconComponent)
+	{
+		GetOwner()->RemoveComponent(IconComponent);
+		auto& PendingDestroyComp = GWorld->GetPendingDestroyCompoents();
+		PendingDestroyComp.erase(
+			remove(
+				PendingDestroyComp.begin(),
+				PendingDestroyComp.end(),
+				IconComponent
+			), PendingDestroyComp.end());
+		delete IconComponent;
+	}
+};
 
 /*
 	Widget Spawnder
