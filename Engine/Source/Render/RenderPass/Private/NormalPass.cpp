@@ -73,3 +73,9 @@ void FNormalPass::Execute(FRenderingContext& Context)
 void FNormalPass::Release()
 {
 }
+
+void FNormalPass::UpdateRenderTargets(ID3D11RenderTargetView* InSceneColorRTV, ID3D11ShaderResourceView* InNormalSRV)
+{
+	SceneColorRTV = InSceneColorRTV;
+	NormalSRV = InNormalSRV;
+}

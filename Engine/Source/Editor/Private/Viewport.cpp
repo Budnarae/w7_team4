@@ -68,6 +68,12 @@ void FViewport::InitializeLayout(const D3D11_VIEWPORT& InViewport)
 	ViewportClients[2].SetViewportInfo({ BaseX + 0.0f,      BaseY + HalfH,     HalfW, HalfH, 0.0f, 1.0f });
 	ViewportClients[3].SetViewportInfo({ BaseX + HalfW,     BaseY + HalfH,     HalfW, HalfH, 0.0f, 1.0f });
 
+	// Update all cameras with new viewport info (aspect ratio, etc.)
+	for (FViewportClient& Client : ViewportClients)
+	{
+		Client.Camera.Update(Client.GetViewportInfo());
+	}
+
 	// 모든 직교 카메라가 새로운 FocusPoint를 바라보도록 위치를 즉시 갱신합니다.
 	UpdateAllViewportClientCameras();
 }

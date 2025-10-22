@@ -116,3 +116,9 @@ void FFogPass::Execute(FRenderingContext& Context)
 void FFogPass::Release()
 {
 }
+
+void FFogPass::UpdateRenderTargets(ID3D11RenderTargetView* InSceneColorRTV, ID3D11ShaderResourceView* InSceneDepthSRV)
+{
+	SceneColorRTV = InSceneColorRTV;
+	SceneDepthSRV = InSceneDepthSRV;
+}

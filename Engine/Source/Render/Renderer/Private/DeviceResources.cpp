@@ -146,39 +146,73 @@ void UDeviceResources::ReleaseFrameBuffer()
 		FrameBufferRTV->Release();
 		FrameBufferRTV = nullptr;
 	}
+
+	ReleaseSceneColor();
 }
 
 void UDeviceResources::CreateDepthBuffer()
 {
-	D3D11_TEXTURE2D_DESC dsDesc = {};
+	// Scene Depth Buffer (SRV 지원, Forward Rendering용)
+	D3D11_TEXTURE2D_DESC sceneDepthDesc = {};
+	sceneDepthDesc.Width = Width;
+	sceneDepthDesc.Height = Height;
+	sceneDepthDesc.MipLevels = 1;
+	sceneDepthDesc.ArraySize = 1;
+	sceneDepthDesc.Format = DXGI_FORMAT_R24G8_TYPELESS; // Typeless로 생성 (DSV와 SRV 모두 지원)
+	sceneDepthDesc.SampleDesc.Count = 1;
+	sceneDepthDesc.SampleDesc.Quality = 0;
+	sceneDepthDesc.Usage = D3D11_USAGE_DEFAULT;
+	sceneDepthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	sceneDepthDesc.CPUAccessFlags = 0;
+	sceneDepthDesc.MiscFlags = 0;
 
-	dsDesc.Width = Width;
-	dsDesc.Height = Height;
-	dsDesc.MipLevels = 1;
-	dsDesc.ArraySize = 1;
-	dsDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	dsDesc.SampleDesc.Count = 1;
-	dsDesc.SampleDesc.Quality = 0;
-	dsDesc.Usage = D3D11_USAGE_DEFAULT;
-	dsDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-	dsDesc.CPUAccessFlags = 0;
-	dsDesc.MiscFlags = 0;
+	Device->CreateTexture2D(&sceneDepthDesc, nullptr, &SceneDepthTexture);
 
-	Device->CreateTexture2D(&dsDesc, nullptr, &DepthBuffer);
-	Device->CreateDepthStencilView(DepthBuffer, nullptr, &DepthStencilView);
+	// DSV 생성 (Depth 쓰기용)
+	D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // Depth 24비트 + Stencil 8비트
+	dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	dsvDesc.Texture2D.MipSlice = 0;
+	Device->CreateDepthStencilView(SceneDepthTexture, &dsvDesc, &SceneDepthDSV);
+
+	// SRV 생성 (Depth 읽기용 - Stencil 무시)
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS; // Depth만 읽기, Stencil 무시
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+	Device->CreateShaderResourceView(SceneDepthTexture, &srvDesc, &SceneDepthSRV);
+
+	// Read-Only DSV 생성
+	D3D11_DEPTH_STENCIL_VIEW_DESC dsvReadOnlyDesc = {};
+	dsvReadOnlyDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvReadOnlyDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	dsvReadOnlyDesc.Texture2D.MipSlice = 0;
+	dsvReadOnlyDesc.Flags = D3D11_DSV_READ_ONLY_DEPTH;
+	Device->CreateDepthStencilView(SceneDepthTexture, &dsvReadOnlyDesc, &SceneDepthDSV_ReadOnly);
 }
 
 void UDeviceResources::ReleaseDepthBuffer()
 {
-	if (DepthStencilView)
+	if (SceneDepthDSV_ReadOnly)
 	{
-		DepthStencilView->Release();
-		DepthStencilView = nullptr;
+		SceneDepthDSV_ReadOnly->Release();
+		SceneDepthDSV_ReadOnly = nullptr;
 	}
-	if (DepthBuffer)
+	if (SceneDepthSRV)
 	{
-		DepthBuffer->Release();
-		DepthBuffer = nullptr;
+		SceneDepthSRV->Release();
+		SceneDepthSRV = nullptr;
+	}
+	if (SceneDepthDSV)
+	{
+		SceneDepthDSV->Release();
+		SceneDepthDSV = nullptr;
+	}
+	if (SceneDepthTexture)
+	{
+		SceneDepthTexture->Release();
+		SceneDepthTexture = nullptr;
 	}
 }
 void UDeviceResources::CreateSceneColor()

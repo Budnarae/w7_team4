@@ -120,3 +120,8 @@ void FDepthPrePass::Release()
 {
 	// 리소스는 Renderer가 소유하므로 여기서는 해제하지 않음
 }
+
+void FDepthPrePass::UpdateDepthStencilView(ID3D11DepthStencilView* InDepthDSV)
+{
+	DepthDSV = InDepthDSV;
+}

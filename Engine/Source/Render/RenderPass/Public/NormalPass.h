@@ -26,6 +26,9 @@ public:
 	void Execute(FRenderingContext& Context) override;
 	void Release() override;
 
+	// Update render targets after resize
+	void UpdateRenderTargets(ID3D11RenderTargetView* InSceneColorRTV, ID3D11ShaderResourceView* InNormalSRV);
+
 private:
 	ID3D11RenderTargetView* SceneColorRTV;
 	ID3D11ShaderResourceView* NormalSRV = nullptr;

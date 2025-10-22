@@ -26,10 +26,16 @@ public:
 	ID3D11DeviceContext* GetDeviceContext() const { return DeviceContext; }
 	IDXGISwapChain* GetSwapChain() const { return SwapChain; }
 	ID3D11RenderTargetView* GetRenderTargetView() const { return FrameBufferRTV; }
-	ID3D11DepthStencilView* GetDepthStencilView() const { return DepthStencilView; }
+	ID3D11DepthStencilView* GetDepthStencilView() const { return SceneDepthDSV; }
 
 	ID3D11RenderTargetView* GetSceneColorRTV() const { return SceneColorRTV; }
 	ID3D11ShaderResourceView* GetSceneColorSRV() const { return SceneColorSRV; }
+
+	// Scene Depth Resources (for forward rendering with depth pre-pass)
+	ID3D11Texture2D* GetSceneDepthTexture() const { return SceneDepthTexture; }
+	ID3D11DepthStencilView* GetSceneDepthDSV() const { return SceneDepthDSV; }
+	ID3D11ShaderResourceView* GetSceneDepthSRV() const { return SceneDepthSRV; }
+	ID3D11DepthStencilView* GetSceneDepthDSVReadOnly() const { return SceneDepthDSV_ReadOnly; }
 	uint32 GetWidth() const { return Width; }
 	uint32 GetHeight() const { return Height; }
 
@@ -49,12 +55,14 @@ private:
 	ID3D11Texture2D* FrameBuffer = nullptr;
 	ID3D11RenderTargetView* FrameBufferRTV = nullptr;
 
-	ID3D11Texture2D* DepthBuffer = nullptr;
-	ID3D11DepthStencilView* DepthStencilView = nullptr;
-
 	ID3D11Texture2D* SceneColorTexture = nullptr;
 	ID3D11RenderTargetView* SceneColorRTV = nullptr;
 	ID3D11ShaderResourceView* SceneColorSRV = nullptr;
+
+	ID3D11Texture2D* SceneDepthTexture = nullptr;
+	ID3D11DepthStencilView* SceneDepthDSV = nullptr;
+	ID3D11ShaderResourceView* SceneDepthSRV = nullptr;
+	ID3D11DepthStencilView* SceneDepthDSV_ReadOnly = nullptr;
 
 	D3D11_VIEWPORT ViewportInfo = {};
 

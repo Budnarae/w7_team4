@@ -113,10 +113,10 @@ public:
 	ID3D11Buffer* GetConstantBufferModels() const { return ConstantBufferModels; }
 	ID3D11Buffer* GetConstantBufferViewProj() const { return ConstantBufferViewProj; }
 	ID3D11RenderTargetView* GetSceneColorRTV() const{ return SceneColorRTV; }
-	ID3D11ShaderResourceView* GetSceneDepthSRV() const { return SceneDepthSRV; }
-	ID3D11DepthStencilView* GetSceneDepthDSV() const { return SceneDepthDSV; }
-	ID3D11Texture2D* GetSceneDepthTexture() const { return SceneDepthTexture; }
-	ID3D11DepthStencilView* GetReadOnlyDSV() const { return SceneDepthDSV_ReadOnly; }
+	ID3D11ShaderResourceView* GetSceneDepthSRV() const { return DeviceResources->GetSceneDepthSRV(); }
+	ID3D11DepthStencilView* GetSceneDepthDSV() const { return DeviceResources->GetSceneDepthDSV(); }
+	ID3D11Texture2D* GetSceneDepthTexture() const { return DeviceResources->GetSceneDepthTexture(); }
+	ID3D11DepthStencilView* GetReadOnlyDSV() const { return DeviceResources->GetSceneDepthDSVReadOnly(); }
 	ID3D11ShaderResourceView* GetSceneColorSRV() const { return SceneColorSRV; }
 	FLightCullingPass* GetLightCullingPass() const { return LightCullingPass; }
 
@@ -143,6 +143,7 @@ public:
 	ID3D11InputLayout* GetUberLitGouraudInputLayout() const { return UberLitGouraudInputLayout; }
 
 	void SetIsResizing(bool isResizing) { bIsResizing = isResizing; }
+	void SetNeedsResize(bool bNeedsResize) { bNeedsResizeNextFrame = bNeedsResize; }
 private:
 	UPipeline* Pipeline = nullptr;
 	UDeviceResources* DeviceResources = nullptr;
@@ -261,11 +262,6 @@ private:
 	ID3D11RenderTargetView* SceneColorRTV = nullptr;
 	ID3D11ShaderResourceView* SceneColorSRV = nullptr;
 
-	ID3D11Texture2D* SceneDepthTexture = nullptr;
-	ID3D11DepthStencilView* SceneDepthDSV = nullptr;
-	ID3D11ShaderResourceView* SceneDepthSRV = nullptr;
-	ID3D11DepthStencilView* SceneDepthDSV_ReadOnly = nullptr;
-
 	// GBuffer for normal view mode
 	ID3D11Texture2D* SceneNormalTexture = nullptr;
 	ID3D11RenderTargetView* SceneNormalRTV = nullptr;
@@ -276,6 +272,7 @@ private:
 	FViewport* ViewportClient = nullptr;
 
 	bool bIsResizing = false;
+	bool bNeedsResizeNextFrame = false;
 
 	ID3D11SamplerState* PostProcessSamplerState = nullptr;
 

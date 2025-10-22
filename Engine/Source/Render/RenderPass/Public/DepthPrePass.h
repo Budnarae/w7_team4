@@ -25,6 +25,9 @@ public:
 	void Execute(FRenderingContext& Context) override;
 	void Release() override;
 
+	// Update DSV after resize
+	void UpdateDepthStencilView(ID3D11DepthStencilView* InDepthDSV);
+
 private:
 	ID3D11DepthStencilView* DepthDSV;
 	ID3D11VertexShader* DepthVS;

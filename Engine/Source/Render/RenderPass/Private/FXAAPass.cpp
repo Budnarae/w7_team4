@@ -89,3 +89,11 @@ void FFXAAPass::Execute(FRenderingContext& Context)
 void FFXAAPass::Release()
 {
 }
+
+void FFXAAPass::UpdateRenderTargets(ID3D11RenderTargetView* InBackBufferRTV, ID3D11DepthStencilView* InBackBufferDSV, ID3D11ShaderResourceView* InSceneColorSRV, ID3D11ShaderResourceView* InSceneDepthSRV)
+{
+	BackBufferRTV = InBackBufferRTV;
+	BackBufferDSV = InBackBufferDSV;
+	SceneColorSRV = InSceneColorSRV;
+	SceneDepthSRV = InSceneDepthSRV;
+}
