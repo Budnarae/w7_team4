@@ -10,8 +10,7 @@ struct FLightComplexityConstants
 	uint32 NumTilesY;           // uint
 	uint32 NumPointLights;      // uint
 	uint32 NumSpotLights;       // uint
-	uint32 PointLightUsageMask; // uint
-	uint32 SpotLightUsageMask;  // uint
+	uint32 _Padding[2];         // uint2
 };
 
 /**

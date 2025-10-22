@@ -11,10 +11,13 @@ cbuffer PerFrame : register(b0)
     uint NumTilesY;
     uint NumPointLights;
     uint NumSpotLights;
-    uint PointLightUsageMask;
-    uint SpotLightUsageMask;
+    uint2 _Padding;
 };
 
+// Tile Light 인덱스 리스트 (Tiled-Based Light Culling 결과)
+StructuredBuffer<uint> TileLightOffsets : register(t0);
+StructuredBuffer<uint2> TileLightCounts : register(t1);
+StructuredBuffer<uint> TileLightIndices : register(t2);
 // Light Info (CPU에서 전달받지 않고 간단한 시각화만)
 // 실제 Forward+ 구현을 위해서는 StructuredBuffer<LightInfo> 필요
 
@@ -39,86 +42,92 @@ VSOutput mainVS(uint VertexID : SV_VertexID)
 // 라이트 개수를 Heat Map 색상으로 변환
 float3 LightCountToColor(uint LightCount)
 {
-    // 0 라이트 = 흰색 (라이트 없음을 명확히 표시)
-    // 1~8 = 파랑 -> 초록
-    // 9~16 = 초록 -> 노랑
-    // 17~24 = 노랑 -> 주황
-    // 25~32 = 주황 -> 빨강
+    // 0 = 검은색 (라이트 없음)
+    // 1~3 = 파랑
+    // 4~6 = 시안~초록
+    // 7~10 = 노랑
+    // 11~16 = 주황
+    // 17+ = 빨강
 
     if (LightCount == 0)
-        return float3(1, 1, 1);
-
-    float t = saturate((float)LightCount / MAX_LIGHTS);
-
-    // Heat map: Blue -> Cyan -> Green -> Yellow -> Red
-    if (t < 0.25)
     {
-        // Blue to Cyan
-        float localT = t / 0.25;
-        return float3(0, localT, 1);
+        return float3(0, 0, 0);  // 검은색 (라이트 없음)
     }
-    else if (t < 0.5)
+
+    float t;
+    if (LightCount <= 10)
     {
-        // Cyan to Green
-        float localT = (t - 0.25) / 0.25;
-        return float3(0, 1, 1 - localT);
-    }
-    else if (t < 0.75)
-    {
-        // Green to Yellow
-        float localT = (t - 0.5) / 0.25;
-        return float3(localT, 1, 0);
+        t = (float)LightCount / 10.0 * 0.6;  // 0~10 라이트 = 색상 스펙트럼의 60%
     }
     else
     {
-        // Yellow to Red
-        float localT = (t - 0.75) / 0.25;
-        return float3(1, 1 - localT, 0);
+        t = 0.6 + ((float)(LightCount - 10) / 22.0) * 0.4;  // 11~32 라이트 = 나머지 40%
+    }
+
+    t = saturate(t);
+
+    // Heat map: Blue -> Cyan -> Green -> Yellow -> Orange -> Red
+    if (t < 0.2)
+    {
+        // Blue to Cyan
+        float localT = t / 0.2;
+        return float3(0, localT * 0.7, 1);
+    }
+    else if (t < 0.4)
+    {
+        // Cyan to Green
+        float localT = (t - 0.2) / 0.2;
+        return float3(0, 0.7 + localT * 0.3, 1 - localT);
+    }
+    else if (t < 0.6)
+    {
+        // Green to Yellow
+        float localT = (t - 0.4) / 0.2;
+        return float3(localT, 1, 0);
+    }
+    else if (t < 0.8)
+    {
+        // Yellow to Orange
+        float localT = (t - 0.6) / 0.2;
+        return float3(1, 1 - localT * 0.5, 0);
+    }
+    else
+    {
+        // Orange to Red
+        float localT = (t - 0.8) / 0.2;
+        return float3(1, 0.5 - localT * 0.5, 0);
     }
 }
 
 // Pixel Shader
 float4 mainPS(VSOutput Input) : SV_TARGET
 {
-    // 현재 픽셀의 화면 좌표
-    uint2 PixelPos = uint2(Input.TexCoord * ScreenDimensions);
+    // SV_POSITION은 전체 화면 좌표 (SceneRT 내 절대 좌표)
+    uint2 GlobalPixelCoord = uint2(Input.Position.xy);
+    uint2 GlobalTileCoord = GlobalPixelCoord / TILE_SIZE;
 
-    // 타일 인덱스 계산
-    uint2 TileID = PixelPos / TILE_SIZE;
+    // 전체 SceneRT 기준 타일 개수 계산
+    uint SceneNumTilesX = (uint(ScreenDimensions.x) + TILE_SIZE - 1) / TILE_SIZE;
+    uint SceneNumTilesY = (uint(ScreenDimensions.y) + TILE_SIZE - 1) / TILE_SIZE;
 
-    // 타일별로 다른 Light 개수를 시각화하기 위한 간단한 알고리즘
-    // 실제 Forward+에서는 각 타일의 Light List를 사용하지만,
-    // 현재는 글로벌 Mask만 있으므로 타일 ID 기반으로 변화를 주어 시각화
-
-    uint TotalLights = NumPointLights + NumSpotLights;
-
-    // 타일 ID 해시 (간단한 pseudo-random)
-    uint TileHash = (TileID.x * 73 + TileID.y * 151) % 16;
-
-    // 타일마다 다른 비율의 라이트 표시 (중앙에 가까울수록 많이)
-    float2 TileCenter = (float2(TileID) + 0.5) * TILE_SIZE;
-    float2 ScreenCenter = ScreenDimensions * 0.5;
-    float DistToCenter = length(TileCenter - ScreenCenter);
-    float MaxDist = length(ScreenDimensions * 0.5);
-
-    // 중앙에서 멀수록 라이트 개수 감소 (간단한 시각화)
-    float DistFactor = 1.0 - saturate(DistToCenter / MaxDist);
-    uint ActiveLightCount = uint(float(TotalLights) * (0.3 + DistFactor * 0.7));
-
-    // 최소 1개는 보이도록 (0이면 흰색)
-    if (TotalLights > 0 && ActiveLightCount == 0)
-        ActiveLightCount = 1;
-
-    // 라이트 개수를 색상으로 변환
-    float3 Color = LightCountToColor(ActiveLightCount);
-
-    // 타일 경계선 그리기 (선택사항)
-    uint2 LocalPixel = PixelPos % TILE_SIZE;
-    if (LocalPixel.x == 0 || LocalPixel.y == 0)
+    // 범위 체크 (전체 화면 기준)
+    if (GlobalTileCoord.x >= SceneNumTilesX || GlobalTileCoord.y >= SceneNumTilesY)
     {
-        Color *= 0.7; // 경계선을 약간 어둡게
+        return float4(0, 0, 0, 0);  // 범위 밖은 투명
     }
 
-    // Alpha = 0.3 (더 투명하게, 메시를 더 잘 보이게)
-    return float4(Color, 0.3);
+    // 전체 화면 기준 타일 인덱스
+    uint TileIndex = GlobalTileCoord.y * SceneNumTilesX + GlobalTileCoord.x;
+
+    // 타일별 라이트 개수 읽기
+    uint2 Counts = TileLightCounts[TileIndex];
+    uint PointLightCount = Counts.x;
+    uint SpotLightCount = Counts.y;
+    uint TotalLightCount = PointLightCount + SpotLightCount;
+
+    // 라이트 개수를 색상으로 변환
+    float3 Color = LightCountToColor(TotalLightCount);
+
+    // Alpha = 0.5 (적절한 투명도로 메시와 heat map 모두 보이게)
+    return float4(Color, 0.5);
 }

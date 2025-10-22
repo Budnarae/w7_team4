@@ -53,7 +53,7 @@ public:
 	void CreateSceneRenderTargets();
 	void CreateSceneDepthResources();
 	void CreateNormalResources();
-	// void CreateLightComplexityResources();
+	void CreateLightComplexityResources();
 
 	// Release
 	void ReleaseConstantBuffers();
@@ -71,7 +71,7 @@ public:
 	void ReleaseSceneRenderTargets();
 	void ReleaseSceneDepthResources();
 	void ReleaseNormalResources();
-	// void ReleaseLightComplexityResources();
+	void ReleaseLightComplexityResources();
 
 	// Render
 	void Update();
@@ -118,6 +118,7 @@ public:
 	ID3D11Texture2D* GetSceneDepthTexture() const { return DeviceResources->GetSceneDepthTexture(); }
 	ID3D11DepthStencilView* GetReadOnlyDSV() const { return DeviceResources->GetSceneDepthDSVReadOnly(); }
 	ID3D11ShaderResourceView* GetSceneColorSRV() const { return SceneColorSRV; }
+	FLightCullingPass* GetLightCullingPass() const { return LightCullingPass; }
 
 	ID3D11VertexShader* GetDepthVertexShader() const { return DepthVertexShader; }
 	ID3D11PixelShader* GetDepthPixelShader() const { return DepthPixelShader; }

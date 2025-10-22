@@ -76,7 +76,7 @@ void URenderer::Init(HWND InWindowHandle)
 	CreateFXAAResources();
 	CreateSceneDepthResources();
 	CreateNormalResources();
-	// CreateLightComplexityResources();
+	CreateLightComplexityResources();
 
 	// FontRenderer 초기화
 	FontRenderer = new UFontRenderer;
@@ -239,21 +239,20 @@ void URenderer::Init(HWND InWindowHandle)
 		ConstantBufferNormalProperties
 		);
 
-	// // LightComplexityPass 생성
-	// FLightComplexityPass* InLightComplexityPass = new FLightComplexityPass(
-	// 	Pipeline,
-	// 	SceneColorRTV,
-	// 	PostProcessSamplerState,
-	// 	LightComplexityVertexShader,
-	// 	LightComplexityPixelShader,
-	// 	DepthTestAlwaysNoWriteState,
-	// 	AlphaBlendState, // 반투명 블랜딩
-	// 	ConstantBufferLightComplexity
-	// );
-	// LightComplexityPass = InLightComplexityPass;
+	// LightComplexityPass 생성
+	LightComplexityPass = new FLightComplexityPass(
+		Pipeline,
+		SceneColorRTV,
+		PostProcessSamplerState,
+		LightComplexityVertexShader,
+		LightComplexityPixelShader,
+		DepthTestAlwaysNoWriteState,
+		AlphaBlendState, // 반투명 블랜딩
+		ConstantBufferLightComplexity
+	);
 
 	// FXAAPass 생성
-	FFXAAPass* InFXAAPass = new FFXAAPass(
+	FXAAPass = new FFXAAPass(
 		Pipeline,
 		BackBufferRTV,
 		BackBufferDSV,
@@ -267,8 +266,6 @@ void URenderer::Init(HWND InWindowHandle)
 		FXAAPixelShader,
 		NoTestButWriteDepthState
 	);
-
-	FXAAPass = InFXAAPass;
 }
 
 void URenderer::Release()
@@ -288,7 +285,7 @@ void URenderer::Release()
 	ReleaseFXAAResources();
 	ReleaseSceneDepthResources();
 	ReleaseNormalResources();
-	// ReleaseLightComplexityResources();
+	ReleaseLightComplexityResources();
 
 	FRenderResourceFactory::ReleaseRasterizerState();
 	for (auto& RenderPass : RenderPasses)
@@ -713,8 +710,10 @@ void URenderer::Update()
 
 	for (FViewportClient& ViewportClient : ViewportClient->GetViewports())
 	{
-		if (ViewportClient.GetViewportInfo().Width < 1.0f || ViewportClient.GetViewportInfo().Height
-			< 1.0f) { continue; }
+		if (ViewportClient.GetViewportInfo().Width < 1.0f || ViewportClient.GetViewportInfo().Height < 1.0f)
+		{
+			continue;
+		}
 
 		UCamera* CurrentCamera = &ViewportClient.Camera;
 		CurrentCamera->Update(ViewportClient.GetViewportInfo());
@@ -758,16 +757,16 @@ void URenderer::Update()
 			// SceneDepth 모드: Depth 시각화로 덮어씀
 			SceneDepthPass->Execute(RenderingContext);
 		}
+		else if (RenderingContext.ViewMode == EViewModeIndex::VMI_LightComplexity)
+		{
+			// Light Complexity 모드: 메시 렌더링 위에 heat map 오버레이
+			LightComplexityPass->Execute(RenderingContext);
+		}
 		else if (RenderingContext.ViewMode == EViewModeIndex::VMI_Normal)
 		{
 			// Normal 모드: Normal 시각화
 			NormalPass->Execute(RenderingContext);
 		}
-		// else if (RenderingContext.ViewMode == EViewModeIndex::VMI_LightComplexity)
-		// {
-		// 	// Light Complexity 모드: 메시 렌더링 위에 반투명 heat map 오버레이
-		// 	LightComplexityPass->Execute(RenderingContext);
-		// }
 
 		// LightPass가 DSV를 nullptr로 설정했을 수 있으므로 Scene RT 재바인딩
 		//GetDeviceContext()->OMSetRenderTargets(1, , );
@@ -812,6 +811,12 @@ void URenderer::RenderBegin() const
 	GetDeviceContext()->ClearRenderTargetView(SceneColorRTV, ClearColor);
 	GetDeviceContext()->ClearRenderTargetView(SceneNormalRTV, ClearColor);
 	GetDeviceContext()->ClearDepthStencilView(DeviceResources->GetSceneDepthDSV(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	// Light Culling Pass 프레임 플래그 리셋
+	if (LightCullingPass)
+	{
+		LightCullingPass->ResetFrameFlag();
+	}
 
 	ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV, SceneNormalRTV};
 	GetDeviceContext()->OMSetRenderTargets(2, SceneRtvs, DeviceResources->GetSceneDepthDSV());
@@ -932,8 +937,6 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 
 	// Lighting 정보 수집 및 cbuffer 업데이트
 	FLightingConstants LightingData = {};
-	LightingData.PointLightUsageMask = 0xFFFFFFFF;
-	LightingData.SpotLightUsageMask = 0xFFFFFFFF;
 
 	// Ambient Light 수집
 	const TArray<UAmbientLightComponent*>& AmbientLights = CurrentLevel->GetAllAmbientLights();
@@ -1059,35 +1062,6 @@ void URenderer::RenderLevel(UCamera* InCurrentCamera, const D3D11_VIEWPORT& InVi
 			RenderPass->Execute(RenderingContext);
 		}
 	}
-
-	// Light Culling 통계를 StatOverlay에 전달 (RenderPasses 실행 후)
-	uint32 ActivePointCount = 0;
-	uint32 ActiveSpotCount = 0;
-
-	for (uint32 i = 0; i < LightingData.NumActivePointLights; ++i)
-	{
-		if (LightingData.PointLightUsageMask & (1u << i))
-		{
-			++ActivePointCount;
-		}
-	}
-
-	for (uint32 i = 0; i < LightingData.NumActiveSpotLights; ++i)
-	{
-		if (LightingData.SpotLightUsageMask & (1u << i))
-		{
-			++ActiveSpotCount;
-		}
-	}
-
-	UStatOverlay::GetInstance().RecordLightCullingStats(
-		LightingData.NumActivePointLights,
-		LightingData.NumActiveSpotLights,
-		ActivePointCount,
-		ActiveSpotCount,
-		LightingData.PointLightUsageMask,
-		LightingData.SpotLightUsageMask
-	);
 }
 
 void URenderer::RenderEditorPrimitive(const FEditorPrimitive& InPrimitive,
@@ -1427,12 +1401,12 @@ void URenderer::ReleaseNormalResources()
 	SafeRelease(ConstantBufferNormalProperties);
 }
 
-// void URenderer::ReleaseLightComplexityResources()
-// {
-// 	SafeRelease(LightComplexityVertexShader);
-// 	SafeRelease(LightComplexityPixelShader);
-// 	SafeRelease(ConstantBufferLightComplexity);
-// }
+void URenderer::ReleaseLightComplexityResources()
+{
+	SafeRelease(LightComplexityVertexShader);
+	SafeRelease(LightComplexityPixelShader);
+	SafeRelease(ConstantBufferLightComplexity);
+}
 
 void URenderer::CreateFireBallForwardShader()
 {
@@ -1648,25 +1622,25 @@ void URenderer::CreateFXAAResources()
 	ConstantBufferFXAAParameters = FRenderResourceFactory::CreateConstantBuffer<FFXAAParameters>();
 }
 
-// void URenderer::CreateLightComplexityResources()
-// {
-// 	// Vertex Shader (SV_VertexID 사용하므로 Input Layout 불필요)
-// 	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
-// 		L"Asset/Shader/LightComplexityShader.hlsl",
-// 		TArray<D3D11_INPUT_ELEMENT_DESC>{},
-// 		&LightComplexityVertexShader,
-// 		nullptr
-// 	);
-//
-// 	// Pixel Shader
-// 	FRenderResourceFactory::CreatePixelShader(
-// 		L"Asset/Shader/LightComplexityShader.hlsl",
-// 		&LightComplexityPixelShader
-// 	);
-//
-// 	// Constant Buffer
-// 	ConstantBufferLightComplexity = FRenderResourceFactory::CreateConstantBuffer<FLightComplexityConstants>();
-// }
+void URenderer::CreateLightComplexityResources()
+{
+	// Vertex Shader (SV_VertexID 사용하므로 Input Layout 불필요)
+	FRenderResourceFactory::CreateVertexShaderAndInputLayout(
+		L"Asset/Shader/LightComplexityShader.hlsl",
+		TArray<D3D11_INPUT_ELEMENT_DESC>{},
+		&LightComplexityVertexShader,
+		nullptr
+	);
+
+	// Pixel Shader
+	FRenderResourceFactory::CreatePixelShader(
+		L"Asset/Shader/LightComplexityShader.hlsl",
+		&LightComplexityPixelShader
+	);
+
+	// Constant Buffer
+	ConstantBufferLightComplexity = FRenderResourceFactory::CreateConstantBuffer<FLightComplexityConstants>();
+}
 
 void URenderer::ReleaseUberLightResources()
 {

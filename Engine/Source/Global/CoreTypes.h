@@ -100,8 +100,17 @@ struct FLightingConstants
 
 	uint32 NumActivePointLights;
 	uint32 NumActiveSpotLights;
-	uint32 PointLightUsageMask;  // 화면에 실제 영향을 주는 Point Light
-	uint32 SpotLightUsageMask;   // 화면에 실제 영향을 주는 Spot Light
+	uint32 _Padding[2];
+};
+
+// Scene Info Constants
+struct FSceneInfoConstants
+{
+	FVector2 ViewportTopLeft;   // 8 bytes
+	FVector2 ViewportSize;       // 8 bytes
+	FVector2 SceneRTSize;        // 8 bytes
+	uint32 NumTilesX;            // 4 bytes
+	uint32 NumTilesY;            // 4 bytes
 };
 
 struct FModelForLight
