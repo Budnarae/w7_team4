@@ -140,6 +140,7 @@ enum class EPrimitiveType : uint8
 	PointLight,
 	SpotLight,
 	DirectionalLight,
+	AmbientLight,
 	HeightFog,
 	Torus,
 	Arrow,
