@@ -4,6 +4,7 @@
 #include "Component/Light/Public/PointLightComponent.h"
 #include "Component/Light/Public/SpotLightComponent.h"
 #include "Component/Light/Public/DirectionalLightComponent.h"
+#include "Component/Light/Public/AmbientLightComponent.h"
 #include "Manager/Asset/Public/AssetManager.h"
 
 IMPLEMENT_CLASS(UIconComponent, UBillBoardComponent)
@@ -42,6 +43,10 @@ void UIconComponent::Initialize(USceneComponent* Parent)
 	else if (UDirectionalLightComponent* DirectionalLight = Cast<UDirectionalLightComponent>(Parent))
 	{
 		SetSprite(UAssetManager::GetInstance().CreateTexture("Asset/Icon/DirectionalLight_64x.png"));
+	}
+	else if (UAmbientLightComponent* AmbientLight = Cast<UAmbientLightComponent>(Parent))
+	{
+		SetSprite(UAssetManager::GetInstance().CreateTexture("Asset/Icon/Skylight_64x.png"));
 	}
 	else
 	{

@@ -360,7 +360,83 @@ void UEditor::UpdateBatchLines()
 					FVector(OuterDepth, OuterDepth, OuterDepth)
 				);
 
-				return;
+				// SpotLight의 영향 범위 구면 호 + 십자선
+				TArray<FVector> RangeLineVertices;
+				TArray<uint32> RangeLineIndices;
+				uint32 VertexIndex = 0;
+
+				// Right 벡터 계산 (Direction과 UpVector에 수직)
+				FVector RightVector = FVector::Cross(Direction, UpVector);
+				RightVector.Normalize();
+
+				// 구면 호 그리기 (Cone 범위 내)
+				// OuterAngle 범위를 따라 구의 일부분만 그림
+				const int32 ArcSegments = 32;
+				const float OuterHalfAngleRadForArc = FVector::GetDegreeToRadian(OuterAngle * 0.5f);
+
+				// 수직 방향 호 (Up 축 기준)
+				for (int32 i = 0; i < ArcSegments; ++i)
+				{
+					float Angle1 = -OuterHalfAngleRadForArc + (OuterHalfAngleRadForArc * 2.0f * i / ArcSegments);
+					float Angle2 = -OuterHalfAngleRadForArc + (OuterHalfAngleRadForArc * 2.0f * (i + 1) / ArcSegments);
+
+					FVector Offset1 = Direction * cosf(Angle1) * Radius + UpVector * sinf(Angle1) * Radius;
+					FVector Offset2 = Direction * cosf(Angle2) * Radius + UpVector * sinf(Angle2) * Radius;
+
+					RangeLineVertices.push_back(Center + Offset1);
+					RangeLineVertices.push_back(Center + Offset2);
+					RangeLineIndices.push_back(VertexIndex++);
+					RangeLineIndices.push_back(VertexIndex++);
+				}
+
+				// 수평 방향 호 (Right 축 기준)
+				for (int32 i = 0; i < ArcSegments; ++i)
+				{
+					float Angle1 = -OuterHalfAngleRadForArc + (OuterHalfAngleRadForArc * 2.0f * i / ArcSegments);
+					float Angle2 = -OuterHalfAngleRadForArc + (OuterHalfAngleRadForArc * 2.0f * (i + 1) / ArcSegments);
+
+					FVector Offset1 = Direction * cosf(Angle1) * Radius + RightVector * sinf(Angle1) * Radius;
+					FVector Offset2 = Direction * cosf(Angle2) * Radius + RightVector * sinf(Angle2) * Radius;
+
+					RangeLineVertices.push_back(Center + Offset1);
+					RangeLineVertices.push_back(Center + Offset2);
+					RangeLineIndices.push_back(VertexIndex++);
+					RangeLineIndices.push_back(VertexIndex++);
+				}
+
+				// 원형 호 (Cone 끝단, Radius 거리)
+				const float EndCircleRadius = Radius * sinf(OuterHalfAngleRadForArc);
+				const float EndCircleDistance = Radius * cosf(OuterHalfAngleRadForArc);
+				const FVector EndCircleCenter = Center + Direction * EndCircleDistance;
+
+				for (int32 i = 0; i < ArcSegments; ++i)
+				{
+					float Theta1 = 2.0f * 3.14159f * i / ArcSegments;
+					float Theta2 = 2.0f * 3.14159f * (i + 1) / ArcSegments;
+
+					FVector Offset1 = UpVector * cosf(Theta1) * EndCircleRadius + RightVector * sinf(Theta1) * EndCircleRadius;
+					FVector Offset2 = UpVector * cosf(Theta2) * EndCircleRadius + RightVector * sinf(Theta2) * EndCircleRadius;
+
+					RangeLineVertices.push_back(EndCircleCenter + Offset1);
+					RangeLineVertices.push_back(EndCircleCenter + Offset2);
+					RangeLineIndices.push_back(VertexIndex++);
+					RangeLineIndices.push_back(VertexIndex++);
+				}
+
+				// 십자선 추가
+				// Direction 방향 라인 (중심에서 전방으로)
+				RangeLineVertices.push_back(Center);
+				RangeLineVertices.push_back(Center + Direction * Radius);
+				RangeLineIndices.push_back(VertexIndex++);
+				RangeLineIndices.push_back(VertexIndex++);
+
+				// Right 방향 라인 (좌우)
+				RangeLineVertices.push_back(Center + RightVector * Radius * sinf(OuterHalfAngleRadForArc));
+				RangeLineVertices.push_back(Center - RightVector * Radius * sinf(OuterHalfAngleRadForArc));
+				RangeLineIndices.push_back(VertexIndex++);
+				RangeLineIndices.push_back(VertexIndex++);
+
+				BatchLines.AddLines(RangeLineVertices, RangeLineIndices);
 			}
 		}
 	}
