@@ -84,7 +84,39 @@ float3 ScreenToView(float2 ScreenPos, float Depth)
     return ViewPos.xyz;
 }
 
-// Sphere와 Tile Frustum의 충돌 검사
+// 평면 정의 (Plane: normal.xyz, distance)
+struct Plane
+{
+    float3 Normal;
+    float Distance;  // 원점으로부터의 거리
+};
+
+// 평면 생성: 3개의 점으로부터 (반시계방향)
+Plane CreatePlane(float3 p0, float3 p1, float3 p2)
+{
+    Plane plane;
+    float3 v0 = p1 - p0;
+    float3 v1 = p2 - p0;
+
+    // 외적으로 법선 벡터 계산 (Frustum 내부를 향하도록)
+    plane.Normal = normalize(cross(v1, v0));
+
+    // 평면 방정식: dot(Normal, P) + Distance = 0
+    // Distance = -dot(Normal, p0)
+    plane.Distance = -dot(plane.Normal, p0);
+
+    return plane;
+}
+
+// 구와 평면의 거리 계산
+float DistanceToPlane(Plane plane, float3 p)
+{
+    // 양수: 평면의 Normal 방향 (Frustum 외부)
+    // 음수: 평면의 반대 방향 (Frustum 내부)
+    return dot(plane.Normal, p) + plane.Distance;
+}
+
+// Sphere와 Tile Frustum의 충돌 검사 (6개 평면 사용)
 bool SphereIntersectsFrustum(float3 ViewSpaceCenter, float Radius, float MinDepthValue, float MaxDepthValue, float2 TileMin, float2 TileMax)
 {
     // MinDepth > MaxDepth이면 빈 타일
@@ -97,46 +129,64 @@ bool SphereIntersectsFrustum(float3 ViewSpaceCenter, float Radius, float MinDept
     float TileMinZ = (NearPlane * FarPlane) / (FarPlane - MinDepthValue * (FarPlane - NearPlane));
     float TileMaxZ = (NearPlane * FarPlane) / (FarPlane - MaxDepthValue * (FarPlane - NearPlane));
 
-    // Depth 범위 체크
-    float LightViewZ = ViewSpaceCenter.z;
-    float LightNearZ = LightViewZ - Radius;
-    float LightFarZ = LightViewZ + Radius;
-
     // Light 전체가 카메라 뒤라면 컬링
+    float LightViewZ = ViewSpaceCenter.z;
+    float LightFarZ = LightViewZ + Radius;
     if (LightFarZ < 0.0)
     {
         return false;
     }
 
-    // Depth 범위가 겹치지 않으면 컬링
-    if (LightFarZ < TileMinZ || LightNearZ > TileMaxZ)
+    // Frustum의 8개 코너 계산
+    float3 NearCorners[4];
+    NearCorners[0] = ScreenToView(float2(TileMin.x, TileMin.y), 0.0f);  // 좌하
+    NearCorners[1] = ScreenToView(float2(TileMax.x, TileMin.y), 0.0f);  // 우하
+    NearCorners[2] = ScreenToView(float2(TileMax.x, TileMax.y), 0.0f);  // 우상
+    NearCorners[3] = ScreenToView(float2(TileMin.x, TileMax.y), 0.0f);  // 좌상
+
+    float3 FarCorners[4];
+    FarCorners[0] = ScreenToView(float2(TileMin.x, TileMin.y), 1.0f);
+    FarCorners[1] = ScreenToView(float2(TileMax.x, TileMin.y), 1.0f);
+    FarCorners[2] = ScreenToView(float2(TileMax.x, TileMax.y), 1.0f);
+    FarCorners[3] = ScreenToView(float2(TileMin.x, TileMax.y), 1.0f);
+
+    // Frustum의 6개 평면 생성
+    Plane planes[6];
+
+    // Near Plane (법선이 카메라 반대 방향)
+    planes[0] = CreatePlane(NearCorners[0], NearCorners[3], NearCorners[1]);
+
+    // Far Plane (법선이 카메라 방향)
+    planes[1] = CreatePlane(FarCorners[0], FarCorners[1], FarCorners[3]);
+
+    // Left Plane (좌측 면)
+    planes[2] = CreatePlane(NearCorners[0], FarCorners[0], NearCorners[3]);
+
+    // Right Plane (우측 면)
+    planes[3] = CreatePlane(NearCorners[1], NearCorners[2], FarCorners[1]);
+
+    // Bottom Plane (하단 면)
+    planes[4] = CreatePlane(NearCorners[0], NearCorners[1], FarCorners[0]);
+
+    // Top Plane (상단 면)
+    planes[5] = CreatePlane(NearCorners[3], FarCorners[3], NearCorners[2]);
+
+    // 6개 평면 모두에 대해 충돌 검사
+    [unroll]
+    for (int i = 0; i < 6; ++i)
     {
-        return false;
+        float distance = DistanceToPlane(planes[i], ViewSpaceCenter);
+
+        // 구의 중심이 평면 밖에 있고, 반지름보다 멀리 있으면
+        // 이 평면 기준으로 Frustum 완전히 벗어남
+        if (distance > 0.0f && distance - Radius >= 0.0f)
+        {
+            return false;  // 이 평면 밖 → Frustum과 충돌 없음
+        }
     }
 
-    // Near plane 기준 타일의 4개 코너만 사용
-    float3 TileCorners[4];
-    TileCorners[0] = ScreenToView(float2(TileMin.x, TileMin.y), MinDepthValue);
-    TileCorners[1] = ScreenToView(float2(TileMax.x, TileMin.y), MinDepthValue);
-    TileCorners[2] = ScreenToView(float2(TileMin.x, TileMax.y), MinDepthValue);
-    TileCorners[3] = ScreenToView(float2(TileMax.x, TileMax.y), MinDepthValue);
-
-    // XY 평면에서의 AABB 계산 (Z는 별도 처리)
-    float2 FrustumMinXY = TileCorners[0].xy;
-    float2 FrustumMaxXY = TileCorners[0].xy;
-    for (int i = 1; i < 4; ++i)
-    {
-        FrustumMinXY = min(FrustumMinXY, TileCorners[i].xy);
-        FrustumMaxXY = max(FrustumMaxXY, TileCorners[i].xy);
-    }
-
-    // 2D Sphere vs 2D AABB 충돌 검사 (XY 평면)
-    float2 ClosestXY = clamp(ViewSpaceCenter.xy, FrustumMinXY, FrustumMaxXY);
-    float2 DeltaXY = ViewSpaceCenter.xy - ClosestXY;
-    float DistanceXYSquared = dot(DeltaXY, DeltaXY);
-
-    // XY 평면에서 반지름 내에 있으면 통과
-    return DistanceXYSquared <= Radius * Radius;
+    // 모든 평면에 대해 충돌 또는 내부 → Frustum과 겹침
+    return true;
 }
 
 // World Space에서 View Space로 변환
