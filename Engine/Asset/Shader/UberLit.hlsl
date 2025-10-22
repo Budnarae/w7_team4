@@ -165,7 +165,29 @@ struct PS_OUTPUT
 
 // Helper Functions
 
-// 픽셀의 타일 라이트 정보 반환
+// 특정 타일의 라이트 정보 읽기 (내부 헬퍼)
+void GetTileLightInfoByCoord(uint2 GlobalTileCoord, uint SceneNumTilesX, uint SceneNumTilesY, out uint OutOffset, out uint OutPointCount, out uint OutSpotCount)
+{
+    // 범위 체크
+    if (GlobalTileCoord.x >= SceneNumTilesX || GlobalTileCoord.y >= SceneNumTilesY)
+    {
+        OutOffset = 0;
+        OutPointCount = 0;
+        OutSpotCount = 0;
+        return;
+    }
+
+    // 타일 인덱스 계산
+    uint TileIndex = GlobalTileCoord.y * SceneNumTilesX + GlobalTileCoord.x;
+
+    // 타일의 라이트 정보 읽기
+    OutOffset = TileLightOffsets[TileIndex];
+    uint2 Counts = TileLightCounts[TileIndex];
+    OutPointCount = Counts.x;
+    OutSpotCount = Counts.y;
+}
+
+// 주변 9개 타일(자신 포함)의 라이트 인덱스 수집 (중복 제거)
 void GetTileLightInfo(float4 ScreenPos, out uint OutOffset, out uint OutPointCount, out uint OutSpotCount)
 {
     // SV_POSITION.xy는 전체 화면 좌표 (SceneRT 내 절대 좌표)
@@ -176,23 +198,67 @@ void GetTileLightInfo(float4 ScreenPos, out uint OutOffset, out uint OutPointCou
     uint SceneNumTilesX = (uint(SceneRTSize.x) + TILE_SIZE - 1) / TILE_SIZE;
     uint SceneNumTilesY = (uint(SceneRTSize.y) + TILE_SIZE - 1) / TILE_SIZE;
 
-    // 범위 체크 (전체 화면 기준)
-    if (GlobalTileCoord.x >= SceneNumTilesX || GlobalTileCoord.y >= SceneNumTilesY)
+    // 현재 타일의 라이트 정보만 반환 (기존 방식 유지)
+    GetTileLightInfoByCoord(GlobalTileCoord, SceneNumTilesX, SceneNumTilesY, OutOffset, OutPointCount, OutSpotCount);
+}
+
+// 주변 9개 타일의 고유 라이트 인덱스 수집 (중복 제거)
+// OutUniqueIndices: 고유 라이트 인덱스 배열 (최대 256개)
+// OutCount: 고유 라이트 개수
+void GetUniqueLightIndicesFrom9Tiles(float4 ScreenPos, out uint OutUniqueIndices[256], out uint OutCount)
+{
+    uint2 GlobalPixelCoord = uint2(ScreenPos.xy);
+    uint2 GlobalTileCoord = GlobalPixelCoord / TILE_SIZE;
+
+    uint SceneNumTilesX = (uint(SceneRTSize.x) + TILE_SIZE - 1) / TILE_SIZE;
+    uint SceneNumTilesY = (uint(SceneRTSize.y) + TILE_SIZE - 1) / TILE_SIZE;
+
+    OutCount = 0;
+
+    // 주변 9개 타일 (자신 포함)
+    int2 offsets[9] = {
+        int2(-1, -1), int2(0, -1), int2(1, -1),  // 상단 3개
+        int2(-1,  0), int2(0,  0), int2(1,  0),  // 중앙 3개 (자신 포함)
+        int2(-1,  1), int2(0,  1), int2(1,  1)   // 하단 3개
+    };
+
+    for (int tile = 0; tile < 9; ++tile)
     {
-        OutOffset = 0;
-        OutPointCount = 0;
-        OutSpotCount = 0;
-        return;
+        int2 NeighborCoord = int2(GlobalTileCoord) + offsets[tile];
+
+        // 음수 좌표 방지
+        if (NeighborCoord.x < 0 || NeighborCoord.y < 0)
+            continue;
+
+        uint TileOffset, PointCount, SpotCount;
+        GetTileLightInfoByCoord(uint2(NeighborCoord), SceneNumTilesX, SceneNumTilesY,
+                                TileOffset, PointCount, SpotCount);
+
+        // 이 타일의 Point + Spot Light 인덱스 읽기
+        uint TotalLights = PointCount + SpotCount;
+        for (uint i = 0; i < TotalLights; ++i)
+        {
+            uint LightIndex = TileLightIndices[TileOffset + i];
+
+            // 중복 체크
+            bool bAlreadyExists = false;
+            for (uint j = 0; j < OutCount; ++j)
+            {
+                if (OutUniqueIndices[j] == LightIndex)
+                {
+                    bAlreadyExists = true;
+                    break;
+                }
+            }
+
+            // 중복이 아니면 추가
+            if (!bAlreadyExists && OutCount < 256)
+            {
+                OutUniqueIndices[OutCount] = LightIndex;
+                OutCount++;
+            }
+        }
     }
-
-    // 전체 화면 기준 타일 인덱스 계산
-    uint TileIndex = GlobalTileCoord.y * SceneNumTilesX + GlobalTileCoord.x;
-
-    // 타일의 라이트 정보 읽기
-    OutOffset = TileLightOffsets[TileIndex];
-    uint2 Counts = TileLightCounts[TileIndex];
-    OutPointCount = Counts.x;
-    OutSpotCount = Counts.y;
 }
 
 float3 CalculateAmbientLight(FAmbientLightInfo Light)
@@ -472,22 +538,27 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     // Directional Light
     TotalLight += CalculateDirectionalLight(Directional, Normal);
 
-    // 타일별 라이트 정보 가져오기
-    uint TileOffset, PointCount, SpotCount;
-    GetTileLightInfo(Input.Position, TileOffset, PointCount, SpotCount);
+    // 주변 9개 타일의 고유 라이트 인덱스 수집 (중복 제거)
+    uint UniqueLightIndices[256];
+    uint UniqueLightCount;
+    GetUniqueLightIndicesFrom9Tiles(Input.Position, UniqueLightIndices, UniqueLightCount);
 
-    // Point Lights (타일에 영향을 주는 라이트만)
-    for (uint i = 0; i < PointCount; ++i)
+    // 고유 라이트에 대해서만 계산 (Point + Spot 혼합)
+    for (uint i = 0; i < UniqueLightCount; ++i)
     {
-        uint LightIndex = TileLightIndices[TileOffset + i];
-        TotalLight += CalculatePointLight(PointLights[LightIndex], Input.WorldPos, Normal);
-    }
+        uint LightIndex = UniqueLightIndices[i];
 
-    // Spot Lights (타일에 영향을 주는 라이트만)
-    for (uint j = 0; j < SpotCount; ++j)
-    {
-        uint LightIndex = TileLightIndices[TileOffset + PointCount + j];
-        TotalLight += CalculateSpotLight(SpotLights[LightIndex], Input.WorldPos, Normal);
+        // Point Light 범위인지 체크
+        if (LightIndex < NumActivePointLights)
+        {
+            TotalLight += CalculatePointLight(PointLights[LightIndex], Input.WorldPos, Normal);
+        }
+        else
+        {
+            // Spot Light (인덱스가 Point Light 개수를 넘으면 Spot Light)
+            uint SpotIndex = LightIndex - NumActivePointLights;
+            TotalLight += CalculateSpotLight(SpotLights[SpotIndex], Input.WorldPos, Normal);
+        }
     }
 
     float3 FinalColor = BaseColor.rgb * TotalLight;
@@ -509,28 +580,33 @@ PS_OUTPUT mainPS(PS_INPUT Input)
     DiffuseLight += DirDiffuse;
     SpecularLight += DirSpecular;
 
-    // 타일별 라이트 정보 가져오기
-    uint TileOffset, PointCount, SpotCount;
-    GetTileLightInfo(Input.Position, TileOffset, PointCount, SpotCount);
+    // 주변 9개 타일의 고유 라이트 인덱스 수집 (중복 제거)
+    uint UniqueLightIndices[256];
+    uint UniqueLightCount;
+    GetUniqueLightIndicesFrom9Tiles(Input.Position, UniqueLightIndices, UniqueLightCount);
 
-    // Point Lights (타일에 영향을 주는 라이트만)
-    for (uint i = 0; i < PointCount; ++i)
+    // 고유 라이트에 대해서만 계산 (Point + Spot 혼합)
+    for (uint i = 0; i < UniqueLightCount; ++i)
     {
-        uint LightIndex = TileLightIndices[TileOffset + i];
-        float3 PointDiffuse, PointSpecular;
-        CalculatePointLightBlinnPhong(PointLights[LightIndex], Input.WorldPos, Normal, ViewDirection, Ns, PointDiffuse, PointSpecular);
-        DiffuseLight += PointDiffuse;
-        SpecularLight += PointSpecular;
-    }
+        uint LightIndex = UniqueLightIndices[i];
 
-    // Spot Lights (타일에 영향을 주는 라이트만)
-    for (uint j = 0; j < SpotCount; ++j)
-    {
-        uint LightIndex = TileLightIndices[TileOffset + PointCount + j];
-        float3 SpotDiffuse, SpotSpecular;
-        CalculateSpotLightBlinnPhong(SpotLights[LightIndex], Input.WorldPos, Normal, ViewDirection, Ns, SpotDiffuse, SpotSpecular);
-        DiffuseLight += SpotDiffuse;
-        SpecularLight += SpotSpecular;
+        // Point Light 범위인지 체크
+        if (LightIndex < NumActivePointLights)
+        {
+            float3 PointDiffuse, PointSpecular;
+            CalculatePointLightBlinnPhong(PointLights[LightIndex], Input.WorldPos, Normal, ViewDirection, Ns, PointDiffuse, PointSpecular);
+            DiffuseLight += PointDiffuse;
+            SpecularLight += PointSpecular;
+        }
+        else
+        {
+            // Spot Light (인덱스가 Point Light 개수를 넘으면 Spot Light)
+            uint SpotIndex = LightIndex - NumActivePointLights;
+            float3 SpotDiffuse, SpotSpecular;
+            CalculateSpotLightBlinnPhong(SpotLights[SpotIndex], Input.WorldPos, Normal, ViewDirection, Ns, SpotDiffuse, SpotSpecular);
+            DiffuseLight += SpotDiffuse;
+            SpecularLight += SpotSpecular;
+        }
     }
 
     // Diffuse: BaseColor * DiffuseLight
