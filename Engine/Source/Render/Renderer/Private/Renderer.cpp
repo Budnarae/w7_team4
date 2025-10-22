@@ -702,6 +702,18 @@ void URenderer::ReleaseBlendState()
 
 void URenderer::Update()
 {
+    // Skip rendering during resize to prevent race condition
+    if (bIsResizing)
+    {
+        return;
+    }
+
+    // Safety check: Ensure all resources are valid before rendering
+    if (!SceneDepthDSV || !SceneColorRTV || !SceneNormalRTV)
+    {
+        return;  // Skip rendering if resources are not ready
+    }
+
     UShaderHotReloader::GetInstance().Tick(*this);
     RenderBegin();
 
@@ -1152,14 +1164,32 @@ void URenderer::RenderEnd() const
 
 void URenderer::OnResize(uint32 InWidth, uint32 InHeight)
 {
-	if (!DeviceResources || !GetDeviceContext() || !GetSwapChain()) return;
+	if (!DeviceResources || !GetDeviceContext() || !GetSwapChain())
+	{
+		return;
+	}
 
+	// NOTE: bIsResizing is already set by WM_ENTERSIZEMOVE or caller
+	// Don't set it here to avoid conflicts
+
+	// Always get current window size from SwapChain
+	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+	GetSwapChain()->GetDesc(&swapChainDesc);
+	uint32 CurrentWidth = swapChainDesc.BufferDesc.Width;
+	uint32 CurrentHeight = swapChainDesc.BufferDesc.Height;
+
+	// IMPORTANT: Unbind all resources BEFORE releasing them
+	GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
+	ID3D11ShaderResourceView* nullSRVs[8] = { nullptr };
+	GetDeviceContext()->PSSetShaderResources(0, 8, nullSRVs);
+	GetDeviceContext()->Flush();  // Ensure GPU finishes using resources
+
+	// Now safe to release resources
 	this->ReleaseSceneRenderTargets();
 	DeviceResources->ReleaseFrameBuffer();
 	DeviceResources->ReleaseDepthBuffer();
-	GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
 
-	if (FAILED(GetSwapChain()->ResizeBuffers(2, InWidth, InHeight, DXGI_FORMAT_UNKNOWN, 0)))
+	if (FAILED(GetSwapChain()->ResizeBuffers(2, CurrentWidth, CurrentHeight, DXGI_FORMAT_UNKNOWN, 0)))
 	{
 		UE_LOG("OnResize Failed");
 		return;
@@ -1169,20 +1199,72 @@ void URenderer::OnResize(uint32 InWidth, uint32 InHeight)
 	DeviceResources->CreateFrameBuffer();
 	DeviceResources->CreateDepthBuffer();
 
+	// Reinitialize ViewportClient layout with new size
+	ViewportClient->InitializeLayout(DeviceResources->GetViewportInfo());
+
+
+
 	// Recreate Scene Render Targets with new size
 	this->CreateSceneRenderTargets();
+
+	// Update all RenderPasses that use Scene RT
+	for (auto* RenderPass : RenderPasses)
+	{
+		if (auto* StaticMeshPass = dynamic_cast<FStaticMeshPass*>(RenderPass))
+		{
+			StaticMeshPass->UpdateRenderTargets(SceneColorRTV, SceneNormalRTV, SceneDepthDSV);
+		}
+		else if (auto* PrimitivePass = dynamic_cast<FPrimitivePass*>(RenderPass))
+		{
+			PrimitivePass->UpdateRenderTargets(SceneColorRTV, SceneNormalRTV, SceneDepthDSV);
+		}
+		else if (auto* FogPass = dynamic_cast<FFogPass*>(RenderPass))
+		{
+			FogPass->UpdateRenderTargets(SceneColorRTV, SceneDepthSRV);
+			break;
+		}
+	}
+
+	// Update DepthPrePass with new DSV
+	if (DepthPrePass)
+	{
+		DepthPrePass->UpdateDepthStencilView(SceneDepthDSV);
+	}
 
 	// Recreate LightCullingPass resources with new size
 	if (LightCullingPass)
 	{
 		LightCullingPass->ReleaseResources();
-		LightCullingPass->CreateResources(InWidth, InHeight);
+		LightCullingPass->CreateResources(CurrentWidth, CurrentHeight);
+	}
+
+	// Update FXAAPass with new BackBuffer and Scene SRVs
+	if (FXAAPass)
+	{
+		FXAAPass->UpdateRenderTargets(
+			DeviceResources->GetRenderTargetView(),
+			DeviceResources->GetDepthStencilView(),
+			SceneColorSRV,
+			SceneDepthSRV
+		);
+	}
+
+	// Update SceneDepthPass and NormalPass with new Scene RTV/SRVs
+	if (SceneDepthPass)
+	{
+		SceneDepthPass->UpdateRenderTargets(SceneColorRTV, SceneDepthSRV);
+	}
+	if (NormalPass)
+	{
+		NormalPass->UpdateRenderTargets(SceneColorRTV, SceneNormalSRV);
 	}
 
 	auto* RenderTargetView = DeviceResources->GetRenderTargetView();
 	ID3D11RenderTargetView* RenderTargetViews[] = {RenderTargetView};
 	GetDeviceContext()->OMSetRenderTargets(1, RenderTargetViews,
 	                                       DeviceResources->GetDepthStencilView());
+
+	// NOTE: Don't clear bIsResizing here - let the caller (WndProc) manage it
 }
 
 
@@ -1264,8 +1346,9 @@ void URenderer::CreateSceneRenderTargets()
 
 	if (Width == 0 || Height == 0)
 	{
-		UE_LOG("CreateSceneRenderTargets: Invalid SwapChain size %ux%u", Width, Height);
-		return;
+		UE_LOG("CreateSceneRenderTargets: Invalid SwapChain size %ux%u, using minimum 1x1", Width, Height);
+		Width = 1;
+		Height = 1;
 	}
 
 	UE_LOG("CreateSceneRenderTargets: Creating %ux%u textures (SwapChain full size)", Width,

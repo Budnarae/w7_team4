@@ -142,6 +142,7 @@ public:
 	ID3D11InputLayout* GetUberLitGouraudInputLayout() const { return UberLitGouraudInputLayout; }
 
 	void SetIsResizing(bool isResizing) { bIsResizing = isResizing; }
+	void SetNeedsResize(bool bNeedsResize) { bNeedsResizeNextFrame = bNeedsResize; }
 private:
 	UPipeline* Pipeline = nullptr;
 	UDeviceResources* DeviceResources = nullptr;
@@ -275,6 +276,7 @@ private:
 	FViewport* ViewportClient = nullptr;
 
 	bool bIsResizing = false;
+	bool bNeedsResizeNextFrame = false;
 
 	ID3D11SamplerState* PostProcessSamplerState = nullptr;
 

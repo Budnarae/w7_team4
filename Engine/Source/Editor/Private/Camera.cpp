@@ -113,15 +113,19 @@ void UCamera::Update(const D3D11_VIEWPORT& InViewport)
 
 	// 카메라가 업데이트할 때마다 Cull한다.
 	// 카메라가 업데이트하지 않으면 Culling을 갱신할 이유가 없다.
-    ULevel* CurrentLevel = GWorld->GetLevel();
-    if (CurrentLevel)
-    {
-        ViewVolumeCuller.Cull(
-            CurrentLevel->GetStaticOctree(),
-            CurrentLevel->GetDynamicPrimitives(),
-            ViewProjConstants
-        );
-    }
+	// GWorld가 초기화되지 않은 경우 (예: 엔진 초기화 중) 스킵
+	if (GWorld)
+	{
+		ULevel* CurrentLevel = GWorld->GetLevel();
+		if (CurrentLevel)
+		{
+			ViewVolumeCuller.Cull(
+				CurrentLevel->GetStaticOctree(),
+				CurrentLevel->GetDynamicPrimitives(),
+				ViewProjConstants
+			);
+		}
+	}
 }
 
 void UCamera::UpdateMatrixByPers()

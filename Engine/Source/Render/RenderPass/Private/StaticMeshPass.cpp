@@ -389,3 +389,10 @@ void FStaticMeshPass::Release()
 {
 	SafeRelease(ConstantBufferMaterial);
 }
+
+void FStaticMeshPass::UpdateRenderTargets(ID3D11RenderTargetView* InSceneColorRTV, ID3D11RenderTargetView* InSceneNormalRTV, ID3D11DepthStencilView* InSceneDepthDSV)
+{
+	SceneColorRTV = InSceneColorRTV;
+	SceneNormalRTV = InSceneNormalRTV;
+	SceneDepthDSV = InSceneDepthDSV;
+}

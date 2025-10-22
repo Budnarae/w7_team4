@@ -35,6 +35,9 @@ public:
 	void Execute(FRenderingContext& Context) override;
 	void Release() override;
 
+	// Update render targets after resize
+	void UpdateRenderTargets(ID3D11RenderTargetView* InBackBufferRTV, ID3D11DepthStencilView* InBackBufferDSV, ID3D11ShaderResourceView* InSceneColorSRV, ID3D11ShaderResourceView* InSceneDepthSRV);
+
 private:
 	ID3D11RenderTargetView* BackBufferRTV = nullptr;
 	ID3D11DepthStencilView* BackBufferDSV = nullptr;

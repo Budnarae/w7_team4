@@ -127,17 +127,19 @@ LRESULT CALLBACK FAppWindow::WndProc(HWND InWindowHandle, uint32 InMessage, WPAR
 		URenderer::GetInstance().SetIsResizing(true);
 		break;
 	case WM_EXITSIZEMOVE: //드래그 종료
-		URenderer::GetInstance().SetIsResizing(false);
 		URenderer::GetInstance().OnResize();
 		UUIManager::GetInstance().RepositionImGuiWindows();
+		URenderer::GetInstance().SetIsResizing(false);
 		break;
 	case WM_SIZE:
 		if (InWParam != SIZE_MINIMIZED)
 		{
 			if (!URenderer::GetInstance().GetIsResizing())
 			{ // 드래그 X 일때 추가 처리 (최대화 버튼, ...)
+				URenderer::GetInstance().SetIsResizing(true);
 				URenderer::GetInstance().OnResize(LOWORD(InLParam), HIWORD(InLParam));
 				UUIManager::GetInstance().RepositionImGuiWindows();
+				URenderer::GetInstance().SetIsResizing(false);
 			}
 		}
 		else // SIZE_MINIMIZED
