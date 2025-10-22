@@ -113,10 +113,10 @@ public:
 	ID3D11Buffer* GetConstantBufferModels() const { return ConstantBufferModels; }
 	ID3D11Buffer* GetConstantBufferViewProj() const { return ConstantBufferViewProj; }
 	ID3D11RenderTargetView* GetSceneColorRTV() const{ return SceneColorRTV; }
-	ID3D11ShaderResourceView* GetSceneDepthSRV() const { return SceneDepthSRV; }
-	ID3D11DepthStencilView* GetSceneDepthDSV() const { return SceneDepthDSV; }
-	ID3D11Texture2D* GetSceneDepthTexture() const { return SceneDepthTexture; }
-	ID3D11DepthStencilView* GetReadOnlyDSV() const { return SceneDepthDSV_ReadOnly; }
+	ID3D11ShaderResourceView* GetSceneDepthSRV() const { return DeviceResources->GetSceneDepthSRV(); }
+	ID3D11DepthStencilView* GetSceneDepthDSV() const { return DeviceResources->GetSceneDepthDSV(); }
+	ID3D11Texture2D* GetSceneDepthTexture() const { return DeviceResources->GetSceneDepthTexture(); }
+	ID3D11DepthStencilView* GetReadOnlyDSV() const { return DeviceResources->GetSceneDepthDSVReadOnly(); }
 	ID3D11ShaderResourceView* GetSceneColorSRV() const { return SceneColorSRV; }
 
 	ID3D11VertexShader* GetDepthVertexShader() const { return DepthVertexShader; }
@@ -260,11 +260,6 @@ private:
 	ID3D11Texture2D* SceneColorTexture = nullptr;
 	ID3D11RenderTargetView* SceneColorRTV = nullptr;
 	ID3D11ShaderResourceView* SceneColorSRV = nullptr;
-
-	ID3D11Texture2D* SceneDepthTexture = nullptr;
-	ID3D11DepthStencilView* SceneDepthDSV = nullptr;
-	ID3D11ShaderResourceView* SceneDepthSRV = nullptr;
-	ID3D11DepthStencilView* SceneDepthDSV_ReadOnly = nullptr;
 
 	// GBuffer for normal view mode
 	ID3D11Texture2D* SceneNormalTexture = nullptr;

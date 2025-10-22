@@ -99,7 +99,7 @@ void URenderer::Init(HWND InWindowHandle)
 	// Depth만 쓰고 Color는 출력 안 함 (RTV = nullptr이므로 PS 출력 무시됨)
 	DepthPrePass = new FDepthPrePass(
 		Pipeline,
-		SceneDepthDSV,
+		DeviceResources->GetSceneDepthDSV(),
 		ConstantBufferViewProj,
 		ConstantBufferModels,
 		DefaultVertexShader,
@@ -113,7 +113,7 @@ void URenderer::Init(HWND InWindowHandle)
 	// Depth 기반으로 Light Usage Mask 생성
 	// SceneDepthTexture의 크기 사용=
 	D3D11_TEXTURE2D_DESC DepthDesc = {};
-	SceneDepthTexture->GetDesc(&DepthDesc);
+	DeviceResources->GetSceneDepthTexture()->GetDesc(&DepthDesc);
 	LightCullingPass = new FLightCullingPass(
 		Pipeline,
 		ConstantBufferViewProj,
@@ -127,7 +127,7 @@ void URenderer::Init(HWND InWindowHandle)
 			Pipeline,
 			SceneColorRTV,
 			SceneNormalRTV,
-			SceneDepthDSV,
+			DeviceResources->GetSceneDepthDSV(),
 			ConstantBufferViewProj,
 			ConstantBufferModelForLight,
 			ConstantBufferLighting,
@@ -143,7 +143,7 @@ void URenderer::Init(HWND InWindowHandle)
 			Pipeline,
 			SceneColorRTV,
 			SceneNormalRTV,
-			SceneDepthDSV,
+			DeviceResources->GetSceneDepthDSV(),
 			ConstantBufferViewProj,
 			ConstantBufferModels,
 			DefaultVertexShader,
@@ -205,7 +205,7 @@ void URenderer::Init(HWND InWindowHandle)
 		new FFogPass(
 			Pipeline,
 			SceneColorRTV,
-			SceneDepthSRV,
+			DeviceResources->GetSceneDepthSRV(),
 			PostProcessSamplerState,
 			ConstantBufferViewProj,
 			ConstantBufferModels,
@@ -220,7 +220,7 @@ void URenderer::Init(HWND InWindowHandle)
 	SceneDepthPass = new FSceneDepthPass(
 		Pipeline,
 		SceneColorRTV,
-		SceneDepthSRV,
+		DeviceResources->GetSceneDepthSRV(),
 		PostProcessSamplerState,
 		SceneDepthVertexShader,
 		SceneDepthPixelShader,
@@ -258,7 +258,7 @@ void URenderer::Init(HWND InWindowHandle)
 		BackBufferRTV,
 		BackBufferDSV,
 		SceneColorSRV,
-		SceneDepthSRV,
+		DeviceResources->GetSceneDepthSRV(),
 		PostProcessSamplerState,
 		ConstantBufferViewProj,
 		ConstantBufferModels,
@@ -702,17 +702,11 @@ void URenderer::ReleaseBlendState()
 
 void URenderer::Update()
 {
-    // Skip rendering during resize to prevent race condition
-    if (bIsResizing)
-    {
-        return;
-    }
-
-    // Safety check: Ensure all resources are valid before rendering
-    if (!SceneDepthDSV || !SceneColorRTV || !SceneNormalRTV)
-    {
-        return;  // Skip rendering if resources are not ready
-    }
+    //// Safety check: Ensure all resources are valid before rendering
+    //if (!DeviceResources->GetSceneDepthDSV() || !SceneColorRTV || !SceneNormalRTV)
+    //{
+    //    return;  // Skip rendering if resources are not ready
+    //}
 
     UShaderHotReloader::GetInstance().Tick(*this);
     RenderBegin();
@@ -737,7 +731,7 @@ void URenderer::Update()
 		// IMPORTANT: 각 viewport마다 Scene RT를 다시 바인딩
 		// (이전 viewport의 post-processing이 BackBuffer로 바인딩을 변경했으므로)
 		ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV, SceneNormalRTV};
-		GetDeviceContext()->OMSetRenderTargets(2, SceneRtvs, SceneDepthDSV);
+		GetDeviceContext()->OMSetRenderTargets(2, SceneRtvs, DeviceResources->GetSceneDepthDSV());
 		GetDeviceContext()->RSSetViewports(1, &ClientViewport);
 
 		{
@@ -817,10 +811,10 @@ void URenderer::RenderBegin() const
 	// 이후 각 ViewportClient가 Scene RT의 해당 영역에 렌더링함
 	GetDeviceContext()->ClearRenderTargetView(SceneColorRTV, ClearColor);
 	GetDeviceContext()->ClearRenderTargetView(SceneNormalRTV, ClearColor);
-	GetDeviceContext()->ClearDepthStencilView(SceneDepthDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
+	GetDeviceContext()->ClearDepthStencilView(DeviceResources->GetSceneDepthDSV(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
 	ID3D11RenderTargetView* SceneRtvs[] = {SceneColorRTV, SceneNormalRTV};
-	GetDeviceContext()->OMSetRenderTargets(2, SceneRtvs, SceneDepthDSV);
+	GetDeviceContext()->OMSetRenderTargets(2, SceneRtvs, DeviceResources->GetSceneDepthDSV());
 
 	DeviceResources->UpdateViewport();
 }
@@ -1164,32 +1158,16 @@ void URenderer::RenderEnd() const
 
 void URenderer::OnResize(uint32 InWidth, uint32 InHeight)
 {
-	if (!DeviceResources || !GetDeviceContext() || !GetSwapChain())
-	{
-		return;
-	}
+	if (!DeviceResources || !GetDeviceContext() || !GetSwapChain()) return;
 
-	// NOTE: bIsResizing is already set by WM_ENTERSIZEMOVE or caller
-	// Don't set it here to avoid conflicts
-
-	// Always get current window size from SwapChain
-	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-	GetSwapChain()->GetDesc(&swapChainDesc);
-	uint32 CurrentWidth = swapChainDesc.BufferDesc.Width;
-	uint32 CurrentHeight = swapChainDesc.BufferDesc.Height;
-
-	// IMPORTANT: Unbind all resources BEFORE releasing them
-	GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
-	ID3D11ShaderResourceView* nullSRVs[8] = { nullptr };
-	GetDeviceContext()->PSSetShaderResources(0, 8, nullSRVs);
-	GetDeviceContext()->Flush();  // Ensure GPU finishes using resources
-
-	// Now safe to release resources
+	// Release resources in correct order
 	this->ReleaseSceneRenderTargets();
+	DeviceResources->ReleaseFactories();  // Must release D2DRenderTarget before FrameBuffer
 	DeviceResources->ReleaseFrameBuffer();
 	DeviceResources->ReleaseDepthBuffer();
+	GetDeviceContext()->OMSetRenderTargets(0, nullptr, nullptr);
 
-	if (FAILED(GetSwapChain()->ResizeBuffers(2, CurrentWidth, CurrentHeight, DXGI_FORMAT_UNKNOWN, 0)))
+	if (FAILED(GetSwapChain()->ResizeBuffers(2, InWidth, InHeight, DXGI_FORMAT_UNKNOWN, 0)))
 	{
 		UE_LOG("OnResize Failed");
 		return;
@@ -1198,29 +1176,33 @@ void URenderer::OnResize(uint32 InWidth, uint32 InHeight)
 	DeviceResources->UpdateViewport();
 	DeviceResources->CreateFrameBuffer();
 	DeviceResources->CreateDepthBuffer();
-
-	// Reinitialize ViewportClient layout with new size
-	ViewportClient->InitializeLayout(DeviceResources->GetViewportInfo());
-
-
+	DeviceResources->CreateFactories();  // Recreate D2D/DirectWrite after FrameBuffer
 
 	// Recreate Scene Render Targets with new size
 	this->CreateSceneRenderTargets();
+
+	// Rebind render targets
+	auto* RenderTargetView = DeviceResources->GetRenderTargetView();
+	ID3D11RenderTargetView* RenderTargetViews[] = { RenderTargetView };
+	GetDeviceContext()->OMSetRenderTargets(1, RenderTargetViews, DeviceResources->GetDepthStencilView());
+
+	// Reinitialize ViewportClient layout with new size
+	ViewportClient->InitializeLayout(DeviceResources->GetViewportInfo());
 
 	// Update all RenderPasses that use Scene RT
 	for (auto* RenderPass : RenderPasses)
 	{
 		if (auto* StaticMeshPass = dynamic_cast<FStaticMeshPass*>(RenderPass))
 		{
-			StaticMeshPass->UpdateRenderTargets(SceneColorRTV, SceneNormalRTV, SceneDepthDSV);
+			StaticMeshPass->UpdateRenderTargets(SceneColorRTV, SceneNormalRTV, DeviceResources->GetSceneDepthDSV());
 		}
 		else if (auto* PrimitivePass = dynamic_cast<FPrimitivePass*>(RenderPass))
 		{
-			PrimitivePass->UpdateRenderTargets(SceneColorRTV, SceneNormalRTV, SceneDepthDSV);
+			PrimitivePass->UpdateRenderTargets(SceneColorRTV, SceneNormalRTV, DeviceResources->GetSceneDepthDSV());
 		}
 		else if (auto* FogPass = dynamic_cast<FFogPass*>(RenderPass))
 		{
-			FogPass->UpdateRenderTargets(SceneColorRTV, SceneDepthSRV);
+			FogPass->UpdateRenderTargets(SceneColorRTV, DeviceResources->GetSceneDepthSRV());
 			break;
 		}
 	}
@@ -1228,14 +1210,14 @@ void URenderer::OnResize(uint32 InWidth, uint32 InHeight)
 	// Update DepthPrePass with new DSV
 	if (DepthPrePass)
 	{
-		DepthPrePass->UpdateDepthStencilView(SceneDepthDSV);
+		DepthPrePass->UpdateDepthStencilView(DeviceResources->GetSceneDepthDSV());
 	}
 
 	// Recreate LightCullingPass resources with new size
 	if (LightCullingPass)
 	{
 		LightCullingPass->ReleaseResources();
-		LightCullingPass->CreateResources(CurrentWidth, CurrentHeight);
+		LightCullingPass->CreateResources(InWidth, InHeight);
 	}
 
 	// Update FXAAPass with new BackBuffer and Scene SRVs
@@ -1245,26 +1227,19 @@ void URenderer::OnResize(uint32 InWidth, uint32 InHeight)
 			DeviceResources->GetRenderTargetView(),
 			DeviceResources->GetDepthStencilView(),
 			SceneColorSRV,
-			SceneDepthSRV
+			DeviceResources->GetSceneDepthSRV()
 		);
 	}
 
 	// Update SceneDepthPass and NormalPass with new Scene RTV/SRVs
 	if (SceneDepthPass)
 	{
-		SceneDepthPass->UpdateRenderTargets(SceneColorRTV, SceneDepthSRV);
+		SceneDepthPass->UpdateRenderTargets(SceneColorRTV, DeviceResources->GetSceneDepthSRV());
 	}
 	if (NormalPass)
 	{
 		NormalPass->UpdateRenderTargets(SceneColorRTV, SceneNormalSRV);
 	}
-
-	auto* RenderTargetView = DeviceResources->GetRenderTargetView();
-	ID3D11RenderTargetView* RenderTargetViews[] = {RenderTargetView};
-	GetDeviceContext()->OMSetRenderTargets(1, RenderTargetViews,
-	                                       DeviceResources->GetDepthStencilView());
-
-	// NOTE: Don't clear bIsResizing here - let the caller (WndProc) manage it
 }
 
 
@@ -1388,45 +1363,6 @@ void URenderer::CreateSceneRenderTargets()
 	GetDevice()->CreateShaderResourceView(SceneColorTexture, &SRVDescription, &SceneColorSRV);
 	GetDevice()->CreateShaderResourceView(SceneNormalTexture, &SRVDescription, &SceneNormalSRV);
 
-	// Scene Depth Texture (SRV 지원)
-	D3D11_TEXTURE2D_DESC DepthDescription = {};
-	DepthDescription.Width = Width;
-	DepthDescription.Height = Height;
-	DepthDescription.MipLevels = 1;
-	DepthDescription.ArraySize = 1;
-	DepthDescription.Format = DXGI_FORMAT_R24G8_TYPELESS; // Typeless로 생성 (DSV와 SRV 모두 지원)
-	DepthDescription.SampleDesc.Count = 1;
-	DepthDescription.SampleDesc.Quality = 0;
-	DepthDescription.Usage = D3D11_USAGE_DEFAULT;
-	DepthDescription.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
-	DepthDescription.CPUAccessFlags = 0;
-	DepthDescription.MiscFlags = 0;
-
-	GetDevice()->CreateTexture2D(&DepthDescription, nullptr, &SceneDepthTexture);
-
-	// DSV 생성 (Depth 쓰기용)
-	D3D11_DEPTH_STENCIL_VIEW_DESC DSVDescription = {};
-	DSVDescription.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // Depth 24비트 + Stencil 8비트
-	DSVDescription.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-	DSVDescription.Texture2D.MipSlice = 0;
-	GetDevice()->CreateDepthStencilView(SceneDepthTexture, &DSVDescription, &SceneDepthDSV);
-
-	// SRV 생성 (Depth 읽기용 - Stencil은 무시)
-	D3D11_SHADER_RESOURCE_VIEW_DESC depthSRVDesc = {};
-	depthSRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS; // Depth만 읽기, Stencil 무시
-	depthSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	depthSRVDesc.Texture2D.MostDetailedMip = 0;
-	depthSRVDesc.Texture2D.MipLevels = 1;
-	GetDevice()->CreateShaderResourceView(SceneDepthTexture, &depthSRVDesc, &SceneDepthSRV);
-
-	// Read Only DSV
-	D3D11_DEPTH_STENCIL_VIEW_DESC dsvRO = {};
-	dsvRO.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	dsvRO.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-	dsvRO.Texture2D.MipSlice = 0;
-	dsvRO.Flags = D3D11_DSV_READ_ONLY_DEPTH; // 필요 시 | D3D11_DSV_READ_ONLY_STENCIL
-	GetDevice()->CreateDepthStencilView(SceneDepthTexture, &dsvRO, &SceneDepthDSV_ReadOnly);
-
 	UE_LOG("Scene Render Targets Created: %ux%u", Width, Height);
 }
 
@@ -1439,10 +1375,6 @@ void URenderer::ReleaseSceneRenderTargets()
 	SafeRelease(SceneNormalSRV);
 	SafeRelease(SceneNormalRTV);
 	SafeRelease(SceneNormalTexture);
-
-	SafeRelease(SceneDepthSRV);
-	SafeRelease(SceneDepthDSV);
-	SafeRelease(SceneDepthTexture);
 }
 
 void URenderer::CreateSceneDepthResources()
