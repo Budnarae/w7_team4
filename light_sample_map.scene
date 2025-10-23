@@ -1,0 +1,226 @@
+{
+  "Actors" : {
+    "146" : {
+      "Components" : [{
+          "Location" : [3.138218, -49.863014, 3.782908],
+          "Name" : "UStaticMeshComponent_0",
+          "ObjStaticMeshAsset" : "Data/LandscapeSample.obj",
+          "ParentName" : "",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [9.200000, 9.200000, 9.200000],
+          "Type" : "UStaticMeshComponent"
+        }, {
+          "Location" : [0.000000, 0.000000, 0.000000],
+          "Name" : "UUUIDTextComponent_0",
+          "ParentName" : "UStaticMeshComponent_0",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Text" : "Text",
+          "Type" : "UUUIDTextComponent"
+        }],
+      "Location" : [3.138218, -49.863014, 3.782908],
+      "Rotation" : [0.000000, 0.000000, 0.000000],
+      "Scale" : [9.200000, 9.200000, 9.200000],
+      "Type" : "StaticMeshComp"
+    },
+    "149" : {
+      "Components" : [{
+          "Intensity" : 0.100000,
+          "LightColor" : [0.500000, 0.600000, 0.800000],
+          "Location" : [2.977080, 50.000000, 66.843582],
+          "Name" : "UAmbientLightComponent_0",
+          "ParentName" : "",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "UAmbientLightComponent",
+          "bVisible" : true
+        }, {
+          "Location" : [0.000000, 0.000000, 0.000000],
+          "Name" : "UUUIDTextComponent_1",
+          "ParentName" : "UAmbientLightComponent_0",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Text" : "Text",
+          "Type" : "UUUIDTextComponent"
+        }],
+      "Location" : [2.977080, 50.000000, 66.843582],
+      "Rotation" : [0.000000, 0.000000, 0.000000],
+      "Scale" : [1.000000, 1.000000, 1.000000],
+      "Type" : "AAmbientLightActor"
+    },
+    "154" : {
+      "Components" : [{
+          "Location" : [-70.821716, -84.627846, 27.592510],
+          "Name" : "UStaticMeshComponent_1",
+          "ObjStaticMeshAsset" : "Data/LightHouse.obj",
+          "ParentName" : "",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [8.800000, 8.800000, 8.800000],
+          "Type" : "UStaticMeshComponent"
+        }, {
+          "Location" : [0.000000, 0.000000, 0.000000],
+          "Name" : "UUUIDTextComponent_2",
+          "ParentName" : "UStaticMeshComponent_1",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Text" : "Text",
+          "Type" : "UUUIDTextComponent"
+        }],
+      "Location" : [-70.821716, -84.627846, 27.592510],
+      "Rotation" : [0.000000, 0.000000, 0.000000],
+      "Scale" : [8.800000, 8.800000, 8.800000],
+      "Type" : "StaticMeshComp"
+    },
+    "157" : {
+      "Components" : [{
+          "FogCutoffDistance" : 10000.000000,
+          "FogDensity" : 0.160000,
+          "FogHeightFalloff" : 0.052000,
+          "FogInscatteringColor" : [0.368958, 0.470857, 0.662447, 1.000000],
+          "FogMaxOpacity" : 1.000000,
+          "Location" : [-7.090976, 9.008148, -73.969032],
+          "Name" : "UHeightFogComponent_0",
+          "ParentName" : "",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "StartDistance" : 0.000000,
+          "Type" : "UHeightFogComponent",
+          "bEnabled" : true
+        }, {
+          "Location" : [0.000000, 0.000000, 0.000000],
+          "Name" : "UUUIDTextComponent_3",
+          "ParentName" : "UHeightFogComponent_0",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Text" : "Text",
+          "Type" : "UUUIDTextComponent"
+        }],
+      "Location" : [-7.090976, 9.008148, -73.969032],
+      "Rotation" : [0.000000, 0.000000, 0.000000],
+      "Scale" : [1.000000, 1.000000, 1.000000],
+      "Type" : "AHeightFogActor"
+    },
+    "163" : {
+      "Components" : [{
+          "AttenuationRadius" : 65.000000,
+          "Intensity" : 18.600000,
+          "LightColor" : [1.000000, 0.600000, 0.200000],
+          "LightFalloffExponent" : 8.000000,
+          "Location" : [-69.001053, -73.172775, 73.431839],
+          "Name" : "UPointLightComponent_0",
+          "ParentName" : "",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "UPointLightComponent",
+          "bVisible" : true
+        }, {
+          "Location" : [0.000000, 0.000000, 0.000000],
+          "Name" : "UUUIDTextComponent_5",
+          "ParentName" : "UPointLightComponent_0",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Text" : "Text",
+          "Type" : "UUUIDTextComponent"
+        }],
+      "Location" : [-69.001053, -73.172775, 73.431839],
+      "Rotation" : [0.000000, 0.000000, 0.000000],
+      "Scale" : [1.000000, 1.000000, 1.000000],
+      "Type" : "APointLightActor"
+    },
+    "168" : {
+      "Components" : [{
+          "AttenuationRadius" : 250.000000,
+          "InnerConeAngle" : 5.000000,
+          "Intensity" : 10000.000000,
+          "LightColor" : [1.000000, 0.100000, 0.100000],
+          "LightFalloffExponent" : 2.000000,
+          "Location" : [-66.897766, -71.911842, 73.012627],
+          "Name" : "USpotLightComponent_0",
+          "OuterConeAngle" : 13.000000,
+          "ParentName" : "",
+          "Rotation" : [-10.561591, -23.638485, 36.195511],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Type" : "USpotLightComponent",
+          "bVisible" : true
+        }, {
+          "Location" : [0.000000, 0.000000, 0.000000],
+          "Name" : "UUUIDTextComponent_6",
+          "ParentName" : "USpotLightComponent_0",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Text" : "Text",
+          "Type" : "UUUIDTextComponent"
+        }],
+      "Location" : [-66.897766, -71.911842, 73.012627],
+      "Rotation" : [-10.561591, -23.638485, 36.195511],
+      "Scale" : [1.000000, 1.000000, 1.000000],
+      "Type" : "ASpotLightActor"
+    },
+    "173" : {
+      "Components" : [{
+          "Location" : [58.644211, 27.645248, 3.082801],
+          "Name" : "UStaticMeshComponent_3",
+          "ObjStaticMeshAsset" : "Data/MotorBoat.obj",
+          "ParentName" : "",
+          "Rotation" : [89.999992, 0.000000, -49.380371],
+          "Scale" : [1.350000, 1.350000, 1.350000],
+          "Type" : "UStaticMeshComponent"
+        }, {
+          "Location" : [0.000000, 0.000000, 0.000000],
+          "Name" : "UUUIDTextComponent_7",
+          "ParentName" : "UStaticMeshComponent_3",
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Text" : "Text",
+          "Type" : "UUUIDTextComponent"
+        }],
+      "Location" : [58.644211, 27.645248, 3.082801],
+      "Rotation" : [89.999992, 0.000000, -49.380371],
+      "Scale" : [1.350000, 1.350000, 1.350000],
+      "Type" : "StaticMeshComp"
+    }
+  },
+  "NextUUID" : 0,
+  "PerspectiveCamera" : {
+    "0" : {
+      "CameraType" : 0,
+      "FarClip" : 1000.000000,
+      "FocusLocation" : [0.000000, 0.000000, 0.000000],
+      "FovY" : 90.000000,
+      "Location" : [34.121216, 0.000000, 0.000000],
+      "NearClip" : 0.100000,
+      "OrthoWidth" : 90.000000,
+      "Rotation" : [0.000000, 0.000000, 0.000000]
+    },
+    "1" : {
+      "CameraType" : 0,
+      "FarClip" : 1000.000000,
+      "FocusLocation" : [0.000000, 0.000000, 0.000000],
+      "FovY" : 90.000000,
+      "Location" : [34.121216, 0.000000, 0.000000],
+      "NearClip" : 0.100000,
+      "OrthoWidth" : 90.000000,
+      "Rotation" : [0.000000, 0.000000, 0.000000]
+    },
+    "2" : {
+      "CameraType" : 0,
+      "FarClip" : 1000.000000,
+      "FocusLocation" : [0.000000, 0.000000, 0.000000],
+      "FovY" : 90.000000,
+      "Location" : [34.121216, 0.000000, 0.000000],
+      "NearClip" : 0.100000,
+      "OrthoWidth" : 90.000000,
+      "Rotation" : [0.000000, 0.000000, 0.000000]
+    },
+    "3" : {
+      "CameraType" : 0,
+      "FarClip" : 1000.000000,
+      "FocusLocation" : [0.000000, 0.000000, 0.000000],
+      "FovY" : 90.000000,
+      "Location" : [-17.358995, 85.770515, 36.300697],
+      "NearClip" : 0.100000,
+      "OrthoWidth" : 90.000000,
+      "Rotation" : [0.000000, -15.596524, -75.947327]
+    }
+  }
+}

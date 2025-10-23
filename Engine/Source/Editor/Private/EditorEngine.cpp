@@ -27,7 +27,7 @@ UEditorEngine::UEditorEngine()
     EditorModule = NewObject<UEditor>();
 
     FString LastSavedLevelPath = UConfigManager::GetInstance().GetLastSavedLevelPath();
-    bool bSuccessLoad = LoadLevel(LastSavedLevelPath);
+    bool bSuccessLoad = false; // LoadLevel(LastSavedLevelPath);
     if (!bSuccessLoad) { CreateNewLevel(); }
     EditorWorld->BeginPlay();
     // 에디터 시작 시 모든 통계 표시

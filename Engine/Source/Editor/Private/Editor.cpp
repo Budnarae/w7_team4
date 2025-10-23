@@ -423,19 +423,6 @@ void UEditor::UpdateBatchLines()
 					RangeLineIndices.push_back(VertexIndex++);
 				}
 
-				// 십자선 추가
-				// Direction 방향 라인 (중심에서 전방으로)
-				RangeLineVertices.push_back(Center);
-				RangeLineVertices.push_back(Center + Direction * Radius);
-				RangeLineIndices.push_back(VertexIndex++);
-				RangeLineIndices.push_back(VertexIndex++);
-
-				// Right 방향 라인 (좌우)
-				RangeLineVertices.push_back(Center + RightVector * Radius * sinf(OuterHalfAngleRadForArc));
-				RangeLineVertices.push_back(Center - RightVector * Radius * sinf(OuterHalfAngleRadForArc));
-				RangeLineIndices.push_back(VertexIndex++);
-				RangeLineIndices.push_back(VertexIndex++);
-
 				BatchLines.AddLines(RangeLineVertices, RangeLineIndices);
 			}
 		}
